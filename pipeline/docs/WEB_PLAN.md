@@ -143,6 +143,8 @@ ct125-logger/
 
 ---
 
+> **実測（2026-11-06）**：フロントは別リポジトリ `D:/ct125-app` に移した（dev は Vite のサーバーが S3 の `app/v1/` から読み、build は 1 ファイル）。`ct125-logger/web-app/` は本人の了承を得て削除。データの形は `D:/ct125-app/docs/data_contract.md`。
+
 ## 6. 作業の順番
 
 | 順 | やること | 完了条件 |

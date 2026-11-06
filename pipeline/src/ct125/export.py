@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Web アプリ版（web-app/）用のデータ書き出し（docs/WEB_PLAN.md 4.）。
+"""Web アプリ版（D:/ct125-app、S3 の app/v1/）用のデータ書き出し（docs/WEB_PLAN.md 4.、D:/ct125-app/docs/data_contract.md）。
 
 - rides.json：走行一覧（カード用の要約とスパークライン）
 - ride_<id>.json：1 秒窓の列を列ごとの配列で
