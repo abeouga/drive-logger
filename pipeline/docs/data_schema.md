@@ -136,3 +136,17 @@
 | `band_1_5`, `band_5_15`, `band_15_40` | 帯域エネルギー比（3 軸の平均除去後の FFT パワーを足して正規化。合計 1） |
 
 中間生成物 `data/interim/<ride_id>/accel.parquet`（`is_clipped` 付き）、`gps.parquet`（`valid`・`invalid_reason` 付き）。
+
+## 8. フェーズ 2 の出力 `data/processed/<ride_id>/scored.parquet`
+
+`windows.parquet` の全列＋次の列。
+
+| 列 | 内容 |
+|---|---|
+| `is_stopped` | `has_gps` かつ `speed_kmh < stop_speed_kmh`（5 km/h） |
+| `z_speed` | 速度ビン（5 km/h）ごとの `log_rms` の中央値・MAD からの逸脱 `(log_rms − 中央値)/(1.4826×MAD)`。速度がない窓は NaN |
+| `is_anomaly_z` | `z_speed > z_threshold`（3.0）かつ走行中 |
+| `score_if` | Isolation Forest（振動特徴量 8 列、速度なし）の `decision_function` の符号反転。大きいほど異常。全窓に付く |
+| `is_anomaly_if` | IF の判定（contamination 3%） |
+
+モデルは `data/models/<yyyymmdd>/baseline.json`（ビンごとの n・中央値・MAD・借用元ビン）と `isolation_forest.pkl`（コミットしない）。

@@ -14,8 +14,11 @@ gps:
 private_radius_m: 300    # local.yaml の座標から半径この距離内の窓は is_private=True
 model:
   speed_bin_kmh: 5       # 速度補正ベースラインのビン幅
+  baseline_min_count: 10 # 窓数がこれ未満のビンは最寄りのビンの中央値・MAD を借りる
   z_threshold: 3.0       # z_speed の候補異常しきい値
   contamination: 0.03    # IsolationForest
+  n_estimators: 300
+  random_state: 0
 bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
   band_1_5: [1, 5]
   band_5_15: [5, 15]

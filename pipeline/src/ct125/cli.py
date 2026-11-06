@@ -35,7 +35,8 @@ def process_ride(ride_id: str, cfg: dict, raw_dir: Path, interim_dir: Path, proc
     pts = private_points(cfg)
     out = win.copy()
     out.insert(0, "ride_id", ride_id)
-    out["t_abs"] = io.to_jst(out["t_rel"].to_numpy(), ride.t0_us, ride.offset_s).to_numpy()
+    # Series のまま代入して tz 付き datetime 型を保つ（to_numpy() だと NaT だけの走行が object 型になり parquet で null 型になる）
+    out["t_abs"] = io.to_jst(out["t_rel"].to_numpy(), ride.t0_us, ride.offset_s).set_axis(out.index)
     out["lat"] = joined["lat"].to_numpy()
     out["lon"] = joined["lon"].to_numpy()
     out["has_gps"] = joined["has_gps"].to_numpy()
@@ -63,6 +64,37 @@ def process_ride(ride_id: str, cfg: dict, raw_dir: Path, interim_dir: Path, proc
     return out
 
 
+def score_all(cfg: dict, processed_dir: Path, models_dir: Path, rides: list[str] | None = None, verbose: bool = True) -> pd.DataFrame:
+    """全走行の windows.parquet を集めて学習・スコア付けし、各走行の scored.parquet とモデルを保存する。"""
+    from datetime import date
+
+    from . import model as modelmod
+
+    paths = sorted(processed_dir.glob("ride_*/windows.parquet"))
+    if rides:
+        paths = [p for p in paths if p.parent.name in rides]
+    if not paths:
+        raise FileNotFoundError("windows.parquet がありません。先に process を実行してください")
+    allw = pd.concat([pd.read_parquet(p) for p in paths], ignore_index=True)
+    scored, baseline, forest = modelmod.score_windows(allw, cfg.get("model", {}), cfg.get("stop_speed_kmh", 5.0))
+
+    mdir = models_dir / date.today().strftime("%Y%m%d")
+    mdir.mkdir(parents=True, exist_ok=True)
+    modelmod.save_baseline(baseline, mdir / "baseline.json")
+    modelmod.save_model(forest, mdir / "isolation_forest.pkl")
+    for rid, g in scored.groupby("ride_id", sort=True):
+        g.to_parquet(processed_dir / rid / "scored.parquet", index=False)
+        if verbose:
+            zs = g["z_speed"]
+            print(
+                f"{rid}: 窓 {len(g)}, z_speed あり {int(zs.notna().sum())}, z>3 {int(g['is_anomaly_z'].sum())}, "
+                f"IF 異常 {int(g['is_anomaly_if'].sum())}, 両方 {int((g['is_anomaly_z'] & g['is_anomaly_if']).sum())}"
+            )
+    if verbose:
+        print(f"ベースライン：学習窓 {baseline['n_train']}, ビン {len(baseline['bins'])} → {mdir}")
+    return scored
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="ct125", description="CT125 走行データの解析パイプライン")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -71,6 +103,10 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--all", action="store_true", help="data/raw の全走行")
     sp.add_argument("--raw", default=None, help="生データのフォルダー（既定 <root>/data/raw）")
     sp.add_argument("--root", default=None, help="リポジトリのルート（既定は自動）")
+    sc = sub.add_parser("score", help="全走行の windows.parquet から異常スコア（scored.parquet）")
+    sc.add_argument("--ride", action="append", default=[], help="学習・スコア対象を絞る（既定は全走行）")
+    sc.add_argument("--root", default=None)
+    sc.add_argument("--raw", default=None, help=argparse.SUPPRESS)
     args = p.parse_args(argv)
 
     cfg = load_config(args.root) if args.root else load_config()
@@ -86,4 +122,6 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         for r in rides:
             process_ride(r, cfg, raw_dir, interim_dir, processed_dir)
+    elif args.cmd == "score":
+        score_all(cfg, processed_dir, root / "data" / "models", args.ride or None)
     return 0
