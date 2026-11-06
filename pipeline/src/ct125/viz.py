@@ -129,11 +129,13 @@ def build_timeline(df: pd.DataFrame, z_threshold: float = 3.0) -> go.Figure:
     fig.add_trace(go.Scatter(x=x, y=d["rms"], name="rms [g]", line=dict(color="#1f4e79", width=1.2)), row=1, col=1, secondary_y=False)
     if d["has_gps"].any():
         fig.add_trace(go.Scatter(x=x, y=d["speed_kmh"], name="速度 [km/h]", line=dict(color="#2e8b57", width=1), opacity=0.8), row=1, col=1, secondary_y=True)
-    if "z_speed" in d and d["z_speed"].notna().any():
+    has_z = "z_speed" in d and d["z_speed"].notna().any()
+    if has_z:
         fig.add_trace(go.Scatter(x=x, y=d["z_speed"], name="z_speed", line=dict(color="#c00000", width=1)), row=2, col=1)
         fig.add_hline(y=z_threshold, line=dict(color="#c00000", dash="dot", width=1), row=2, col=1)
     if "score_if" in d:
-        fig.add_trace(go.Scatter(x=x, y=d["score_if"], name="score_if", line=dict(color="#7f7f7f", width=1, dash="dot"), visible="legendonly"), row=2, col=1)
+        # z_speed がない走行（GPS なし）では score_if を下段に出す。ある走行では凡例から切り替え
+        fig.add_trace(go.Scatter(x=x, y=d["score_if"], name="score_if（Isolation Forest）", line=dict(color="#7f7f7f", width=1, dash="dot"), visible="legendonly" if has_z else True), row=2, col=1)
     # 帯：異常窓（赤）、GPS なし（灰）、先頭末尾（薄灰）
     for flag, color, name in [("is_anomaly_z", "rgba(192,0,0,0.25)", "z>3"), ("is_edge", "rgba(128,128,128,0.10)", "先頭・末尾 60 秒")]:
         if flag in d and d[flag].any():
@@ -142,7 +144,7 @@ def build_timeline(df: pd.DataFrame, z_threshold: float = 3.0) -> go.Figure:
         _add_bands(fig, x, (~d["has_gps"]).to_numpy(), "rgba(255,140,0,0.12)", "GPS なし")
     fig.update_yaxes(title_text="rms [g]", row=1, col=1, secondary_y=False)
     fig.update_yaxes(title_text="km/h", row=1, col=1, secondary_y=True)
-    fig.update_yaxes(title_text="z_speed", row=2, col=1)
+    fig.update_yaxes(title_text="z_speed" if has_z else "score_if", row=2, col=1)
     fig.update_xaxes(title_text=xlabel, row=2, col=1)
     fig.update_layout(height=520, margin=dict(l=50, r=30, t=30, b=40), legend=dict(orientation="h", y=1.08), hovermode="x unified")
     return fig
@@ -155,7 +157,8 @@ def _add_bands(fig: go.Figure, x: pd.Series, flag: np.ndarray, color: str, name:
     ends = np.where(flag & ~np.r_[flag[1:], False])[0]
     for i, (s, e) in enumerate(zip(starts, ends)):
         x0, x1 = xv[s], xv[min(e + 1, len(xv) - 1)]
-        fig.add_vrect(x0=x0, x1=x1, fillcolor=color, line_width=0, layer="below", annotation_text=name if i == 0 else None, annotation_position="top left", annotation_font_size=10)
+        extra = dict(annotation_text=name, annotation_position="top left", annotation_font_size=10) if i == 0 else {}
+        fig.add_vrect(x0=x0, x1=x1, fillcolor=color, line_width=0, layer="below", **extra)
 
 
 # ------------------------------------------------------------------ ページ組み立て
