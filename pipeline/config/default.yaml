@@ -19,6 +19,10 @@ model:
   contamination: 0.03    # IsolationForest
   n_estimators: 300
   random_state: 0
+aws:
+  profile: fuminosuke       # ~/.aws/config のプロファイル名。リージョンはプロファイルのものを使う（プロジェクトごとに固定）
+  region: null              # null＝プロファイルの region。明示するならここ
+  bucket: null              # 例 ct125-logger-<ランダム接尾辞>。作成後に config/local.yaml の aws.bucket に書いてもよい
 viz:
   map_min_fix_ratio: 0.10   # GPS 有効割合がこれ未満なら地図を描かない（計画書 10.2）
   map_full_fix_ratio: 0.95  # これ以上なら「部分欠損」の注意書きを出さない
