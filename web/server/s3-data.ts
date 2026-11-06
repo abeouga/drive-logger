@@ -59,8 +59,13 @@ export function s3DataPlugin(env: DataEnv, cacheDir: string): Plugin {
     if (!out.Body) throw new Error("S3 の応答に中身がありません");
     // ストリームは必ず読み切る（読まないと接続が残る）
     const bytes = await out.Body.transformToByteArray();
-    await mkdir(cacheDir, { recursive: true });
-    await writeFile(path.join(cacheDir, name), bytes);
+    // 中身が同じなら書き込まない（無駄な書き込みとファイルの更新通知を避ける）
+    const file = path.join(cacheDir, name);
+    const old = await readFile(file).catch(() => null);
+    if (!old || !Buffer.from(bytes).equals(old)) {
+      await mkdir(cacheDir, { recursive: true });
+      await writeFile(file, bytes);
+    }
     return bytes;
   }
 

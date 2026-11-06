@@ -34,7 +34,8 @@ export default defineConfig(({ command, mode }) => {
       __EMBED_DATA__: JSON.stringify(build),
     },
     // localhost だけで待ち受ける（host を変えると同じ Wi-Fi の端末から S3 の中身が見えてしまう）
-    server: { port: 5173, strictPort: true },
+    // cache/ は dev サーバーが S3 から取るたびに書き込むので監視しない（監視すると画面の再読み込みが連鎖する）
+    server: { port: 5173, strictPort: true, watch: { ignored: ["**/cache/**", "**/dist/**"] } },
     preview: { port: 4173, strictPort: true },
     build: {
       assetsInlineLimit: 100_000_000,
