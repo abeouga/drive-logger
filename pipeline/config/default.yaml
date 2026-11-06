@@ -19,6 +19,10 @@ model:
   contamination: 0.03    # IsolationForest
   n_estimators: 300
   random_state: 0
+viz:
+  map_min_fix_ratio: 0.10   # GPS 有効割合がこれ未満なら地図を描かない（計画書 10.2）
+  map_full_fix_ratio: 0.95  # これ以上なら「部分欠損」の注意書きを出さない
+  top_n_markers: 10         # z_speed 上位 N 窓を橙丸で描く（しきい値超えの赤丸とは別）
 bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
   band_1_5: [1, 5]
   band_5_15: [5, 15]

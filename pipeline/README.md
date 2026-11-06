@@ -8,12 +8,14 @@
 - 未確定事項・質問：[docs/QUESTIONS.md](docs/QUESTIONS.md)
 - 進捗：[docs/PROGRESS.md](docs/PROGRESS.md)
 
-## 現在の状態（2026-11-06、フェーズ 2 完了）
+## 現在の状態（2026-11-06、フェーズ 3 完了）
 
 - 2026-11-02 に実車で記録した 9 本（`data/raw/ride_001`〜`ride_009`、コミット対象外）を棚卸しし、列・単位・サンプリング周波数（約 398.5 Hz）・時刻基準・GPS 有効割合を確定した。
 - CSV → クリーニング → 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）→ GPS 結合（速度・座標の補間、品質フィルタ）→ `windows.parquet` までがコマンド 1 つで再現できる。
 - 速度で補正した正常時のベースライン（5 km/h ビンの中央値・MAD）からの逸脱 `z_speed` と、振動特徴量だけの Isolation Forest `score_if` を全窓に付けた。走行中に `z_speed > 3` の窓はなく、往路・復路で同じ場所の振動が一致するかは確認できなかった（`docs/PROGRESS.md`）。
+- 走行ごとに地図（色付き軌跡＋マーカー）とタイムラインの静的 HTML を `web/` に生成する。GPS が取れなかった走行は地図を出さず、注意書きとタイムラインだけを出す。
 - 取り付けは暫定（ブレッドボードを車体に置いただけ）。20 Hz 以上の帯域には置き方の共振が混ざる可能性がある。
+- 前処理・時刻同期・傾き・振動・GPS についての知見は [docs/knowledge_preprocessing.md](docs/knowledge_preprocessing.md)。
 - 健康な車両の走行データのみ。故障データは含まれていないため、この先作る異常スコアは「速度で補正した正常時のベースラインからの逸脱」であり、故障の予測ではない。
 - ECU / K-Line 接続はスコープ外（端子・電圧・プロトコルが未検証で期限内に安全に検証できないと判断）。GPS と振動の 2 系統でパイプラインを作る。
 
@@ -46,6 +48,14 @@ uv pip install -e ".[dev]"
 ```bash
 .venv/Scripts/python.exe -m ct125 score
 ```
+
+地図とタイムラインの HTML を作る（`web/index.html` から各走行へ）：
+
+```bash
+.venv/Scripts/python.exe -m ct125 render
+```
+
+`config/local.yaml` を置いていない場合、地図ページに「マスク未適用」の警告が出る。その状態の HTML は公開・アップロードしない。
 
 テスト：
 
