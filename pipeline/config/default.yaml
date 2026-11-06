@@ -7,6 +7,8 @@ gps:
   min_sats: 5            # これ未満の行は無効（ride_004 の 100 km/h 誤測位は sats 3〜4）
   max_hdop: 5.0          # これを超える行は無効
   max_jump_mps: 50       # 1 秒で 50 m 以上飛ぶ点は無効（時速 180 km 相当）
+  max_speed_mismatch_kmh: 25  # RMC の速度と、直前 fix からの距離で求めた速度の差がこれを超える行は無効
+  max_speed_kmh: null    # 速度の上限（null＝なし）。ride_004 14:15 の 98 km/h が実速度でなければ 80 などを入れる
   max_gap_sec: 5         # fix 間隔がこれを超える区間は補間しない（has_gps=False）
   speed_smooth_points: 3 # 速度の移動中央値の点数
 private_radius_m: 300    # local.yaml の座標から半径この距離内の窓は is_private=True

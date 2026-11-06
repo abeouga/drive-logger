@@ -8,9 +8,11 @@
 - 未確定事項・質問：[docs/QUESTIONS.md](docs/QUESTIONS.md)
 - 進捗：[docs/PROGRESS.md](docs/PROGRESS.md)
 
-## 現在の状態（2026-11-06、フェーズ 0 完了）
+## 現在の状態（2026-11-06、フェーズ 1 完了）
 
 - 2026-11-02 に実車で記録した 9 本（`data/raw/ride_001`〜`ride_009`、コミット対象外）を棚卸しし、列・単位・サンプリング周波数（約 398.5 Hz）・時刻基準・GPS 有効割合を確定した。
+- CSV → クリーニング → 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）→ GPS 結合（速度・座標の補間、品質フィルタ）→ `windows.parquet` までがコマンド 1 つで再現できる。
+- 取り付けは暫定（ブレッドボードを車体に置いただけ）。20 Hz 以上の帯域には置き方の共振が混ざる可能性がある。
 - 健康な車両の走行データのみ。故障データは含まれていないため、この先作る異常スコアは「速度で補正した正常時のベースラインからの逸脱」であり、故障の予測ではない。
 - ECU / K-Line 接続はスコープ外（端子・電圧・プロトコルが未検証で期限内に安全に検証できないと判断）。GPS と振動の 2 系統でパイプラインを作る。
 
@@ -23,6 +25,28 @@ uv venv --python 3.12
 ```bash
 uv pip install -e ".[dev]"
 ```
+
+## 使い方
+
+全走行を処理して `data/processed/<ride_id>/windows.parquet` を作る：
+
+```bash
+.venv/Scripts/python.exe -m ct125 process --all
+```
+
+1 本だけ：
+
+```bash
+.venv/Scripts/python.exe -m ct125 process --ride ride_004
+```
+
+テスト：
+
+```bash
+.venv/Scripts/python.exe -m pytest -q
+```
+
+自宅などをマスクするには `config/local.example.yaml` を `config/local.yaml` にコピーして座標を書く（コミットされない）。
 
 ノートブックの実行：
 
