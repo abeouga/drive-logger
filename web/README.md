@@ -7,7 +7,7 @@
 - このフォルダーはデータを**読むだけ**。S3 にもローカルの元データにも書き込まない
 - 表現上の制約（「故障予測」と言わない等）と「ECU / K-Line に触れない」は ct125-logger の `docs/DEV_PLAN.md` 4. のとおり
 
-> 状態（2026-11-06）：移行済み。dev（S3／cache）と 1 ファイルビルドが動く。画面は走行一覧・走行ページ（地図・タイムライン・スペクトログラム・詳細と生波形、スマホはタブ切り替え）・この分析について。S3 の `app/v1/` へのデータのアップロードは未実施（本人の確認待ち）。それまでは `DATA_SOURCE=cache`。手順は [docs/local_dev.md](docs/local_dev.md)、データの形は [docs/data_contract.md](docs/data_contract.md)。
+> 状態（2026-11-06）：移行済み。dev（S3／cache）と 1 ファイルビルドが動く。画面は走行一覧・走行ページ（地図・タイムライン・スペクトログラム・詳細と生波形、スマホはタブ切り替え）・この分析について。S3 の `app/v1/` にデータを上げ、`DATA_SOURCE=s3` で読めることを確認済み（2026-11-06）。1 ファイルの `site-app/index.html` へのアップロードはまだ。手順は [docs/local_dev.md](docs/local_dev.md)、データの形は [docs/data_contract.md](docs/data_contract.md)。
 
 ---
 
