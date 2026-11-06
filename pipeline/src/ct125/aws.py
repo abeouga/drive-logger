@@ -27,7 +27,16 @@ def make_session(acfg: dict) -> boto3.Session:
 
 
 def make_s3(session: boto3.Session):
-    return session.client("s3", config=Config(retries={"total_max_attempts": 3, "mode": "standard"}))
+    """S3 クライアント。署名付き URL が SigV4 ＋リージョン付きのホスト名
+    （<bucket>.s3.<region>.amazonaws.com）で作られるようにする。
+    既定のままだと SigV2 ＋共通エンドポイントになり、作ったばかりのバケットでは 307 リダイレクトで開けない。"""
+    region = session.region_name
+    return session.client(
+        "s3",
+        region_name=region,
+        endpoint_url=f"https://s3.{region}.amazonaws.com" if region else None,
+        config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}, retries={"total_max_attempts": 3, "mode": "standard"}),
+    )
 
 
 def bucket_region(session: boto3.Session) -> str:
