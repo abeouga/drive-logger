@@ -77,6 +77,12 @@ site/<ride_id>/index.html
 - スマホのブラウザで開いて地図が出ることを確認する（地図タイルは OpenStreetMap、Plotly は CDN から読む）。
 - URL を知っている人は期限内なら誰でも開ける。見せる相手にだけ渡す。
 
+## 4b. Web アプリ版（D:\ct125-app）
+
+- データ：`python -m ct125 export --upload` で `app/v1/` に上げる（書き出し後の座標検査に通ったときだけ）。2026-11-06 に上げ済み
+- 1 ファイル：ct125-app の `scripts/build-single.ps1` → `python -m ct125 upload --site-app D:/ct125-app/dist/index.html`（上げる前に座標を検査）→ `python -m ct125 share --app --expires-hours 72`
+- ct125-app の dev サーバーは `app/v1/` を読むだけ（書き込まない）。CORS は設定しない（ブラウザは S3 を直接読まない）
+
 ## 5. 権限と鍵の扱い（ベストプラクティス）
 
 - 長期のアクセスキーは漏れると期限なく使われる。チャットなどに貼った鍵は **ローテーション**（新しいキーを作って `aws configure --profile ct125-logger` で差し替え、古いキーを削除）する。

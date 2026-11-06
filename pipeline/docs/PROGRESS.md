@@ -83,3 +83,4 @@
 - 確認：ct125-app の `dist/index.html`（4.3 MB）に自宅 300 m 以内の座標 0、バケット名・AWS の設定なし、禁止表現なし。dev サーバーはフォルダー外のファイル名を 400 で拒否。アイドリング中の強い周波数は 20〜26 Hz。
 - 未実施（本人の確認待ち）：S3 の `app/v1/` と `site-app/index.html` へのアップロード。`web-app/` は 11/8 の状態のまま残している（削除するかは確認待ち）。
 - 次：アップロード → `DATA_SOURCE=s3` で dev を確認 → 1 ファイルを `site-app/` に上げ、署名付き URL をスマホで確認。
+- 追記（同日）：本人の了承を得て `export --upload` で S3 の `app/v1/` に 37 ファイル（約 1.8 MB）を上げた。ct125-app を `DATA_SOURCE=s3` にして読めることと、`pull-data.ps1` の同期を確認。`site-app/index.html` へのアップロードと `web-app/` の扱いは未決。
