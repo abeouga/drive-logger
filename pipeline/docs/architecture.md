@@ -41,7 +41,7 @@ flowchart LR
 | GPS 結合 | 速度の平滑化、窓中心への補間、自宅マスク | `src/ct125/gps.py` |
 | スコア | 速度補正ベースライン、Isolation Forest | `src/ct125/model.py` |
 | 可視化 | 地図＋タイムラインの静的 HTML、GPS 欠損時フォールバック | `src/ct125/viz.py` |
-| AWS | S3 アップロード、署名付き URL | `src/ct125/aws.py`、`docs/aws_setup.md` |
+| AWS | S3 バケット（Terraform、東京、非公開・暗号化・HTTPS のみ）、アップロード、署名付き URL | `D:\ct125-logger-terraform`、`src/ct125/aws.py`、`docs/aws_setup.md` |
 
 ## 設計のみ（今回は実装しない）
 
