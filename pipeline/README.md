@@ -8,10 +8,11 @@
 - 未確定事項・質問：[docs/QUESTIONS.md](docs/QUESTIONS.md)
 - 進捗：[docs/PROGRESS.md](docs/PROGRESS.md)
 
-## 現在の状態（2026-11-06、フェーズ 1 完了）
+## 現在の状態（2026-11-06、フェーズ 2 完了）
 
 - 2026-11-02 に実車で記録した 9 本（`data/raw/ride_001`〜`ride_009`、コミット対象外）を棚卸しし、列・単位・サンプリング周波数（約 398.5 Hz）・時刻基準・GPS 有効割合を確定した。
 - CSV → クリーニング → 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）→ GPS 結合（速度・座標の補間、品質フィルタ）→ `windows.parquet` までがコマンド 1 つで再現できる。
+- 速度で補正した正常時のベースライン（5 km/h ビンの中央値・MAD）からの逸脱 `z_speed` と、振動特徴量だけの Isolation Forest `score_if` を全窓に付けた。走行中に `z_speed > 3` の窓はなく、往路・復路で同じ場所の振動が一致するかは確認できなかった（`docs/PROGRESS.md`）。
 - 取り付けは暫定（ブレッドボードを車体に置いただけ）。20 Hz 以上の帯域には置き方の共振が混ざる可能性がある。
 - 健康な車両の走行データのみ。故障データは含まれていないため、この先作る異常スコアは「速度で補正した正常時のベースラインからの逸脱」であり、故障の予測ではない。
 - ECU / K-Line 接続はスコープ外（端子・電圧・プロトコルが未検証で期限内に安全に検証できないと判断）。GPS と振動の 2 系統でパイプラインを作る。
@@ -38,6 +39,12 @@ uv pip install -e ".[dev]"
 
 ```bash
 .venv/Scripts/python.exe -m ct125 process --ride ride_004
+```
+
+異常スコアを付ける（全走行の windows.parquet で学習し、`scored.parquet` と `data/models/<日付>/` を出力）：
+
+```bash
+.venv/Scripts/python.exe -m ct125 score
 ```
 
 テスト：

@@ -1,0 +1,132 @@
+# -*- coding: utf-8 -*-
+"""異常スコア（計画書フェーズ 2）。
+
+- 速度補正ベースライン：速度を一定幅（既定 5 km/h）でビン分けし、各ビンで log_rms の中央値と MAD を求める。
+  z_speed = (log_rms − 中央値) / (1.4826 × MAD)。大きいほど「その速度としては振動が大きい」。
+- Isolation Forest：振動特徴量だけで学習する（速度は使わない）。GPS なし走行にもスコアを付けるため。
+  score_if は decision_function の符号反転（大きいほど異常）。
+
+学習データは健康な車両の走行のみ。故障データは含まれていないので、ここで出すのは
+「速度で補正した正常時のベースラインからの逸脱」であり、故障の予測ではない。
+"""
+from __future__ import annotations
+
+import json
+import pickle
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sklearn.ensemble import IsolationForest
+
+MAD_SCALE = 1.4826
+IF_FEATURES = ["log_rms", "p2p", "std", "crest", "jerk_rms", "band_1_5", "band_5_15", "band_15_40"]
+
+
+# ------------------------------------------------------------------ 速度補正ベースライン
+def fit_speed_baseline(df: pd.DataFrame, bin_kmh: float = 5.0, min_count: int = 10, target: str = "log_rms") -> dict:
+    """速度ビンごとの中央値と MAD。ビンの窓数が min_count 未満なら、十分な窓がある最寄りのビンの値を借りる。
+
+    df は has_gps=True かつ speed_kmh が有限の学習窓。返り値は JSON にできる dict。
+    """
+    d = df[np.isfinite(df["speed_kmh"]) & np.isfinite(df[target])]
+    if len(d) == 0:
+        raise ValueError("ベースラインの学習に使える窓がありません")
+    vmax = float(d["speed_kmh"].max())
+    n_bins = int(np.floor(vmax / bin_kmh)) + 1
+    edges = np.arange(n_bins + 1) * bin_kmh
+    idx = np.clip(np.floor(d["speed_kmh"].to_numpy() / bin_kmh).astype(int), 0, n_bins - 1)
+    rows = []
+    for b in range(n_bins):
+        v = d[target].to_numpy()[idx == b]
+        if len(v):
+            med = float(np.median(v))
+            mad = float(np.median(np.abs(v - med)))
+        else:
+            med, mad = np.nan, np.nan
+        rows.append(dict(bin=b, lo=float(edges[b]), hi=float(edges[b + 1]), n=int(len(v)), median=med, mad=mad, source_bin=b))
+    good = [r for r in rows if r["n"] >= min_count and r["mad"] > 0]
+    if not good:
+        raise ValueError(f"窓数 {min_count} 以上のビンがありません")
+    for r in rows:
+        if r["n"] < min_count or not (r["mad"] > 0):
+            src = min(good, key=lambda g: abs(g["bin"] - r["bin"]))
+            r.update(median=src["median"], mad=src["mad"], source_bin=src["bin"])
+    return {"target": target, "bin_kmh": float(bin_kmh), "min_count": int(min_count), "mad_scale": MAD_SCALE, "n_train": int(len(d)), "bins": rows}
+
+
+def apply_speed_baseline(df: pd.DataFrame, baseline: dict) -> pd.Series:
+    """各窓の z_speed。速度がない窓（has_gps=False）は NaN。学習時の最大速度を超える窓は最後のビンを使う。"""
+    bins = baseline["bins"]
+    bw = baseline["bin_kmh"]
+    med = np.array([b["median"] for b in bins])
+    mad = np.array([b["mad"] for b in bins])
+    spd = df["speed_kmh"].to_numpy(float)
+    x = df[baseline["target"]].to_numpy(float)
+    ok = np.isfinite(spd) & np.isfinite(x)
+    z = np.full(len(df), np.nan)
+    i = np.clip(np.floor(np.nan_to_num(spd, nan=0.0) / bw).astype(int), 0, len(bins) - 1)
+    z[ok] = (x[ok] - med[i[ok]]) / (baseline["mad_scale"] * mad[i[ok]])
+    return pd.Series(z, index=df.index, name="z_speed")
+
+
+def save_baseline(baseline: dict, path: Path | str) -> None:
+    Path(path).write_text(json.dumps(baseline, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+def load_baseline(path: Path | str) -> dict:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+# ------------------------------------------------------------------ Isolation Forest
+def fit_isolation_forest(df: pd.DataFrame, contamination: float = 0.03, n_estimators: int = 300, random_state: int = 0, features: list[str] = IF_FEATURES) -> IsolationForest:
+    X = df[features].to_numpy(float)
+    X = X[np.isfinite(X).all(axis=1)]
+    model = IsolationForest(n_estimators=n_estimators, contamination=contamination, random_state=random_state)
+    model.fit(X)
+    return model
+
+
+def apply_isolation_forest(df: pd.DataFrame, model: IsolationForest, features: list[str] = IF_FEATURES) -> pd.DataFrame:
+    """score_if（大きいほど異常）と is_anomaly_if（モデルの contamination に基づく判定）。欠損のある窓は NaN。"""
+    X = df[features].to_numpy(float)
+    ok = np.isfinite(X).all(axis=1)
+    score = np.full(len(df), np.nan)
+    flag = np.zeros(len(df), dtype=bool)
+    if ok.any():
+        score[ok] = -model.decision_function(X[ok])
+        flag[ok] = model.predict(X[ok]) == -1
+    return pd.DataFrame({"score_if": score, "is_anomaly_if": flag}, index=df.index)
+
+
+def save_model(model: IsolationForest, path: Path | str) -> None:
+    with open(path, "wb") as f:
+        pickle.dump(model, f)
+
+
+def load_model(path: Path | str) -> IsolationForest:
+    with open(path, "rb") as f:
+        return pickle.load(f)
+
+
+# ------------------------------------------------------------------ まとめて
+def training_mask(df: pd.DataFrame) -> pd.Series:
+    """学習に使う窓：先頭・末尾でなく、振り切れていない窓。"""
+    return (~df["is_edge"]) & (~df["is_clipped"])
+
+
+def score_windows(all_windows: pd.DataFrame, mcfg: dict, stop_speed_kmh: float = 5.0) -> tuple[pd.DataFrame, dict, IsolationForest]:
+    """全走行の windows を受け取り、ベースラインと Isolation Forest を学習してスコア列を付けて返す。
+
+    z_speed は速度のある全窓に付けるが、is_anomaly_z は走行中（speed ≥ stop_speed_kmh）の窓だけに立てる。
+    停止ビン（0〜5 km/h）はアイドリングの窓が大半で MAD がとても小さく、発進・取り回しの窓が z>3 になってしまうため。
+    """
+    train = all_windows[training_mask(all_windows)]
+    baseline = fit_speed_baseline(train[train["has_gps"]], mcfg.get("speed_bin_kmh", 5.0), mcfg.get("baseline_min_count", 10))
+    forest = fit_isolation_forest(train, mcfg.get("contamination", 0.03), mcfg.get("n_estimators", 300), mcfg.get("random_state", 0))
+    out = all_windows.copy()
+    out["is_stopped"] = out["has_gps"] & (out["speed_kmh"] < stop_speed_kmh)
+    out["z_speed"] = apply_speed_baseline(out, baseline)
+    out["is_anomaly_z"] = (out["z_speed"] > mcfg.get("z_threshold", 3.0)) & ~out["is_stopped"]
+    out = pd.concat([out, apply_isolation_forest(out, forest)], axis=1)
+    return out, baseline, forest
