@@ -1,0 +1,18 @@
+# 生データ・中間生成物（SD の原本は data/raw/ に置くがコミットしない）
+data/raw/
+data/interim/
+data/processed/
+web/
+# 自宅座標・認証情報
+config/local.yaml
+.env
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+# OS
+Thumbs.db
+.DS_Store
