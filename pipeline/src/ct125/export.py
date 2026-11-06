@@ -166,22 +166,54 @@ def _dump(obj, path: Path) -> int:
     return len(text.encode("utf-8"))
 
 
-def export_all(processed_dir: Path, out_dir: Path, memos: dict[str, str] | None = None, verbose: bool = True) -> list[dict]:
+def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, highlight_rows: list[int], window_sec: float = 1.0) -> tuple[np.ndarray, dict, dict]:
+    """スペクトログラムの画像（不透明度）とその情報、見どころの生波形。df は scored.parquet（win 順）。"""
+    from . import spectro
+
+    t = acc["t_rel"].to_numpy(float)
+    fs = (len(t) - 1) / float(t[-1] - t[0]) if len(t) > 1 else float("nan")
+    t_starts = df["t_start"].to_numpy(float)
+    power = spectro.spectrogram(acc, t_starts, fs, window_sec)
+    img, scale = spectro.to_alpha(power)
+    # 各窓で最も強い周波数（5 Hz 未満は車体の揺れ・姿勢の変化が混ざるので除く）。カーソルの説明用
+    body = power[:, 5:]
+    peak = [None if not np.isfinite(row).any() else int(np.nanargmax(row)) + 5 for row in body]
+    spec_meta = {"id": str(df["ride_id"].iloc[0]), "n_cols": int(img.shape[1]), "f_max_hz": spectro.F_MAX_HZ, "window_sec": window_sec, **scale, "peak_hz": peak}
+    waves = {"id": spec_meta["id"], "unit": "mg", "windows": spectro.waveforms(acc, t_starts, highlight_rows, fs, window_sec)}
+    return img, spec_meta, waves
+
+
+def export_all(processed_dir: Path, out_dir: Path, memos: dict[str, str] | None = None, verbose: bool = True, interim_dir: Path | None = None) -> list[dict]:
+    from . import spectro
+
     paths = sorted(processed_dir.glob("ride_*/scored.parquet"))
     if not paths:
         raise FileNotFoundError("scored.parquet がありません。先に process と score を実行してください")
+    interim_dir = interim_dir or processed_dir.parent / "interim"
     out_dir.mkdir(parents=True, exist_ok=True)
-    for old in out_dir.glob("ride_*.json"):
-        old.unlink()
+    for pattern in ("ride_*.json", "spec_*.json", "spec_*.png", "wave_*.json"):
+        for old in out_dir.glob(pattern):
+            old.unlink()
     summaries = []
     for p in paths:
-        df = pd.read_parquet(p)
-        summary, payload = ride_payload(df, (memos or {}).get(p.parent.name, ""))
+        df = pd.read_parquet(p).sort_values("win").reset_index(drop=True)
+        rid = p.parent.name
+        summary, payload = ride_payload(df, (memos or {}).get(rid, ""))
         size = _dump(payload, out_dir / f"ride_{summary['id']}.json")
+        extra = ""
+        acc_path = interim_dir / rid / "accel.parquet"
+        if acc_path.exists():
+            acc = pd.read_parquet(acc_path, columns=["t_rel", "ax_g", "ay_g", "az_g"])
+            rows = [i for i, h in enumerate(payload["columns"]["highlight"]) if h]
+            img, meta, waves = extras_payload(df, acc, rows)
+            png = spectro.write_png_alpha(out_dir / f"spec_{rid}.png", img)
+            _dump(meta, out_dir / f"spec_{rid}.json")
+            wsize = _dump(waves, out_dir / f"wave_{rid}.json")
+            extra = f", スペクトログラム {img.shape[1]}×{img.shape[0]} {png / 1024:.0f} KB, 生波形 {len(waves['windows'])} 窓 {wsize / 1024:.0f} KB"
         summaries.append(summary)
         if verbose:
             print(f"{summary['id']}: 窓 {payload['n']}, 座標あり {sum(v is not None for v in payload['columns']['lat'])}, "
-                  f"見どころ {summary['n_highlights']}（{summary['highlight_basis']}）, {size / 1024:.0f} KB")
+                  f"見どころ {summary['n_highlights']}（{summary['highlight_basis']}）, {size / 1024:.0f} KB{extra}")
     total = _dump({"generated_at_ms": int(pd.Timestamp.now(tz="UTC").value // 1_000_000), "rides": summaries}, out_dir / "rides.json")
     if verbose:
         print(f"rides.json: {len(summaries)} 走行, {total / 1024:.1f} KB → {out_dir}")
