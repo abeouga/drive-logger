@@ -67,9 +67,13 @@ def create_bucket(s3, bucket: str, region: str) -> None:
 
 
 def _content_type(path: Path) -> str:
-    if path.suffix == ".parquet":
-        return "application/vnd.apache.parquet"
-    return mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    fixed = {
+        ".parquet": "application/vnd.apache.parquet",
+        ".json": "application/json; charset=utf-8",  # 日本語のメモを含むので文字コードを明示
+        ".html": "text/html; charset=utf-8",
+        ".png": "image/png",
+    }
+    return fixed.get(path.suffix.lower()) or mimetypes.guess_type(str(path))[0] or "application/octet-stream"
 
 
 def upload_files(s3, bucket: str, pairs: list[tuple[Path, str]], verbose: bool = True) -> list[str]:
@@ -113,6 +117,21 @@ def upload_ride(s3, bucket: str, root: Path, ride_id: str, parts: tuple[str, ...
     if verbose:
         print(f"{ride_id}: {', '.join(parts)} → s3://{bucket}/")
     return upload_files(s3, bucket, ride_pairs(root, ride_id, parts), verbose)
+
+
+def app_pairs(out_dir: Path, prefix: str) -> list[tuple[Path, str]]:
+    """export の出力（rides.json・ride_*.json・spec_*・wave_*）→ app/v1/<ファイル名>"""
+    names = ["rides.json"] + [p.name for pat in ("ride_*.json", "spec_*.json", "spec_*.png", "wave_*.json") for p in sorted(out_dir.glob(pat))]
+    return [(out_dir / n, f"{prefix}{n}") for n in names]
+
+
+def presigned_url(s3, bucket: str, key: str, expires_hours: float, content_type: str | None = None) -> str:
+    """署名付き GET URL（上限 7 日）。"""
+    expires = int(min(max(expires_hours, 0.1), 168) * 3600)
+    params = {"Bucket": bucket, "Key": key}
+    if content_type:
+        params["ResponseContentType"] = content_type
+    return s3.generate_presigned_url("get_object", Params=params, ExpiresIn=expires)
 
 
 def presigned_site_url(s3, bucket: str, ride_id: str, expires_hours: float) -> str:

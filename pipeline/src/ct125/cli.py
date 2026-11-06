@@ -118,18 +118,21 @@ def main(argv: list[str] | None = None) -> int:
     up.add_argument("--ride", action="append", default=[], help="走行（既定は全走行）")
     up.add_argument("--parts", default="raw,processed,site", help="上げる種類（カンマ区切り：raw,processed,site,models）")
     up.add_argument("--allow-unmasked", action="store_true", help="local.yaml がなくても processed/site を上げる（公開しない前提でのみ）")
+    up.add_argument("--site-app", default=None, metavar="HTML", help="Web アプリの 1 ファイル（D:/ct125-app/dist/index.html）を site-app/index.html へ。上げる前に座標を検査する")
     up.add_argument("--root", default=None)
     up.add_argument("--raw", default=None, help=argparse.SUPPRESS)
-    ex = sub.add_parser("export", help="Web アプリ用の JSON（rides.json、ride_<id>.json）を web-app/src/data/ に書き出す")
-    ex.add_argument("--out", default=None, help="出力先（既定 <root>/web-app/src/data）")
+    ex = sub.add_parser("export", help="Web アプリ用のデータ（rides.json・ride_/spec_/wave_）を書き出す。--upload で S3 の app/v1/ へ")
+    ex.add_argument("--out", default=None, help="出力先（既定 <root>/data/app/v1）。D:/ct125-app/cache を指定すると S3 を通さずにアプリの cache へ")
+    ex.add_argument("--upload", action="store_true", help="書き出して検査が通ったら s3://<bucket>/<aws.app_prefix> へ上げる")
     ex.add_argument("--root", default=None)
     ex.add_argument("--raw", default=None, help=argparse.SUPPRESS)
     ck = sub.add_parser("check-privacy", help="ファイル内の座標に、登録地点から半径 private_radius_m 以内の点が無いか検査")
     ck.add_argument("files", nargs="+")
     ck.add_argument("--root", default=None)
     ck.add_argument("--raw", default=None, help=argparse.SUPPRESS)
-    sh = sub.add_parser("share", help="site/<ride_id>/index.html の署名付き URL を発行")
-    sh.add_argument("--ride", action="append", required=True)
+    sh = sub.add_parser("share", help="site/<ride_id>/index.html（--app なら site-app/index.html）の署名付き URL を発行")
+    sh.add_argument("--ride", action="append", default=[])
+    sh.add_argument("--app", action="store_true", help="Web アプリ版（site-app/index.html）の URL")
     sh.add_argument("--expires-hours", type=float, default=72)
     sh.add_argument("--root", default=None)
     sh.add_argument("--raw", default=None, help=argparse.SUPPRESS)
@@ -161,7 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         from . import export as exportmod
 
         memos = {rid: " ".join(q.read_text(encoding="utf-8").strip() for q in sorted((raw_dir / rid).glob("*.txt"))) for rid in io.list_rides(raw_dir)}
-        out = Path(args.out) if args.out else root / "web-app" / "src" / "data"
+        out = Path(args.out) if args.out else root / "data" / "app" / "v1"
         exportmod.export_all(processed_dir, out, memos)
         if private_points(cfg):
             res = exportmod.check_files(sorted(out.glob("*.json")), private_points(cfg), cfg["private_radius_m"])
@@ -173,6 +176,18 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
         else:
             print("注意：config/local.yaml に home がないので自宅マスクは未適用です。この出力を配布しないでください", file=sys.stderr)
+            if args.upload:
+                print("自宅マスクが未適用なので S3 には上げません", file=sys.stderr)
+                return 2
+        if args.upload:
+            from . import aws as awsmod
+
+            s3, bucket, acfg = _s3(cfg)
+            if s3 is None:
+                return 2
+            prefix = acfg.get("app_prefix", "app/v1/")
+            print(f"→ s3://{bucket}/{prefix}")
+            awsmod.upload_files(s3, bucket, awsmod.app_pairs(out, prefix))
     elif args.cmd == "check-privacy":
         from . import export as exportmod
 
@@ -187,17 +202,29 @@ def main(argv: list[str] | None = None) -> int:
     elif args.cmd in ("bucket", "upload", "share"):
         from . import aws as awsmod
 
-        acfg = {**cfg.get("aws", {}), **((cfg.get("local") or {}).get("aws") or {})}
-        bucket = acfg.get("bucket")
-        if not bucket:
-            print("aws.bucket が設定されていません（config/default.yaml または config/local.yaml）", file=sys.stderr)
+        s3, bucket, acfg = _s3(cfg)
+        if s3 is None:
             return 2
-        session = awsmod.make_session(acfg)
-        s3 = awsmod.make_s3(session)
         if args.cmd == "bucket":
+            session = awsmod.make_session(acfg)
             region = awsmod.bucket_region(session)
             awsmod.create_bucket(s3, bucket, region)
             print(f"バケット s3://{bucket}（{region}）を用意しました。公開ブロック有効、既定暗号化 SSE-S3")
+        elif args.cmd == "upload" and args.site_app:
+            from . import export as exportmod
+
+            html = Path(args.site_app)
+            pts = private_points(cfg)
+            if not pts:
+                print("config/local.yaml に home がないので検査できません。上げません", file=sys.stderr)
+                return 2
+            r = exportmod.check_files([html], pts, cfg["private_radius_m"])[0]
+            print(f"検査：{html} の座標 {r['points']} 点、{cfg['private_radius_m']} m 以内 {r['within_radius']} 点、最も近い点 {r['min_m']:.0f} m")
+            if r["within_radius"]:
+                print("登録地点の周辺の座標が入っています。上げません", file=sys.stderr)
+                return 1
+            key = acfg.get("site_app_key", "site-app/index.html")
+            awsmod.upload_files(s3, bucket, [(html, key)])
         elif args.cmd == "upload":
             parts = tuple(x.strip() for x in args.parts.split(",") if x.strip())
             masked = bool(private_points(cfg))
@@ -213,6 +240,24 @@ def main(argv: list[str] | None = None) -> int:
                 print("models/ →")
                 awsmod.upload_files(s3, bucket, awsmod.model_pairs(root))
         else:
+            if not args.app and not args.ride:
+                print("--ride か --app を指定してください", file=sys.stderr)
+                return 2
+            if args.app:
+                key = acfg.get("site_app_key", "site-app/index.html")
+                print(f"app: {awsmod.presigned_url(s3, bucket, key, args.expires_hours, 'text/html; charset=utf-8')}")
             for r in args.ride:
                 print(f"{r}: {awsmod.presigned_site_url(s3, bucket, r, args.expires_hours)}")
     return 0
+
+
+def _s3(cfg: dict):
+    """(s3 クライアント, バケット名, aws の設定)。バケットが未設定なら (None, None, 設定)。"""
+    from . import aws as awsmod
+
+    acfg = {**cfg.get("aws", {}), **((cfg.get("local") or {}).get("aws") or {})}
+    bucket = acfg.get("bucket")
+    if not bucket:
+        print("aws.bucket が設定されていません（config/default.yaml または config/local.yaml）", file=sys.stderr)
+        return None, None, acfg
+    return awsmod.make_s3(awsmod.make_session(acfg)), bucket, acfg

@@ -3,6 +3,7 @@ data/raw/
 data/interim/
 data/processed/
 data/models/
+data/app/
 web/
 # 自宅座標・認証情報
 config/local.yaml
