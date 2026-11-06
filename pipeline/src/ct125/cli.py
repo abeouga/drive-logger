@@ -167,8 +167,13 @@ def main(argv: list[str] | None = None) -> int:
             parts = tuple(x.strip() for x in args.parts.split(",") if x.strip())
             masked = bool(private_points(cfg))
             rides = args.ride or [p.name for p in sorted(processed_dir.glob("ride_*"))]
-            for r in rides:
-                awsmod.upload_ride(s3, bucket, root, r, tuple(x for x in parts if x != "models"), masked, args.allow_unmasked)
+            ride_parts = tuple(x for x in parts if x != "models")
+            try:
+                for r in rides if ride_parts else []:
+                    awsmod.upload_ride(s3, bucket, root, r, ride_parts, masked, args.allow_unmasked)
+            except awsmod.UnmaskedError as e:
+                print(e, file=sys.stderr)
+                return 2
             if "models" in parts:
                 print("models/ →")
                 awsmod.upload_files(s3, bucket, awsmod.model_pairs(root))

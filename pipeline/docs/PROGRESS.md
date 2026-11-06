@@ -49,3 +49,10 @@
 - 確認したこと：ride_004/005 は地図（線分 766 本、マーカー 10）＋タイムライン、ride_006〜009 は地図なし＋「GPS が捕捉できなかった」注意書き＋相対秒のタイムライン。一覧の 9 行中 4 行に「地図なし」。禁止表現なし。GPS なし走行のページはブラウザで表示を確認。地図ページは座標がタイルサーバーに送られるため、こちらではブラウザで開いていない（本人が確認する）。
 - 未適用：`config/local.yaml` がないので自宅マスクは未適用。地図ページには赤の注意（公開・アップロード禁止）を出している。local.yaml を置いて `process --all` → `score` → `render` を再実行すればマスクされる。
 - 次（フェーズ 4）：S3 へのアップロードと署名付き URL。**マスク適用後に行う**。リージョンは AWS Settings または `~/.aws/config` で確認してから。
+
+## フェーズ 4（2026-11-06）AWS 最小構成（途中）
+
+- できたこと：専用アカウントの CLI プロファイル `ct125-logger` を登録。`D:\ct125-logger-terraform` の Terraform で S3 バケット（東京、非公開・SSE-S3・HTTPS のみ・バージョニング・ACL 無効）を作成し、AWS CLI で設定を確認。`models/` をアップロードして書き込みを確認。`src/ct125/aws.py` と `docs/aws_setup.md`、`docs/architecture.md`。
+- できなかったこと：`raw/`・`processed/`・`site/` のアップロードと署名付き URL の発行。自宅座標（`config/local.yaml` の `home`）待ち。マスク未適用の走行ページはコードが拒否する。
+- 確認待ち：リージョンが本当に ap-northeast-1 か（AWS Settings で確認）。貼られたアクセスキーのローテーション（URL 発行の前に行う）。
+- 次：home を書く → `process --all` → `score` → `render` → `upload` → スマホで `share` の URL を確認。

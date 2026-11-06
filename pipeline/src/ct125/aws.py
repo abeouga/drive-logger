@@ -97,7 +97,10 @@ def model_pairs(root: Path) -> list[tuple[Path, str]]:
 def upload_ride(s3, bucket: str, root: Path, ride_id: str, parts: tuple[str, ...], masked: bool, allow_unmasked: bool = False, verbose: bool = True) -> list[str]:
     """1 走行分を raw/ processed/ site/ へ。位置情報を含む processed/ と site/ はマスク適用時のみ。"""
     if not masked and not allow_unmasked and any(p in parts for p in ("processed", "site")):
-        raise UnmaskedError("config/local.yaml がなく自宅マスクが未適用です。processed/ と site/ はアップロードしません（--allow-unmasked で強制）")
+        raise UnmaskedError(
+            "自宅マスクが未適用です（config/local.yaml に home の座標がない）。processed/ と site/ はアップロードしません。"
+            "座標を書いて process --all → score → render を再実行してください（非公開のまま上げるだけなら --allow-unmasked）"
+        )
     if verbose:
         print(f"{ride_id}: {', '.join(parts)} → s3://{bucket}/")
     return upload_files(s3, bucket, ride_pairs(root, ride_id, parts), verbose)
