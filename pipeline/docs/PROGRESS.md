@@ -56,3 +56,4 @@
 - できなかったこと：`raw/`・`processed/`・`site/` のアップロードと署名付き URL の発行。自宅座標（`config/local.yaml` の `home`）待ち。マスク未適用の走行ページはコードが拒否する。
 - 確認待ち：リージョンが本当に ap-northeast-1 か（AWS Settings で確認）。貼られたアクセスキーのローテーション（URL 発行の前に行う）。
 - 次：home を書く → `process --all` → `score` → `render` → `upload` → スマホで `share` の URL を確認。
+- バケットは当面残す（本人決定）。削除するかは後で決める。

@@ -87,4 +87,6 @@ site/<ride_id>/index.html
 
 ## 7. 片付け
 
+**方針（2026-11-06 本人決定）：バケットは当面残す。** 残すか消すかは後で改めて決める。
+
 バケットは `force_destroy = false`（中身があると `terraform destroy` が失敗し、生データの誤削除を防ぐ）。消すときは本人が確認してから、全バージョンを削除 → `terraform destroy`。
