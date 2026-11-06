@@ -111,6 +111,20 @@ def main(argv: list[str] | None = None) -> int:
     rd.add_argument("--ride", action="append", default=[], help="描く走行（既定は全走行）")
     rd.add_argument("--root", default=None)
     rd.add_argument("--raw", default=None, help="memo.txt を読む生データのフォルダー（既定 <root>/data/raw）")
+    bk = sub.add_parser("bucket", help="S3 バケットを作る（公開ブロック有効・既定暗号化）。既にあれば何もしない")
+    bk.add_argument("--root", default=None)
+    bk.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    up = sub.add_parser("upload", help="raw/ processed/ site/ を S3 へ（自宅マスク適用後）")
+    up.add_argument("--ride", action="append", default=[], help="走行（既定は全走行）")
+    up.add_argument("--parts", default="raw,processed,site", help="上げる種類（カンマ区切り：raw,processed,site,models）")
+    up.add_argument("--allow-unmasked", action="store_true", help="local.yaml がなくても processed/site を上げる（公開しない前提でのみ）")
+    up.add_argument("--root", default=None)
+    up.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    sh = sub.add_parser("share", help="site/<ride_id>/index.html の署名付き URL を発行")
+    sh.add_argument("--ride", action="append", required=True)
+    sh.add_argument("--expires-hours", type=float, default=72)
+    sh.add_argument("--root", default=None)
+    sh.add_argument("--raw", default=None, help=argparse.SUPPRESS)
     args = p.parse_args(argv)
 
     cfg = load_config(args.root) if args.root else load_config()
@@ -135,4 +149,30 @@ def main(argv: list[str] | None = None) -> int:
         for rid in io.list_rides(raw_dir):
             memos[rid] = " ".join(q.read_text(encoding="utf-8").strip() for q in sorted((raw_dir / rid).glob("*.txt")))
         viz.render_all(processed_dir, root / "web", cfg, memos, args.ride or None)
+    elif args.cmd in ("bucket", "upload", "share"):
+        from . import aws as awsmod
+
+        acfg = {**cfg.get("aws", {}), **((cfg.get("local") or {}).get("aws") or {})}
+        bucket = acfg.get("bucket")
+        if not bucket:
+            print("aws.bucket が設定されていません（config/default.yaml または config/local.yaml）", file=sys.stderr)
+            return 2
+        session = awsmod.make_session(acfg)
+        s3 = awsmod.make_s3(session)
+        if args.cmd == "bucket":
+            region = awsmod.bucket_region(session)
+            awsmod.create_bucket(s3, bucket, region)
+            print(f"バケット s3://{bucket}（{region}）を用意しました。公開ブロック有効、既定暗号化 SSE-S3")
+        elif args.cmd == "upload":
+            parts = tuple(x.strip() for x in args.parts.split(",") if x.strip())
+            masked = bool(private_points(cfg))
+            rides = args.ride or [p.name for p in sorted(processed_dir.glob("ride_*"))]
+            for r in rides:
+                awsmod.upload_ride(s3, bucket, root, r, tuple(x for x in parts if x != "models"), masked, args.allow_unmasked)
+            if "models" in parts:
+                print("models/ →")
+                awsmod.upload_files(s3, bucket, awsmod.model_pairs(root))
+        else:
+            for r in args.ride:
+                print(f"{r}: {awsmod.presigned_site_url(s3, bucket, r, args.expires_hours)}")
     return 0
