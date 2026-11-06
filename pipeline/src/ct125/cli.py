@@ -120,6 +120,14 @@ def main(argv: list[str] | None = None) -> int:
     up.add_argument("--allow-unmasked", action="store_true", help="local.yaml がなくても processed/site を上げる（公開しない前提でのみ）")
     up.add_argument("--root", default=None)
     up.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    ex = sub.add_parser("export", help="Web アプリ用の JSON（rides.json、ride_<id>.json）を web-app/src/data/ に書き出す")
+    ex.add_argument("--out", default=None, help="出力先（既定 <root>/web-app/src/data）")
+    ex.add_argument("--root", default=None)
+    ex.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    ck = sub.add_parser("check-privacy", help="ファイル内の座標に、登録地点から半径 private_radius_m 以内の点が無いか検査")
+    ck.add_argument("files", nargs="+")
+    ck.add_argument("--root", default=None)
+    ck.add_argument("--raw", default=None, help=argparse.SUPPRESS)
     sh = sub.add_parser("share", help="site/<ride_id>/index.html の署名付き URL を発行")
     sh.add_argument("--ride", action="append", required=True)
     sh.add_argument("--expires-hours", type=float, default=72)
@@ -149,6 +157,33 @@ def main(argv: list[str] | None = None) -> int:
         for rid in io.list_rides(raw_dir):
             memos[rid] = " ".join(q.read_text(encoding="utf-8").strip() for q in sorted((raw_dir / rid).glob("*.txt")))
         viz.render_all(processed_dir, root / "web", cfg, memos, args.ride or None)
+    elif args.cmd == "export":
+        from . import export as exportmod
+
+        memos = {rid: " ".join(q.read_text(encoding="utf-8").strip() for q in sorted((raw_dir / rid).glob("*.txt"))) for rid in io.list_rides(raw_dir)}
+        out = Path(args.out) if args.out else root / "web-app" / "src" / "data"
+        exportmod.export_all(processed_dir, out, memos)
+        if private_points(cfg):
+            res = exportmod.check_files(sorted(out.glob("*.json")), private_points(cfg), cfg["private_radius_m"])
+            bad = [r for r in res if r["within_radius"]]
+            near = min((r["min_m"] for r in res), default=float("inf"))
+            print(f"検査：{len(res)} ファイル、登録地点から {cfg['private_radius_m']} m 以内の点 {sum(r['within_radius'] for r in res)}、最も近い点 {near:.0f} m")
+            if bad:
+                print("登録地点の周辺の座標が書き出されています。中止してください", file=sys.stderr)
+                return 1
+        else:
+            print("注意：config/local.yaml に home がないので自宅マスクは未適用です。この出力を配布しないでください", file=sys.stderr)
+    elif args.cmd == "check-privacy":
+        from . import export as exportmod
+
+        pts = private_points(cfg)
+        if not pts:
+            print("config/local.yaml に home がないので検査できません", file=sys.stderr)
+            return 2
+        res = exportmod.check_files([Path(f) for f in args.files], pts, cfg["private_radius_m"])
+        for r in res:
+            print(f"{r['file']}: 座標 {r['points']} 点、{cfg['private_radius_m']} m 以内 {r['within_radius']} 点、最も近い点 {r['min_m']:.0f} m")
+        return 1 if any(r["within_radius"] for r in res) else 0
     elif args.cmd in ("bucket", "upload", "share"):
         from . import aws as awsmod
 
