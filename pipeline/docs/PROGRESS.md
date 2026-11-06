@@ -84,3 +84,4 @@
 - 未実施（本人の確認待ち）：S3 の `app/v1/` と `site-app/index.html` へのアップロード。`web-app/` は 11/8 の状態のまま残している（削除するかは確認待ち）。
 - 次：アップロード → `DATA_SOURCE=s3` で dev を確認 → 1 ファイルを `site-app/` に上げ、署名付き URL をスマホで確認。
 - 追記（同日）：本人の了承を得て `export --upload` で S3 の `app/v1/` に 37 ファイル（約 1.8 MB）を上げた。ct125-app を `DATA_SOURCE=s3` にして読めることと、`pull-data.ps1` の同期を確認。`site-app/index.html` へのアップロードと `web-app/` の扱いは未決。
+- 追記（同日）：本人の了承を得て `web-app/` を削除（コードは `D:/ct125-app` に移行済み、データは S3 の `app/v1/` と `export` で作り直せる）。
