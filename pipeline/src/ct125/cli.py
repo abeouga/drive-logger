@@ -107,6 +107,10 @@ def main(argv: list[str] | None = None) -> int:
     sc.add_argument("--ride", action="append", default=[], help="学習・スコア対象を絞る（既定は全走行）")
     sc.add_argument("--root", default=None)
     sc.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    rd = sub.add_parser("render", help="scored.parquet から web/<ride_id>/index.html と web/index.html")
+    rd.add_argument("--ride", action="append", default=[], help="描く走行（既定は全走行）")
+    rd.add_argument("--root", default=None)
+    rd.add_argument("--raw", default=None, help="memo.txt を読む生データのフォルダー（既定 <root>/data/raw）")
     args = p.parse_args(argv)
 
     cfg = load_config(args.root) if args.root else load_config()
@@ -124,4 +128,11 @@ def main(argv: list[str] | None = None) -> int:
             process_ride(r, cfg, raw_dir, interim_dir, processed_dir)
     elif args.cmd == "score":
         score_all(cfg, processed_dir, root / "data" / "models", args.ride or None)
+    elif args.cmd == "render":
+        from . import viz
+
+        memos = {}
+        for rid in io.list_rides(raw_dir):
+            memos[rid] = " ".join(q.read_text(encoding="utf-8").strip() for q in sorted((raw_dir / rid).glob("*.txt")))
+        viz.render_all(processed_dir, root / "web", cfg, memos, args.ride or None)
     return 0
