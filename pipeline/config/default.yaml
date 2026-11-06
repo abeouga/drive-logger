@@ -1,0 +1,20 @@
+# 設定の既定値（根拠は docs/data_schema.md 6.）。自宅座標などは config/local.yaml（コミットしない）に置く。
+window_sec: 1.0          # 1 秒窓、重なりなし（計画書 9.1）
+edge_sec: 60             # 走行の先頭・末尾を is_edge=True にする秒数
+clip_g: 15.9             # ADXL345 FULL_RES ±16g の上限（15.97 g）手前。これ以上は is_clipped
+stop_speed_kmh: 5        # 停止判定（停止中でも GPS 速度が 0〜4 km/h 出る）
+gps:
+  min_sats: 5            # これ未満の行は無効（ride_004 の 100 km/h 誤測位は sats 3〜4）
+  max_hdop: 5.0          # これを超える行は無効
+  max_jump_mps: 50       # 1 秒で 50 m 以上飛ぶ点は無効（時速 180 km 相当）
+  max_gap_sec: 5         # fix 間隔がこれを超える区間は補間しない（has_gps=False）
+  speed_smooth_points: 3 # 速度の移動中央値の点数
+private_radius_m: 300    # local.yaml の座標から半径この距離内の窓は is_private=True
+model:
+  speed_bin_kmh: 5       # 速度補正ベースラインのビン幅
+  z_threshold: 3.0       # z_speed の候補異常しきい値
+  contamination: 0.03    # IsolationForest
+bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
+  band_1_5: [1, 5]
+  band_5_15: [5, 15]
+  band_15_40: [15, 40]
