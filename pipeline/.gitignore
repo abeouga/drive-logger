@@ -22,3 +22,4 @@ Thumbs.db
 web-app/node_modules/
 web-app/dist/
 web-app/src/data/
+web-app/*.tsbuildinfo
