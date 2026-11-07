@@ -14,8 +14,8 @@ if (-not $NoPull) {
 
 Push-Location $root
 try {
-    npm run build
-    if ($LASTEXITCODE -ne 0) { throw "npm run build に失敗しました" }
+    npm run build:single
+    if ($LASTEXITCODE -ne 0) { throw "npm run build:single に失敗しました" }
 } finally {
     Pop-Location
 }

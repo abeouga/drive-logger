@@ -1,10 +1,12 @@
 import { useRoute, listHref, aboutHref } from "./lib/route";
+import { useAuth } from "./lib/auth/AuthGate";
 import RideList from "./pages/RideList";
 import Ride from "./pages/Ride";
 import About from "./pages/About";
 
 export default function App() {
   const route = useRoute();
+  const { user, signOut } = useAuth();
   return (
     <div className="min-h-screen bg-page text-ink">
       <header className="border-b border-line bg-surface">
@@ -19,6 +21,11 @@ export default function App() {
             <a href={aboutHref} className={route.page === "about" ? "text-ink" : "hover:text-ink"}>
               この分析について
             </a>
+            {user && (
+              <button type="button" onClick={() => void signOut()} className="hover:text-ink" title={`${user.username} でログイン中`}>
+                ログアウト
+              </button>
+            )}
           </nav>
         </div>
       </header>

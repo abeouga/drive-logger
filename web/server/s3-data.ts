@@ -42,7 +42,7 @@ function send(res: ServerResponse, status: number, body: string | Uint8Array, ty
 
 export function s3DataPlugin(env: DataEnv, cacheDir: string): Plugin {
   const source = (env.DATA_SOURCE ?? "s3").toLowerCase();
-  const prefix = env.S3_PREFIX ?? "app/v1/";
+  const prefix = env.S3_PREFIX ?? "app/v1/datasets/shared/";
   let client: S3Client | null = null;
 
   const getS3 = () => {
