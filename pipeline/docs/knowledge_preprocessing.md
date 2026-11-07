@@ -1,7 +1,7 @@
 # CT125 ロガー 知見まとめ：データの前処理・時刻・傾き・振動の見方
 
 作成：2026-11-06。2026-11-02 の実車データ（ride_001〜009）と机上テストで分かったことを、次に同じことをする人（別の Claude Code や将来の自分）向けにまとめたもの。
-数値は実測値。根拠になったファイルは `開発記録.md`、`データ仕様.md`、`notebooks/first_ride.ipynb`、`tools/ride.py`、`tools/check_session.py`、`tools/analyze_timing.py`。
+数値は実測値。根拠になったファイルは `docs/dev_log_hardware.md`（元 `開発記録.md`）、`docs/data_spec_v2.md`（元 `データ仕様.md`）、`notebooks/first_ride.ipynb`（リポジトリ外：`D:\カブロガー\archive\notebooks\`）、`tools/ride.py`、`tools/check_session.py`、`tools/analyze_timing.py`。
 
 ---
 

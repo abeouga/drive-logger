@@ -7,6 +7,7 @@
 - データの実測スキーマ：[docs/data_schema.md](docs/data_schema.md)
 - 未確定事項・質問：[docs/QUESTIONS.md](docs/QUESTIONS.md)
 - 進捗：[docs/PROGRESS.md](docs/PROGRESS.md)
+- ロガー本体：データ仕様 [docs/data_spec_v2.md](docs/data_spec_v2.md)、開発記録 [docs/dev_log_hardware.md](docs/dev_log_hardware.md)、配線図 [docs/hardware/配線図/](docs/hardware/配線図/)、SD の点検スクリプト `tools/`（`check_session.py`・`analyze_timing.py`・`ride.py`）
 
 ## 現在の状態（2026-11-06、フェーズ 3 完了）
 
