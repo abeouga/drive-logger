@@ -14,23 +14,35 @@
 //   - SDへの書き込みは loop()（コア1）で、RAMのリングバッファから取り出して行う。
 //   - 1秒ごとに flush。電源が突然切れても失うのは最後の約1秒。
 //
+// V3：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
+//   記録中 →（止まって静か 2 分、または BOOT ボタン 2 秒）→ 記録を閉じる → 送信 → 待機
+//   待機中に動き出したら再起動して、新しい走行の記録を始める。記録と送信は同時にしない。
+//   送信の手順は uploader.cpp、Wi-Fi とトークンの設定は config_store.cpp（シリアルから書き込む）。
+//
 // LED（PC なしで動かすときの目印）
 //   ゆっくり点滅（1秒に1回）      : 記録中・GPS 有効
 //   短く2回ずつ点滅              : 記録中・GPS まだ（未測位）
 //   速い点滅（1秒に5回）が続く     : 記録できていない（SD・ADXL のどちらかが NG）
+//   1秒ついて1秒消える            : 送信中
+//   つきっぱなし                  : 送信が終わった（または送るものが無い）
+//   短く3回ずつ点滅              : 送れなかった（Wi-Fi が無い・設定が無い・失敗。BOOT ボタンでやり直せる）
 
 #include <Wire.h>
 #include <SPI.h>
 #include <SD.h>
+#include <math.h>
 #include "freertos/ringbuf.h"
 #include "esp_timer.h"
+#include "config_store.h"
+#include "uploader.h"
 
-#define FW_VERSION "CT125_LOGGER_V2.1"
+#define FW_VERSION "CT125_LOGGER_V3.0"
 
 const int PIN_SDA = 21, PIN_SCL = 22;
 const int PIN_GPS_RX = 32, PIN_GPS_TX = 33;
 const int PIN_PPS = -1;              // PPS をつないだら 34 などにする（-1＝使わない）
 const int PIN_LED = 2;
+const int PIN_BOOT = 0;              // 開発ボードの BOOT ボタン（押すと LOW）。起動後は普通の入力として使える
 const uint32_t GPS_BAUD = 9600;
 const int PIN_SD_CS = 5;
 const uint32_t SD_HZ = 4000000;
@@ -39,6 +51,19 @@ const float G_PER_LSB = 0.0039f;     // フル分解能
 const float ACCEL_HZ = 400.0f;       // BW_RATE=0x0C
 const uint32_t FLUSH_MS = 1000;
 const uint32_t STATUS_MS = 10000;
+
+// 送信のきっかけ（設計書 3.1）
+const float QUIET_STD_G = 0.02f;        // 1 秒間の合成加速度のばらつきがこれ未満なら「静か」（エンジン停止。静止時の雑音は約 0.008g）
+const float MOVING_STD_G = 0.05f;       // これを超えたら「動いている」（アイドリングや走行）
+const float STOP_SPEED_KMH = 3.0f;      // GPS 速度がこれ未満なら止まっている
+const uint32_t QUIET_SECONDS = 120;     // 静かな状態がこれだけ続いたら記録を閉じて送る
+const uint32_t BUTTON_HOLD_MS = 2000;   // BOOT ボタンをこれだけ押し続けたら、今すぐ送る
+const uint32_t MOVING_SECONDS_TO_WAKE = 3;  // 待機中、これだけ続けて動いたら再起動して記録を始める
+
+// 動作の状態
+enum Mode { MODE_ERROR, MODE_LOGGING, MODE_UPLOADING, MODE_IDLE };
+volatile Mode mode = MODE_ERROR;
+volatile UploadResult lastUploadResult = UploadResult::NothingToSend;
 
 static inline int64_t nowUs() { return esp_timer_get_time(); }
 
@@ -54,6 +79,13 @@ volatile char gpsStatus = 'V';
 volatile int gpsSats = 0;
 volatile int64_t ppsUs = -1;
 bool running = false;
+
+// 記録を閉じるとき、加速度と GPS のタスクに止まってもらう
+volatile bool stopRequested = false, accelStopped = false, gpsStopped = false;
+// 送信のきっかけの判定に使う値（sensorTask・gpsTask が更新する）
+volatile float accelStd1s = -1;      // 直近 1 秒の合成加速度の標準偏差 [g]
+volatile float gpsSpeedKmh = -1;     // GPS 速度（無効なら -1）
+volatile bool hasMoved = false;      // この走行で一度でも動いたか（止まったまま電源を入れただけの走行は閉じない）
 
 // 起動前（SDが開く前）の出来事はここにためて、セッション作成後に書く
 String pendingEvents;
@@ -174,6 +206,10 @@ void gpsTask(void *) {
   String ggaFix = "", ggaSats = "", ggaHdop = "";
   char prevStatus = 'V';
   for (;;) {
+    if (stopRequested) {
+      gpsStopped = true;
+      vTaskDelete(nullptr);
+    }
     while (Serial2.available()) {
       char c = Serial2.read();
       if (c == '$') {
@@ -208,6 +244,8 @@ void gpsTask(void *) {
         if (PIN_PPS >= 0) len += snprintf(out + len, sizeof(out) - len, ",%lld", (long long)ppsUs);
         len += snprintf(out + len, sizeof(out) - len, "\n");
         pushTo(ringGps, out, len);
+        gpsSpeedKmh = (status == 'A' && sp.length()) ? sp.toFloat() * 1.852f : -1.0f;
+        if (gpsSpeedKmh > 10.0f) hasMoved = true;
         gpsStatus = status;
         if (status != prevStatus) logEvent(status == 'A' ? "gps_valid" : "gps_lost", "");
         prevStatus = status;
@@ -242,7 +280,14 @@ void sensorTask(void *) {
   writeReg(0x38, 0x80 | 16);
   uint8_t clr;
   readRegs(0x30, &clr, 1);
+  // 1 秒ごとの合成加速度のばらつき（送信のきっかけの判定用）
+  double magSum = 0, magSumSq = 0;
+  int magCount = 0;
   for (;;) {
+    if (stopRequested) {
+      accelStopped = true;
+      vTaskDelete(nullptr);
+    }
     uint8_t st = 0, src = 0;
     if (!readRegs(0x39, &st, 1) || !readRegs(0x30, &src, 1)) {
       i2cErrors++;
@@ -293,10 +338,22 @@ void sensorTask(void *) {
       tPrev = tUs;
       if (firstSampleUs < 0) firstSampleUs = tUs;
       lastSampleUs = tUs;
+      float gx = x * G_PER_LSB, gy = y * G_PER_LSB, gz = z * G_PER_LSB;
       len += snprintf(buf + len, sizeof(buf) - len, "%lu,%lld,%.4f,%.4f,%.4f\n", (unsigned long)samples,
-                      (long long)tUs, x * G_PER_LSB, y * G_PER_LSB, z * G_PER_LSB);
+                      (long long)tUs, gx, gy, gz);
       samples++;
       got++;
+      double mag = sqrt((double)gx * gx + (double)gy * gy + (double)gz * gz);
+      magSum += mag;
+      magSumSq += mag * mag;
+      if (++magCount >= (int)ACCEL_HZ) {
+        double mean = magSum / magCount;
+        double var = magSumSq / magCount - mean * mean;
+        accelStd1s = (float)sqrt(var > 0 ? var : 0);
+        if (accelStd1s > MOVING_STD_G) hasMoved = true;
+        magSum = magSumSq = 0;
+        magCount = 0;
+      }
     }
     tNext += got * periodUs;
     pllPeriodUs = periodUs;
@@ -401,10 +458,31 @@ void writeStatus() {
 }
 
 // ------------------------------------------------------------------ LED
+void blink(int times, uint32_t onMs, uint32_t offMs) {
+  for (int i = 0; i < times; i++) {
+    digitalWrite(PIN_LED, HIGH);
+    vTaskDelay(pdMS_TO_TICKS(onMs));
+    digitalWrite(PIN_LED, LOW);
+    vTaskDelay(pdMS_TO_TICKS(offMs));
+  }
+}
+
+bool uploadSucceeded() {
+  return lastUploadResult == UploadResult::Done || lastUploadResult == UploadResult::NothingToSend;
+}
+
 void ledTask(void *) {
   pinMode(PIN_LED, OUTPUT);
   for (;;) {
-    if (!running) {                       // NG：速い点滅
+    if (mode == MODE_UPLOADING) {         // 送信中：1 秒ついて 1 秒消える
+      blink(1, 1000, 1000);
+    } else if (mode == MODE_IDLE && uploadSucceeded()) {  // 送信が終わった：つきっぱなし
+      digitalWrite(PIN_LED, HIGH);
+      vTaskDelay(pdMS_TO_TICKS(200));
+    } else if (mode == MODE_IDLE) {       // 送れなかった：短く 3 回
+      blink(3, 80, 150);
+      vTaskDelay(pdMS_TO_TICKS(800));
+    } else if (!running) {                // NG：速い点滅
       digitalWrite(PIN_LED, !digitalRead(PIN_LED));
       vTaskDelay(pdMS_TO_TICKS(100));
     } else if (gpsStatus == 'A') {        // 記録中・GPS 有効：ゆっくり点滅
@@ -429,6 +507,7 @@ void setup() {
   Serial.begin(115200);
   delay(300);
   Serial.printf("\n%s READY\n", FW_VERSION);
+  pinMode(PIN_BOOT, INPUT_PULLUP);
   xTaskCreatePinnedToCore(ledTask, "led", 2048, nullptr, 1, nullptr, 1);
   logEvent("boot", FW_VERSION);
   i2cBusRecover();
@@ -472,15 +551,63 @@ void setup() {
   }
   xTaskCreatePinnedToCore(gpsTask, "gps", 6144, nullptr, 3, nullptr, 1);
   xTaskCreatePinnedToCore(sensorTask, "accel", 6144, nullptr, 5, nullptr, 0);
+  mode = MODE_LOGGING;
   Serial.println("LOGGING (電源を切れば終了。直前約1秒までは保存されます)");
 }
 
-void loop() {
-  if (!running) {
-    delay(1000);
-    return;
+// ------------------------------------------------------------------ シリアルのコマンド（設定と、手動の送信）
+// CFG ...（config_store.cpp）と UPLOAD（BOOT ボタンと同じ）を受け付ける。記録を止めないよう、届いた分だけ読む
+bool uploadRequestedBySerial = false;
+
+void pollSerial() {
+  static String line;
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c != '\n') {
+      if (line.length() < 300) line += c;
+      continue;
+    }
+    line.trim();
+    if (line == "UPLOAD") uploadRequestedBySerial = true;
+    else if (line.length()) handleConfigCommand(line);
+    line = "";
   }
-  static uint32_t lastFlush = millis(), lastStatus = millis();
+}
+
+// ------------------------------------------------------------------ BOOT ボタン
+// 押し続けて BUTTON_HOLD_MS を超えたら 1 回だけ true
+bool buttonHeld() {
+  static uint32_t pressedAt = 0;
+  static bool fired = false;
+  if (digitalRead(PIN_BOOT) == HIGH) {
+    pressedAt = 0;
+    fired = false;
+    return false;
+  }
+  if (pressedAt == 0) pressedAt = millis();
+  if (!fired && millis() - pressedAt >= BUTTON_HOLD_MS) {
+    fired = true;
+    return true;
+  }
+  return false;
+}
+
+// ------------------------------------------------------------------ 記録中
+bool isQuietNow() {
+  bool stillVibration = accelStd1s >= 0 && accelStd1s < QUIET_STD_G;
+  bool stopped = gpsStatus != 'A' || gpsSpeedKmh < STOP_SPEED_KMH;  // 屋内などで GPS が無いときは振動だけで見る
+  return stillVibration && stopped;
+}
+
+// 送るきっかけが来たら、その理由を返す（来ていなければ nullptr）。1 秒に 1 回呼ぶ
+const char *uploadTrigger(uint32_t &quietSeconds) {
+  quietSeconds = isQuietNow() ? quietSeconds + 1 : 0;
+  if (hasMoved && quietSeconds >= QUIET_SECONDS) return "quiet";
+  return nullptr;
+}
+
+void loopLogging() {
+  static uint32_t lastFlush = millis(), lastStatus = millis(), lastCheck = millis(), quietSeconds = 0;
   drain(ringAccel, fAccel, pdMS_TO_TICKS(20));
   drain(ringGps, fGps, 0);
   drain(ringEvent, fEvent, 0);
@@ -494,5 +621,105 @@ void loop() {
   if (now - lastStatus >= STATUS_MS) {
     lastStatus = now;
     writeStatus();
+  }
+  const char *reason = nullptr;
+  if (buttonHeld()) reason = "button";
+  if (uploadRequestedBySerial) reason = "serial";
+  if (now - lastCheck >= 1000) {
+    lastCheck = now;
+    const char *quiet = uploadTrigger(quietSeconds);
+    if (!reason) reason = quiet;
+  }
+  if (reason) {
+    uploadRequestedBySerial = false;
+    finishSession(reason);
+    runUpload();
+  }
+}
+
+// 記録を閉じる：タスクを止め、たまっている分を書き切って、ファイルを閉じ、メモリを空ける（この後 Wi-Fi を使うため）
+void finishSession(const char *reason) {
+  logEvent("session_end", reason);
+  stopRequested = true;
+  uint32_t start = millis();
+  while ((!accelStopped || !gpsStopped) && millis() - start < 2000) delay(10);
+  for (RingbufHandle_t ring : {ringAccel, ringGps, ringEvent}) {
+    File &f = ring == ringAccel ? fAccel : ring == ringGps ? fGps : fEvent;
+    for (int i = 0; i < 64; i++) drain(ring, f, 0);  // 1 回 4KB まで。64KB のリングを空にするのに足りる
+  }
+  writeStatus();
+  fAccel.close();
+  fGps.close();
+  fEvent.close();
+  running = false;
+  vRingbufferDelete(ringAccel);
+  vRingbufferDelete(ringGps);
+  vRingbufferDelete(ringEvent);
+  ringAccel = ringGps = ringEvent = nullptr;
+  Serial.printf("SESSION_END %s reason=%s\n", sessionDir.c_str(), reason);
+}
+
+// ------------------------------------------------------------------ 送信
+// 送信中に動き出したら、ファイルの合間でやめる（記録が優先）
+bool movingNow();
+
+bool abortUploadIfMoving() { return movingNow(); }
+
+void runUpload() {
+  mode = MODE_UPLOADING;
+  UploadSummary summary = uploadPendingSessions(loadConfig(), abortUploadIfMoving);
+  lastUploadResult = summary.result;
+  Serial.printf("UPLOAD_RESULT %s sent=%d failed=%d free_heap=%u\n", uploadResultName(summary.result), summary.sent, summary.failed,
+                (unsigned)ESP.getFreeHeap());
+  mode = MODE_IDLE;
+}
+
+// ------------------------------------------------------------------ 待機中
+// 記録を止めた後も ADXL345 は測り続けている。FIFO から 40 件読んで、ばらつきで動いているかを見る
+bool movingNow() {
+  uint8_t raw[6];
+  double sum = 0, sumSq = 0;
+  int n = 0;
+  for (int i = 0; i < 40; i++) {
+    if (!readRegs(0x32, raw, 6)) continue;
+    int16_t x = raw[0] | (raw[1] << 8), y = raw[2] | (raw[3] << 8), z = raw[4] | (raw[5] << 8);
+    double mag = sqrt((double)x * x + (double)y * y + (double)z * z) * G_PER_LSB;
+    sum += mag;
+    sumSq += mag * mag;
+    n++;
+    delay(3);
+  }
+  if (n < 10) return false;
+  double mean = sum / n;
+  double var = sumSq / n - mean * mean;
+  return sqrt(var > 0 ? var : 0) > MOVING_STD_G;
+}
+
+void loopIdle() {
+  static uint32_t lastCheck = 0, movingSeconds = 0;
+  if (buttonHeld() || uploadRequestedBySerial) {  // 送れなかったときのやり直し
+    uploadRequestedBySerial = false;
+    runUpload();
+    return;
+  }
+  if (millis() - lastCheck < 1000) {
+    delay(20);
+    return;
+  }
+  lastCheck = millis();
+  movingSeconds = movingNow() ? movingSeconds + 1 : 0;
+  if (movingSeconds >= MOVING_SECONDS_TO_WAKE) {
+    Serial.println("MOVING 再起動して新しい走行の記録を始めます");
+    delay(100);
+    ESP.restart();
+  }
+}
+
+void loop() {
+  pollSerial();
+  switch (mode) {
+    case MODE_LOGGING: loopLogging(); break;
+    case MODE_IDLE: loopIdle(); break;
+    default: delay(100); break;  // MODE_ERROR（SD・ADXL が NG）。設定のコマンドだけは受け付ける
   }
 }
