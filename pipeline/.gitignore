@@ -19,7 +19,3 @@ __pycache__/
 Thumbs.db
 .DS_Store
 .pytest_tmp/
-# 機器トークン（provision-device.ps1 で ESP32 に入れたら消す）
-*.token
-# ファームウェアのビルド結果
-firmware/**/build/

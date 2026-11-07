@@ -4,7 +4,7 @@
 param([switch]$NoPull)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$logger = if ($env:CT125_LOGGER_DIR) { $env:CT125_LOGGER_DIR } else { "D:\カブロガー\ct125-logger" }
+$logger = if ($env:CT125_LOGGER_DIR) { $env:CT125_LOGGER_DIR } else { Join-Path (Split-Path -Parent $root) "pipeline" }
 $python = Join-Path $logger ".venv\Scripts\python.exe"
 
 if (-not $NoPull) {

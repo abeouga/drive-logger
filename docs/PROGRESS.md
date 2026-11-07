@@ -128,3 +128,11 @@
 - 1 回目の失敗：BOOT ボタンで始めた送信が、最初のファイルの前に止まった（LED 3 回点滅）。SD のログに ticket だけが残り put の記録が無いことから、ボタンを押す手の揺れを「動き出した」と判定して送信をやめたと判断。V3.1 で、手で始めた送信（BOOT・シリアル）はやめないように、自動の送信は動きが約 1 秒続いたときだけやめるように直した。やめたときは `/upload_log.csv` に aborted を残す。シリアルの `LOG` で SD を抜かずにログが読める。
 - 机上の試験の走行 ride_20261108_011304 は、本人が画面で見た後に消した（raw・processed・公開データ・rides.json の 1 件。公開一覧は 9 走行に戻した）。ESP32 の SD の ride_013 には uploaded.json があるので、もう一度送られることはない。
 - 未確認：バッテリーでの「静か 2 分」からの自動送信、実走。
+
+## リポジトリを 1 つにまとめた：drive-logger（2026-11-08 実施）
+
+- `D:\カブロガー\ct125-logger`（30 コミット）と `D:\ct125-app`（6 コミット）を履歴ごと `D:\drive-logger` にまとめ、`D:\ct125-logger-terraform`（git なし）を `infra/` として足した。履歴は git filter-repo でサブフォルダーに移してから合わせた（`git log --follow` でたどれる）。
+- 構成：`firmware/`（ESP32）・`pipeline/`（Python。旧 ct125-logger の src・tests・config・deploy・tools・notebooks・scripts）・`api/`（FastAPI）・`web/`（React）・`infra/`（Terraform）・`docs/`・`CLAUDE.md`。
+- 直したこと：絶対パス（`D:\ct125-app`・`D:\ct125-logger-terraform`・`D:\カブロガー\ct125-logger`）をリポジトリ内の相対に。スクリプトの既定のフォルダー（deploy・build-single・build-pipeline-image）、Terraform の zip の場所（`path.module` から）、ルートの .gitignore。この PROGRESS.md の過去の記述は、そのときの場所のまま残している。
+- 確認：pipeline のテスト 50 件（ライブラリの版は旧 .venv と同じにそろえた）、api 51 件、web の型チェックとビルド、書き出し 36 ファイルが公開中のデータとバイト単位で一致、Terraform の state を移して plan が Lambda 2 つの zip の場所の更新だけ。
+- 古いフォルダーは消さずに `D:\カブロガー\archive\old_repos\` に移した。

@@ -41,5 +41,5 @@ def test_rejects_bad_device_ids(device_id):
 
 
 def test_hash_matches_the_api_side():
-    # データ API（D:/ct125-app/api の device_authenticator.hash_token）と同じ作り方であること
+    # データ API（api の device_authenticator.hash_token）と同じ作り方であること
     assert devices.hash_token("abc") == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"

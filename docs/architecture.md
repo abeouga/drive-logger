@@ -46,8 +46,8 @@ flowchart LR
 | スコア | 速度補正ベースライン、Isolation Forest。学習（`fit_models`）と推論（`apply_models`）を分けてある | `src/ct125/model.py` |
 | 画面用データ | rides.json・ride_<id>.json・スペクトログラム・生波形。1 走行ずつ書き出せる（`export_ride`） | `src/ct125/export.py`・`spectro.py` |
 | AWS の処理 | S3 に生データが届いたら Lambda（コンテナ）が前処理 → 推論 → 書き出し → 座標検査 → 公開。手動で学習し直し | `src/ct125/cloud/`、`deploy/lambda/`、`scripts/build-pipeline-image.ps1` |
-| 公開 | CloudFront＋Cognito ログイン＋データ API（FastAPI） | `D:\ct125-app`（フロントと `api/`） |
-| AWS のリソース | S3・CloudFront・Cognito・API Gateway・Lambda×2・ECR・ACM（Terraform） | `D:\ct125-logger-terraform` |
+| 公開 | CloudFront＋Cognito ログイン＋データ API（FastAPI） | `web`（フロントと `api/`） |
+| AWS のリソース | S3・CloudFront・Cognito・API Gateway・Lambda×2・ECR・ACM（Terraform） | `infra` |
 
 ## 自宅周辺の座標を出さない仕組み（AWS 側）
 
@@ -59,5 +59,5 @@ flowchart LR
 
 - ESP32 から Wi-Fi で S3 に直接送る（今は SD を PC に挿して `upload`）
 - SageMaker での学習（今は Lambda の `retrain` で十分な量。データが増えたら移す）
-- ユーザーごとのデータセット（入口は `D:\ct125-app\api\src\ct125_api\services\dataset_resolver.py`。今は全員 shared）
+- ユーザーごとのデータセット（入口は `api\src\ct125_api\services\dataset_resolver.py`。今は全員 shared）
 - ECU 系統：端子・電圧・プロトコルが未検証で安全に検証できないと判断し、触れていない

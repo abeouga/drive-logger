@@ -1,6 +1,6 @@
 """データファイル：rides.json・ride_<id>.json・spec_<id>.png など、画面が読むファイル。
 
-形は D:/ct125-app/docs/data_contract.md のとおり。
+形は web/docs/data_contract.md のとおり。
 """
 
 import re

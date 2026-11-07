@@ -105,4 +105,4 @@ http://localhost:8000/api/docs で説明書が開きます。`ALLOW_LOCAL_USER` 
 ./scripts/build-lambda.ps1
 ```
 
-`dist/lambda.zip` ができます。Terraform（`D:\ct125-logger-terraform`）がこれを 2 つの Lambda に上げます（ハンドラーだけが違う）。
+`dist/lambda.zip` ができます。Terraform（`infra`）がこれを 2 つの Lambda に上げます（ハンドラーだけが違う）。

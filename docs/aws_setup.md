@@ -15,14 +15,14 @@
 
 ## 1. バケットの作成（Terraform、済み）
 
-Terraform は `D:\ct125-logger-terraform`（このリポジトリの外。state はそのフォルダーのローカル）。
+Terraform は `infra/`（state は infra/ のローカルに置き、コミットしない）。
 
 ```bash
-terraform -chdir=D:/ct125-logger-terraform plan
+terraform -chdir=infra plan
 ```
 
 ```bash
-terraform -chdir=D:/ct125-logger-terraform apply
+terraform -chdir=infra apply
 ```
 
 作るもの：バケット `ct125-logger-<アカウントID>`、パブリックアクセスブロック 4 項目、BucketOwnerEnforced（ACL 無効）、SSE-S3、HTTPS 以外を拒否するバケットポリシー、バージョニング（古い版は 30 日で削除）。IAM は作らない。
@@ -77,10 +77,10 @@ site/<ride_id>/index.html
 - スマホのブラウザで開いて地図が出ることを確認する（地図タイルは OpenStreetMap、Plotly は CDN から読む）。
 - URL を知っている人は期限内なら誰でも開ける。見せる相手にだけ渡す。
 
-## 4b. Web アプリ版（D:\ct125-app）
+## 4b. Web アプリ版（web）
 
 - データ：`python -m ct125 export --upload` で `app/v1/` に上げる（書き出し後の座標検査に通ったときだけ）。2026-11-06 に上げ済み
-- 1 ファイル：ct125-app の `scripts/build-single.ps1` → `python -m ct125 upload --site-app D:/ct125-app/dist/index.html`（上げる前に座標を検査）→ `python -m ct125 share --app --expires-hours 72`
+- 1 ファイル：ct125-app の `scripts/build-single.ps1` → `python -m ct125 upload --site-app web/dist/index.html`（上げる前に座標を検査）→ `python -m ct125 share --app --expires-hours 72`
 - ct125-app の dev サーバーは `app/v1/` を読むだけ（書き込まない）。CORS は設定しない（ブラウザは S3 を直接読まない）
 
 ## 5. 権限と鍵の扱い（ベストプラクティス）

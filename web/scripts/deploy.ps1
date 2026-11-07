@@ -3,10 +3,10 @@
 #   2. npm run build（hosted 版。走行データは入らない。データはログイン後に /api/data/ から取る）
 #   3. S3 の webapp/ に上げる（index.html はキャッシュさせない、assets/ は長くキャッシュ）
 #   4. CloudFront のキャッシュを消す
-# 前提：D:\ct125-logger-terraform で terraform apply 済み、AWS プロファイル ct125-logger でログイン済み
+# 前提：infra で terraform apply 済み、AWS プロファイル ct125-logger でログイン済み
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$terraformDir = if ($env:CT125_TERRAFORM_DIR) { $env:CT125_TERRAFORM_DIR } else { "D:\ct125-logger-terraform" }
+$terraformDir = if ($env:CT125_TERRAFORM_DIR) { $env:CT125_TERRAFORM_DIR } else { Join-Path (Split-Path -Parent $root) "infra" }
 $awsProfile = "ct125-logger"
 
 function Get-TerraformOutputs {

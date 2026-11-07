@@ -1,0 +1,26 @@
+# どのフォルダーでもコミットしないもの（各フォルダーの .gitignore にも個別の決まりがある）
+
+# 秘密・個人の情報
+*.token
+.env
+.env.local
+.env.*.local
+*.tfvars
+!infra/example.tfvars
+*.tfstate
+*.tfstate.*
+
+# 作り直せるもの
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/
+build/
+.terraform/
+*.tsbuildinfo
+
+# OS
+Thumbs.db
+.DS_Store

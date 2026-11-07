@@ -19,7 +19,7 @@
 npm install
 ```
 
-`.env.example` を `.env.local` にコピーして値を入れる（`S3_BUCKET` は ct125-logger-terraform の `terraform output bucket_name`）。
+`.env.example` を `.env.local` にコピーして値を入れる（`S3_BUCKET` は infra の `terraform output bucket_name`）。
 
 ## ふだん（S3 から読む）
 
@@ -53,7 +53,7 @@ ct125-logger で書き出して S3 に上げ、ブラウザを再読み込みす
 - S3 を通さず ct125-logger から直接書き出す：
 
 ```bash
-.venv/Scripts/python.exe -m ct125 export --out D:/ct125-app/cache
+.venv/Scripts/python.exe -m ct125 export --out ../web/cache
 ```
 
 ## 配布用の 1 ファイルを作る
@@ -67,7 +67,7 @@ S3 から `cache/` を更新 → `npm run build`（`cache/` のデータを HTML
 できた `dist/index.html` を S3 に上げて URL を出す（ct125-logger で）：
 
 ```bash
-.venv/Scripts/python.exe -m ct125 upload --site-app D:/ct125-app/dist/index.html
+.venv/Scripts/python.exe -m ct125 upload --site-app ../web/dist/index.html
 ```
 
 ```bash
@@ -81,6 +81,6 @@ S3 から `cache/` を更新 → `npm run build`（`cache/` のデータを HTML
 | 「走行一覧を読み込めませんでした（HTTP 502）」 | AWS の認証切れ。プロファイル `ct125-logger` の鍵を確認（`aws sts get-caller-identity --profile ct125-logger`）。`cache/` に前のデータがあれば、それを返して画面は出る（レスポンスヘッダー `X-Data-Source: cache-fallback`） |
 | 「…がありません（HTTP 404）」 | S3 の `app/v1/datasets/shared/` にまだ上げていない。ct125-logger で `export --upload` |
 | dev サーバーが起動時に止まる「S3_BUCKET が未設定」 | `.env.local` を作っていない／`<アカウントID>` のまま |
-| `npm run build` が「cache/rides.json がありません」で止まる | 先に `scripts/pull-data.ps1`（または `export --out D:/ct125-app/cache`） |
+| `npm run build` が「cache/rides.json がありません」で止まる | 先に `scripts/pull-data.ps1`（または `export --out ../web/cache`） |
 | 地図が出ない | 回線（OpenFreeMap のタイル）を確認。地図の枠の上にエラーの内容が出る |
 | 地図をホイールで拡大できない | Ctrl（Mac は ⌘）を押しながらホイール。ページのスクロールを妨げないため |

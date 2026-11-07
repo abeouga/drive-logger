@@ -2,11 +2,11 @@
 #   1. docker build（deploy/lambda/Dockerfile、linux/amd64）
 #   2. ECR にログインして push
 #   3. 上げたイメージの digest を Terraform の変数ファイル（pipeline_image.auto.tfvars）に書く
-# その後 `terraform -chdir=D:/ct125-logger-terraform apply` で Lambda が新しいイメージに切り替わる。
+# その後 `terraform -chdir=infra apply` で Lambda が新しいイメージに切り替わる。
 # 前提：Docker Desktop が起動していること、Terraform で ECR リポジトリを作ってあること（terraform output pipeline_repository_url）
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$terraformDir = if ($env:CT125_TERRAFORM_DIR) { $env:CT125_TERRAFORM_DIR } else { "D:\ct125-logger-terraform" }
+$terraformDir = if ($env:CT125_TERRAFORM_DIR) { $env:CT125_TERRAFORM_DIR } else { Join-Path (Split-Path -Parent $root) "infra" }
 $awsProfile = "ct125-logger"
 $tag = Get-Date -Format "yyyyMMdd-HHmmss"
 
