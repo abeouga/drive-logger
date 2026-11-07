@@ -3,9 +3,9 @@
 ハンターカブ CT125 の走行データ（GPS＋振動）を、地図とタイムラインで見る Web アプリです。
 フロント（React＋Vite）と、ログインした人にだけデータを返すデータ API（`api/`、FastAPI）が入っています。
 
-- 公開先：**https://drive.herdio-system.com/**（ログインが必要。ユーザーは `D:\ct125-logger-terraform` の `terraform.tfvars` で管理）
-- データを作る側（解析パイプライン、Python）は `D:\カブロガー\ct125-logger`。生データを S3 の `raw/` に上げると、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして `app/v1/datasets/shared/` に書き出す（ローカルから `python -m ct125 export --upload` で上げることもできる）
-- AWS のリソース（CloudFront・Cognito・API Gateway・Lambda・S3）は `D:\ct125-logger-terraform` の Terraform
+- 公開先：**https://drive.herdio-system.com/**（ログインが必要。ユーザーは `infra` の `terraform.tfvars` で管理）
+- データを作る側（解析パイプライン、Python）は `pipeline`。生データを S3 の `raw/` に上げると、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして `app/v1/datasets/shared/` に書き出す（ローカルから `python -m ct125 export --upload` で上げることもできる）
+- AWS のリソース（CloudFront・Cognito・API Gateway・Lambda・S3）は `infra` の Terraform
 - 表現上の制約（「故障予測」と言わない等）と「ECU / K-Line に触れない」は ct125-logger の `docs/DEV_PLAN.md` 4. のとおり
 
 > 状態（2026-11-07）：CloudFront＋Cognito＋データ API で公開。ローカル開発（dev）と 1 ファイル版も動く。
@@ -43,7 +43,7 @@
 ## ディレクトリ構成
 
 ```
-D:\ct125-app\
+web\
 ├── README.md  package.json  vite.config.ts  tsconfig.json  index.html
 ├── .env.example           ローカル開発の設定の見本（コミットする）
 ├── .env.local             実際の値（コミットしない）
@@ -138,17 +138,17 @@ http://localhost:5173 を開く。ログインはない。
 AWS のリソース（初回や、destroy した後）：
 
 ```bash
-terraform -chdir=D:/ct125-logger-terraform apply
+terraform -chdir=infra apply
 ```
 
 データ API のコードを変えたら、zip を作り直してから上の apply：
 
 ```powershell
-D:\ct125-app\api\scripts\build-lambda.ps1
+api\scripts\build-lambda.ps1
 ```
 
 画面（React）を変えたら：
 
 ```powershell
-D:\ct125-app\scripts\deploy.ps1
+web\scripts\deploy.ps1
 ```

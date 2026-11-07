@@ -22,9 +22,9 @@ model:
 aws:
   profile: ct125-logger     # ~/.aws のプロファイル名。リージョンはプロファイルのもの（ap-northeast-1）を使う
   region: null              # null＝プロファイルの region。明示するならここ
-  app_prefix: app/v1/datasets/shared/  # Web アプリ（D:/ct125-app）が読むデータの置き場所。全ユーザー共通のデータセット（2026-11-07 に app/v1/ から移動）
+  app_prefix: app/v1/datasets/shared/  # Web アプリ（web）が読むデータの置き場所。全ユーザー共通のデータセット（2026-11-07 に app/v1/ から移動）
   site_app_key: site-app/index.html  # Web アプリの 1 ファイルの置き場所
-  bucket: null              # バケットは D:\ct125-logger-terraform で作成。名前（アカウント ID 入り）は config/local.yaml の aws.bucket に書く
+  bucket: null              # バケットは infra で作成。名前（アカウント ID 入り）は config/local.yaml の aws.bucket に書く
 viz:
   map_min_fix_ratio: 0.10   # GPS 有効割合がこれ未満なら地図を描かない（計画書 10.2）
   map_full_fix_ratio: 0.95  # これ以上なら「部分欠損」の注意書きを出さない

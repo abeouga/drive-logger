@@ -15,11 +15,11 @@
 - CSV → クリーニング → 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）→ GPS 結合（速度・座標の補間、品質フィルタ）→ `windows.parquet` までがコマンド 1 つで再現できる。
 - 速度で補正した正常時のベースライン（5 km/h ビンの中央値・MAD）からの逸脱 `z_speed` と、振動特徴量だけの Isolation Forest `score_if` を全窓に付けた。走行中に `z_speed > 3` の窓はなく、往路・復路で同じ場所の振動が一致するかは確認できなかった（`docs/PROGRESS.md`）。
 - 走行ごとに地図（色付き軌跡＋マーカー）とタイムラインの静的 HTML を `web/` に生成する。GPS が取れなかった走行は地図を出さず、注意書きとタイムラインだけを出す。
-- Web アプリ版（地図・タイムライン・スペクトログラムが連動する画面）は別リポジトリ `D:/ct125-app`。https://drive.herdio-system.com/ で公開（ログイン必須）。
+- Web アプリ版（地図・タイムライン・スペクトログラムが連動する画面）は同じリポジトリの `web/`（データ API は `api/`、AWS は `infra/`）。https://drive.herdio-system.com/ で公開（ログイン必須）。
 - **AWS 上で自動処理（2026-11-07）**：`upload --parts raw` で生データを S3 に上げると、Lambda（コンテナ、`src/ct125/cloud/`）が前処理 → 学習済みモデルで点数付け → 画面用データの書き出し → 座標検査まで行い、公開ページに出る。学習し直しも Lambda で行える（下の「AWS 上の処理」）。
 - 取り付けは暫定（ブレッドボードを車体に置いただけ）。20 Hz 以上の帯域には置き方の共振が混ざる可能性がある。
 - 前処理・時刻同期・傾き・振動・GPS についての知見は [docs/knowledge_preprocessing.md](docs/knowledge_preprocessing.md)。構成図は [docs/architecture.md](docs/architecture.md)。
-- S3 バケット（東京、非公開）は Terraform（`D:\ct125-logger-terraform`）で作成済み。アップロードと署名付き URL のコマンド（`upload` / `share`）と手順は [docs/aws_setup.md](docs/aws_setup.md)。走行データと走行ページは自宅マスクを適用してから上げる。
+- S3 バケット（東京、非公開）は Terraform（`infra`）で作成済み。アップロードと署名付き URL のコマンド（`upload` / `share`）と手順は [docs/aws_setup.md](docs/aws_setup.md)。走行データと走行ページは自宅マスクを適用してから上げる。
 - 健康な車両の走行データのみ。故障データは含まれていないため、この先作る異常スコアは「速度で補正した正常時のベースラインからの逸脱」であり、故障の予測ではない。
 - ECU / K-Line 接続はスコープ外（端子・電圧・プロトコルが未検証で期限内に安全に検証できないと判断）。GPS と振動の 2 系統でパイプラインを作る。
 
@@ -96,7 +96,7 @@ aws lambda invoke --function-name ct125-ride-pipeline --cli-binary-format raw-in
 ```
 
 ```bash
-terraform -chdir=D:/ct125-logger-terraform apply
+terraform -chdir=infra apply
 ```
 
 ESP32 から直接送る（C、サーバー側は実装済み・ファームウェアはこれから。設計は [docs/device_upload_design.md](docs/device_upload_design.md)）。機器を登録する（トークンはファイルに書き、ESP32 に入れたら消す）：

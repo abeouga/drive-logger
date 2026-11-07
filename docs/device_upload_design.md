@@ -4,7 +4,7 @@
 
 - ファームウェア：`firmware/ct125_logger/`（`uploader.cpp`・`config_store.cpp`・`root_ca.h`）。設定は `scripts/provision-device.ps1`
 
-- サーバー側：`D:\ct125-app\api` のデバイス API（`device_main.py`・`routers/device_upload_router.py` など）、`D:\ct125-logger-terraform\device_api.tf`
+- サーバー側：`api` のデバイス API（`device_main.py`・`routers/device_upload_router.py` など）、`infra\device_api.tf`
 - 機器の登録：`python -m ct125 register-device --id d01 --token-file d01.token`（ハッシュだけを SSM に置く）
 - お手本：`tools/device_upload_simulator.py`（ファームウェアと同じ手順を PC から行う）
 - 確認：PC から機器のふりをして ride_001 を送り、受け付け → PUT → 完了 → 自動処理 → 公開一覧に載るまでを確認（その後、テストの走行と機器の登録は消した）
@@ -101,7 +101,7 @@ sequenceDiagram
 
 | 部分 | 中身 |
 |---|---|
-| デバイス API | `D:\ct125-app\api` に `routers/device_upload_router.py` を足す。Lambda は**画面用のデータ API とは別の関数**（`ct125-device-api`）にして、権限を分ける（画面用は読むだけ、デバイス用は raw/ に置くだけ） |
+| デバイス API | `api` に `routers/device_upload_router.py` を足す。Lambda は**画面用のデータ API とは別の関数**（`ct125-device-api`）にして、権限を分ける（画面用は読むだけ、デバイス用は raw/ に置くだけ） |
 | トークンの確認 | 機器は `Authorization: Device <機器ID>.<トークン>`。サーバーは SSM（`/ct125/devices/<機器ID>/token-sha256`）のハッシュと定数時間で比べる。トークンそのものは保存しない |
 | 走行名 | サーバーが付ける：`ride_<受け付けた日時 JST>`（例 ride_20261108_1530）。重なったら末尾に番号 |
 | 受け付ける中身 | ファイル名は accel.csv・gps.csv・events.csv・status.csv・meta.json・memo.txt だけ。大きさの上限（1 ファイル 200MB） |
