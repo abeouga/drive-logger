@@ -271,7 +271,10 @@ SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool
   logUpload(session, ticket.rideId, "ticket", String(ticket.targets.size()) + " files");
 
   bool aborted = false;
-  if (!sendFiles(cfg, session, ticket, shouldAbort, aborted)) return aborted ? SessionResult::Aborted : SessionResult::Failed;
+  if (!sendFiles(cfg, session, ticket, shouldAbort, aborted)) {
+    if (aborted) logUpload(session, ticket.rideId, "aborted", "moving");
+    return aborted ? SessionResult::Aborted : SessionResult::Failed;
+  }
 
   String response;
   code = postJson(cfg, "/api/device/uploads/" + ticket.rideId + "/complete", "{}", response);
