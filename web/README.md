@@ -4,7 +4,7 @@
 フロント（React＋Vite）と、ログインした人にだけデータを返すデータ API（`api/`、FastAPI）が入っています。
 
 - 公開先：**https://drive.herdio-system.com/**（ログインが必要。ユーザーは `D:\ct125-logger-terraform` の `terraform.tfvars` で管理）
-- データを作る側（解析パイプライン、Python）は `D:\カブロガー\ct125-logger`。`python -m ct125 export --upload` が JSON を作り、S3 の `app/v1/datasets/shared/` に上げる
+- データを作る側（解析パイプライン、Python）は `D:\カブロガー\ct125-logger`。生データを S3 の `raw/` に上げると、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして `app/v1/datasets/shared/` に書き出す（ローカルから `python -m ct125 export --upload` で上げることもできる）
 - AWS のリソース（CloudFront・Cognito・API Gateway・Lambda・S3）は `D:\ct125-logger-terraform` の Terraform
 - 表現上の制約（「故障予測」と言わない等）と「ECU / K-Line に触れない」は ct125-logger の `docs/DEV_PLAN.md` 4. のとおり
 
@@ -131,7 +131,7 @@ npm run dev
 http://localhost:5173 を開く。ログインはない。
 
 - dev サーバーは **localhost だけで待ち受ける**（`--host` を付けない）。付けると同じ Wi-Fi の端末から S3 の中身が見えてしまう
-- データを新しくしたいとき：ct125-logger で `python -m ct125 export --upload` → ブラウザを再読み込み
+- データを新しくしたいとき：ct125-logger で `python -m ct125 upload --ride <走行> --parts raw`（AWS が処理して S3 に書き出す）→ ブラウザを再読み込み
 
 ### 公開版を更新する
 
