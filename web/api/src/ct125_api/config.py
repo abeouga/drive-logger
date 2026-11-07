@@ -23,6 +23,28 @@ class Settings:
         )
 
 
+@dataclass(frozen=True)
+class DeviceSettings:
+    """機器からのアップロード（デバイス API）の設定。画面用の Settings とは別の Lambda で使う。"""
+
+    # 生データを置くバケットとフォルダー（raw/<走行>/）
+    raw_bucket: str
+    raw_prefix: str
+    # 機器のトークンのハッシュを置いた SSM パラメーターの親（<prefix><機器ID>/token-sha256）
+    device_token_parameter_prefix: str
+    # 機器に渡す PUT 用 URL の有効期間（秒）
+    upload_url_seconds: int
+
+    @classmethod
+    def from_env(cls) -> "DeviceSettings":
+        return cls(
+            raw_bucket=_required("RAW_BUCKET"),
+            raw_prefix=os.environ.get("RAW_PREFIX", "raw/"),
+            device_token_parameter_prefix=os.environ.get("DEVICE_TOKEN_PARAMETER_PREFIX", "/ct125/devices/"),
+            upload_url_seconds=int(os.environ.get("UPLOAD_URL_SECONDS", "900")),
+        )
+
+
 def _required(name: str) -> str:
     value = os.environ.get(name, "")
     if not value:
