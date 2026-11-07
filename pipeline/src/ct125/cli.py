@@ -59,6 +59,16 @@ def main(argv: list[str] | None = None) -> int:
     pp.add_argument("--name", default="/ct125/private-points", help="SSM パラメーター名")
     pp.add_argument("--root", default=None)
     pp.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    rg = sub.add_parser("register-device", help="ESP32 の機器トークンを作り、ハッシュだけを SSM に登録する（C：機器から S3 へ直接送る）")
+    rg.add_argument("--id", required=True, help="機器 ID（英小文字・数字・-。例 d01）")
+    rg.add_argument("--token-file", default=None, help="トークンをこのファイルに書く（画面には出さない）。省略すると画面に 1 回だけ出す")
+    rg.add_argument("--rotate", action="store_true", help="登録済みの機器のトークンを作り直す（古いトークンは使えなくなる）")
+    rg.add_argument("--root", default=None)
+    rg.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    rv = sub.add_parser("revoke-device", help="機器の登録を消す（その機器はもう送れない）")
+    rv.add_argument("--id", required=True)
+    rv.add_argument("--root", default=None)
+    rv.add_argument("--raw", default=None, help=argparse.SUPPRESS)
     args = p.parse_args(argv)
 
     cfg = load_config(args.root) if args.root else load_config()
@@ -122,6 +132,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1 if any(r["within_radius"] for r in res) else 0
     elif args.cmd == "sync-private-points":
         return _sync_private_points(cfg, args.name)
+    elif args.cmd in ("register-device", "revoke-device"):
+        from . import devices
+
+        ssm = _ssm(cfg)
+        if args.cmd == "revoke-device":
+            devices.revoke(ssm, args.id)
+            print(f"{args.id} の登録を消しました（もう送れません）")
+            return 0
+        token = devices.register(ssm, args.id, rotate=args.rotate)
+        if args.token_file:
+            Path(args.token_file).write_text(token, encoding="ascii")
+            print(f"{args.id} を登録しました。トークンは {args.token_file} に書きました（画面には出していません）")
+        else:
+            print(f"{args.id} を登録しました。トークン（この 1 回だけ表示。ESP32 に書き込んだら、どこにも残さない）：\n{token}")
     elif args.cmd in ("bucket", "upload", "share"):
         from . import aws as awsmod
 
@@ -183,11 +207,17 @@ def _sync_private_points(cfg: dict, name: str) -> int:
     if not pts:
         print("config/local.yaml に home・places がないので上げません", file=sys.stderr)
         return 2
-    acfg = {**cfg.get("aws", {}), **((cfg.get("local") or {}).get("aws") or {})}
-    ssm = awsmod.make_session(acfg).client("ssm")
+    ssm = _ssm(cfg)
     ssm.put_parameter(Name=name, Value=to_parameter_value(cfg["local"]), Type="SecureString", Overwrite=True)
     print(f"SSM {name} に {len(pts)} 地点を上げました（SecureString）")
     return 0
+
+
+def _ssm(cfg: dict):
+    from . import aws as awsmod
+
+    acfg = {**cfg.get("aws", {}), **((cfg.get("local") or {}).get("aws") or {})}
+    return awsmod.make_session(acfg).client("ssm")
 
 
 def _s3(cfg: dict):

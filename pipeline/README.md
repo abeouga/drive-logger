@@ -99,6 +99,18 @@ aws lambda invoke --function-name ct125-ride-pipeline --cli-binary-format raw-in
 terraform -chdir=D:/ct125-logger-terraform apply
 ```
 
+ESP32 から直接送る（C、サーバー側は実装済み・ファームウェアはこれから。設計は [docs/device_upload_design.md](docs/device_upload_design.md)）。機器を登録する（トークンはファイルに書き、ESP32 に入れたら消す）：
+
+```bash
+.venv/Scripts/python.exe -m ct125 register-device --id d01 --token-file d01.token
+```
+
+ESP32 のふりをして 1 走行分を送る（ファームウェアと同じ手順のお手本）：
+
+```bash
+.venv/Scripts/python.exe tools/device_upload_simulator.py data/raw/ride_004 --device-id d01 --token-file d01.token
+```
+
 - コンテナは `deploy/lambda/Dockerfile`。学習済みモデル（pickle）を読むため、ライブラリの版は `.venv` と同じに固定している（`deploy/lambda/requirements.txt`）。版を上げたら `retrain` する
 - 仕組みと自宅座標の扱いは [docs/architecture.md](docs/architecture.md)
 
