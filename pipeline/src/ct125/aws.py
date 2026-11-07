@@ -14,7 +14,9 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
-RAW_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json"]
+RAW_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "memo.txt", "readme.txt"]  # 無いファイルは飛ばす
+# 生データを上げ終わった印。これが置かれると、AWS の Lambda がその走行を処理する（ct125/cloud/）
+UPLOAD_COMPLETE_MARKER = "upload_complete.json"
 PROCESSED_FILES = ["windows.parquet", "scored.parquet"]
 
 
@@ -66,12 +68,13 @@ def create_bucket(s3, bucket: str, region: str) -> None:
     s3.put_bucket_encryption(Bucket=bucket, ServerSideEncryptionConfiguration={"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]})
 
 
-def _content_type(path: Path) -> str:
+def content_type_of(path: Path) -> str:
     fixed = {
         ".parquet": "application/vnd.apache.parquet",
         ".json": "application/json; charset=utf-8",  # 日本語のメモを含むので文字コードを明示
         ".html": "text/html; charset=utf-8",
         ".png": "image/png",
+        ".txt": "text/plain; charset=utf-8",
     }
     return fixed.get(path.suffix.lower()) or mimetypes.guess_type(str(path))[0] or "application/octet-stream"
 
@@ -81,7 +84,7 @@ def upload_files(s3, bucket: str, pairs: list[tuple[Path, str]], verbose: bool =
     for local, key in pairs:
         if not local.exists():
             continue
-        s3.upload_file(str(local), bucket, key, ExtraArgs={"ContentType": _content_type(local)})
+        s3.upload_file(str(local), bucket, key, ExtraArgs={"ContentType": content_type_of(local)})
         keys.append(key)
         if verbose:
             print(f"  s3://{bucket}/{key}  ({local.stat().st_size / 1024:.0f} KB)")
@@ -116,7 +119,24 @@ def upload_ride(s3, bucket: str, root: Path, ride_id: str, parts: tuple[str, ...
         )
     if verbose:
         print(f"{ride_id}: {', '.join(parts)} → s3://{bucket}/")
-    return upload_files(s3, bucket, ride_pairs(root, ride_id, parts), verbose)
+    keys = upload_files(s3, bucket, ride_pairs(root, ride_id, parts), verbose)
+    raw_keys = [k for k in keys if k.startswith(f"raw/{ride_id}/")]
+    if raw_keys:
+        keys.append(mark_upload_complete(s3, bucket, ride_id, raw_keys, verbose))
+    return keys
+
+
+def mark_upload_complete(s3, bucket: str, ride_id: str, raw_keys: list[str], verbose: bool = True) -> str:
+    """raw/<走行>/ に「上げ終わった」印を最後に置く。AWS 側はこれを合図に処理を始める。"""
+    import json
+    from datetime import datetime, timezone
+
+    key = f"raw/{ride_id}/{UPLOAD_COMPLETE_MARKER}"
+    body = {"ride_id": ride_id, "files": [k.rsplit("/", 1)[-1] for k in raw_keys], "uploaded_at": datetime.now(timezone.utc).isoformat()}
+    s3.put_object(Bucket=bucket, Key=key, Body=json.dumps(body).encode("utf-8"), ContentType="application/json")
+    if verbose:
+        print(f"  s3://{bucket}/{key}  （処理の合図）")
+    return key
 
 
 def app_pairs(out_dir: Path, prefix: str) -> list[tuple[Path, str]]:

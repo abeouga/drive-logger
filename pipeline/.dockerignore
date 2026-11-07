@@ -1,0 +1,6 @@
+# コンテナに入れてよいものだけを許す（生データ・自宅座標・仮想環境を入れない）
+*
+!deploy/lambda/requirements.txt
+!config/default.yaml
+!src/ct125/**
+**/__pycache__

@@ -1,0 +1,13 @@
+# Lambda のコンテナに入れるライブラリ。学習済みモデル（pickle）を読めるよう、
+# 学習した環境（ローカルの .venv）と同じ版に固定する。版を上げたら学習し直す（{"action": "retrain"}）。
+numpy==2.5.4
+pandas==3.1.1
+scipy==1.18.1
+scikit-learn==1.9.1
+joblib==1.6.0
+pyarrow==26.0.1
+pyyaml==6.0.3
+boto3==1.43.125
+# export.py が viz.py の関数を使い、viz.py が読み込むため（Lambda では HTML は作らない）
+folium==0.20.0
+plotly==7.1.0

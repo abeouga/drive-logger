@@ -15,7 +15,8 @@
 - CSV → クリーニング → 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）→ GPS 結合（速度・座標の補間、品質フィルタ）→ `windows.parquet` までがコマンド 1 つで再現できる。
 - 速度で補正した正常時のベースライン（5 km/h ビンの中央値・MAD）からの逸脱 `z_speed` と、振動特徴量だけの Isolation Forest `score_if` を全窓に付けた。走行中に `z_speed > 3` の窓はなく、往路・復路で同じ場所の振動が一致するかは確認できなかった（`docs/PROGRESS.md`）。
 - 走行ごとに地図（色付き軌跡＋マーカー）とタイムラインの静的 HTML を `web/` に生成する。GPS が取れなかった走行は地図を出さず、注意書きとタイムラインだけを出す。
-- Web アプリ版（地図・タイムライン・スペクトログラムが連動する画面）は別リポジトリ `D:/ct125-app`。データは `python -m ct125 export --upload` で S3 の `app/v1/` に上げる。
+- Web アプリ版（地図・タイムライン・スペクトログラムが連動する画面）は別リポジトリ `D:/ct125-app`。https://drive.herdio-system.com/ で公開（ログイン必須）。
+- **AWS 上で自動処理（2026-11-07）**：`upload --parts raw` で生データを S3 に上げると、Lambda（コンテナ、`src/ct125/cloud/`）が前処理 → 学習済みモデルで点数付け → 画面用データの書き出し → 座標検査まで行い、公開ページに出る。学習し直しも Lambda で行える（下の「AWS 上の処理」）。
 - 取り付けは暫定（ブレッドボードを車体に置いただけ）。20 Hz 以上の帯域には置き方の共振が混ざる可能性がある。
 - 前処理・時刻同期・傾き・振動・GPS についての知見は [docs/knowledge_preprocessing.md](docs/knowledge_preprocessing.md)。構成図は [docs/architecture.md](docs/architecture.md)。
 - S3 バケット（東京、非公開）は Terraform（`D:\ct125-logger-terraform`）で作成済み。アップロードと署名付き URL のコマンド（`upload` / `share`）と手順は [docs/aws_setup.md](docs/aws_setup.md)。走行データと走行ページは自宅マスクを適用してから上げる。
@@ -68,6 +69,39 @@ uv pip install -e ".[dev]"
 
 自宅などをマスクするには `config/local.example.yaml` を `config/local.yaml` にコピーして座標を書く（コミットされない）。
 
+## AWS 上の処理
+
+新しい走行を公開する（生データを S3 に上げるだけ。最後に `upload_complete.json` を置き、それを合図に Lambda が処理する）：
+
+```bash
+.venv/Scripts/python.exe -m ct125 upload --ride ride_010 --parts raw
+```
+
+全走行で学習し直して、全走行を書き出し直す（新しい版のモデルを `models/<日時>/` に置き、`models/current.json` を切り替える）：
+
+```bash
+aws lambda invoke --function-name ct125-ride-pipeline --cli-binary-format raw-in-base64-out --payload '{"action":"retrain"}' --cli-read-timeout 900 --profile ct125-logger out.json
+```
+
+マスクする地点（`config/local.yaml`）を変えたら、AWS 側にも反映する（座標だけを SSM の SecureString に上げる）：
+
+```bash
+.venv/Scripts/python.exe -m ct125 sync-private-points
+```
+
+コードを変えたら、コンテナを作り直して ECR に上げ、Terraform で Lambda を切り替える：
+
+```powershell
+./scripts/build-pipeline-image.ps1
+```
+
+```bash
+terraform -chdir=D:/ct125-logger-terraform apply
+```
+
+- コンテナは `deploy/lambda/Dockerfile`。学習済みモデル（pickle）を読むため、ライブラリの版は `.venv` と同じに固定している（`deploy/lambda/requirements.txt`）。版を上げたら `retrain` する
+- 仕組みと自宅座標の扱いは [docs/architecture.md](docs/architecture.md)
+
 ノートブックの実行：
 
 ```bash
@@ -77,3 +111,4 @@ uv pip install -e ".[dev]"
 ## 構成
 
 計画書 6. のとおり（`src/ct125/` にパイプライン、`notebooks/` は確認用、`web/` は生成物、`data/raw/`・`config/local.yaml` はコミットしない）。
+AWS 上で動かす部分は `src/ct125/cloud/`（役割ごとのファイルの説明は `src/ct125/cloud/__init__.py`）と `deploy/lambda/`。
