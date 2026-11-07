@@ -36,7 +36,7 @@
 #include "config_store.h"
 #include "uploader.h"
 
-#define FW_VERSION "CT125_LOGGER_V3.0"
+#define FW_VERSION "CT125_LOGGER_V3.1"
 
 const int PIN_SDA = 21, PIN_SCL = 22;
 const int PIN_GPS_RX = 32, PIN_GPS_TX = 33;
@@ -556,8 +556,25 @@ void setup() {
 }
 
 // ------------------------------------------------------------------ シリアルのコマンド（設定と、手動の送信）
-// CFG ...（config_store.cpp）と UPLOAD（BOOT ボタンと同じ）を受け付ける。記録を止めないよう、届いた分だけ読む
+// CFG ...（config_store.cpp）、UPLOAD（BOOT ボタンと同じ）、LOG（送信の記録の最後の 40 行）を受け付ける。
+// 記録を止めないよう、届いた分だけ読む
 bool uploadRequestedBySerial = false;
+
+void printUploadLog() {
+  File f = SD.open("/upload_log.csv");
+  if (!f) {
+    Serial.println("LOG (no /upload_log.csv)");
+    return;
+  }
+  const size_t tailBytes = 4096;  // 最後の約 40 行
+  if (f.size() > tailBytes) {
+    f.seek(f.size() - tailBytes);
+    f.readStringUntil('\n');  // 途中から始まる行は捨てる
+  }
+  while (f.available()) Serial.printf("LOG %s\n", f.readStringUntil('\n').c_str());
+  f.close();
+  Serial.println("LOG_END");
+}
 
 void pollSerial() {
   static String line;
@@ -569,6 +586,7 @@ void pollSerial() {
     }
     line.trim();
     if (line == "UPLOAD") uploadRequestedBySerial = true;
+    else if (line == "LOG") printUploadLog();
     else if (line.length()) handleConfigCommand(line);
     line = "";
   }
@@ -632,8 +650,9 @@ void loopLogging() {
   }
   if (reason) {
     uploadRequestedBySerial = false;
+    bool automatic = strcmp(reason, "quiet") == 0;
     finishSession(reason);
-    runUpload();
+    runUpload(automatic);
   }
 }
 
@@ -660,14 +679,24 @@ void finishSession(const char *reason) {
 }
 
 // ------------------------------------------------------------------ 送信
-// 送信中に動き出したら、ファイルの合間でやめる（記録が優先）
+// 自動で始めた送信は、走り出したら（動きが約 1 秒続いたら）ファイルの合間でやめる（記録が優先）。
+// 手で始めた送信（BOOT ボタン・シリアル）はやめない：ボタンを押す手で基板が揺れるので、
+// 一瞬の揺れでやめると送れない（2026-11-08 の机上試験で、最初の 1 回がこれで止まった）。
 bool movingNow();
 
-bool abortUploadIfMoving() { return movingNow(); }
+bool movingForAWhile() {
+  for (int i = 0; i < 3; i++) {
+    if (!movingNow()) return false;
+    delay(300);
+  }
+  return true;
+}
 
-void runUpload() {
+bool neverAbort() { return false; }
+
+void runUpload(bool automatic) {
   mode = MODE_UPLOADING;
-  UploadSummary summary = uploadPendingSessions(loadConfig(), abortUploadIfMoving);
+  UploadSummary summary = uploadPendingSessions(loadConfig(), automatic ? movingForAWhile : neverAbort);
   lastUploadResult = summary.result;
   Serial.printf("UPLOAD_RESULT %s sent=%d failed=%d free_heap=%u\n", uploadResultName(summary.result), summary.sent, summary.failed,
                 (unsigned)ESP.getFreeHeap());
@@ -697,9 +726,9 @@ bool movingNow() {
 
 void loopIdle() {
   static uint32_t lastCheck = 0, movingSeconds = 0;
-  if (buttonHeld() || uploadRequestedBySerial) {  // 送れなかったときのやり直し
+  if (buttonHeld() || uploadRequestedBySerial) {  // 送れなかったときのやり直し（手動）
     uploadRequestedBySerial = false;
-    runUpload();
+    runUpload(false);
     return;
   }
   if (millis() - lastCheck < 1000) {
