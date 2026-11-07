@@ -9,14 +9,22 @@ from fastapi.responses import JSONResponse
 from .domain.exceptions import (
     DataFileNotFoundError,
     DomainError,
+    InvalidDeviceCredentialError,
     InvalidFileNameError,
+    InvalidUploadRequestError,
     NotAuthenticatedError,
+    UploadConflictError,
+    UploadNotFoundError,
 )
 
 STATUS_BY_ERROR: dict[type[DomainError], int] = {
     InvalidFileNameError: 400,
+    InvalidUploadRequestError: 400,
     NotAuthenticatedError: 401,
+    InvalidDeviceCredentialError: 401,
     DataFileNotFoundError: 404,
+    UploadNotFoundError: 404,
+    UploadConflictError: 409,
 }
 
 
