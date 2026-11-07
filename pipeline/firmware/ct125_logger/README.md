@@ -1,10 +1,21 @@
-# CT125_LOGGER_V2（フェーズ1：加速度＋GPS を microSD に記録）
+# CT125_LOGGER_V3（加速度＋GPS を microSD に記録し、走行後に Wi-Fi で S3 へ送る）
 
-ESP32 の電源を入れると自動で記録を始め、電源を切ると終わります。プログラムは ESP32 の中に入っているので、PC は要りません（USBバッテリー給電）。
-記録の形は [データ仕様 v2](../../docs/data_spec_v2.md)に合わせています。
+ESP32 の電源を入れると自動で記録を始めます。プログラムは ESP32 の中に入っているので、PC は要りません（USBバッテリー給電）。
+記録の形は [データ仕様 v2](../../docs/data_spec_v2.md)に合わせています（V3 でも同じ）。
 
-> 2026-11-02 に机上（ブレッドボード版 CT125-BB-R3、PC の USB 給電）で動作を確認しました。
-> **バッテリーだけでの動作と、実車での走行記録はまだです。**
+**V3（2026-11-08）で足したこと**：走行後、止まって静か（エンジン停止）が 2 分続くか、BOOT ボタンを 2 秒押すと、
+記録を閉じて家の Wi-Fi で S3 に送ります。そこから AWS の自動処理が動き、https://drive.herdio-system.com/ に出ます。
+設計は [docs/device_upload_design.md](../../docs/device_upload_design.md)。電源を切れば今までどおり記録は終わります（送るのは次に止まったとき）。
+
+> 記録は 2026-11-02 に机上（ブレッドボード版 CT125-BB-R3）で確認、V3 は 2026-11-08 に書き込み、記録（399Hz・取りこぼし 0）と設定のコマンドを確認。
+> **Wi-Fi での送信（本人が Wi-Fi を設定してから）と、実車での自動送信はまだです。**
+
+| ファイル | 中身 |
+|---|---|
+| `ct125_logger.ino` | 記録（加速度・GPS・SD）、状態の切り替え（記録中 → 送信 → 待機）、BOOT ボタン、シリアルのコマンド |
+| `uploader.cpp/.h` | Wi-Fi・HTTPS・送信の手順（`tools/device_upload_simulator.py` と同じ手順） |
+| `config_store.cpp/.h` | Wi-Fi と機器トークンの保存（NVS）と、シリアルからの設定 |
+| `root_ca.h` | HTTPS で信頼するルート証明書（Amazon Root CA 1 など） |
 
 ## 配線（実機で確認済み）
 
@@ -37,7 +48,30 @@ ESP32 の電源を入れると自動で記録を始め、電源を切ると終�
 | 1秒に1回ゆっくり点滅 | 記録中・GPS 有効 |
 | 短く2回ずつ点滅 | 記録中・GPS まだ（測位待ち） |
 | 速い点滅（1秒に5回）が続く | **記録できていない**（SD か ADXL345 が NG） |
+| 1秒ついて1秒消える | 送信中（V3） |
+| つきっぱなし | 送信が終わった、または送るものが無い（V3）。動き出すと再起動して次の記録を始める |
+| 短く3回ずつ点滅 | 送れなかった（Wi-Fi が見つからない・設定が無い・失敗。V3）。BOOT ボタン 2 秒でやり直す。SD の `/upload_log.csv` に理由 |
 | 点かない | 電源が来ていない／LED が IO2 にない |
+
+## Wi-Fi で送る（V3）
+
+- **送るきっかけ**：走行で一度動いた後、静か（1 秒ごとの振動のばらつき 0.02g 未満、GPS 速度 3km/h 未満）が 2 分続く。または BOOT ボタンを 2 秒押す。シリアルに `UPLOAD` と送っても同じ
+- **送るもの**：`/sessions/` のうち、V3 で記録した・30 秒以上・`uploaded.json` が無い走行（V2 までの走行は送らない）
+- **送り終わったら**：その走行に `uploaded.json`（サーバーが付けた走行名）を書く。途中で切れたら `upload_state.json` の走行名で続きから
+- **記録が優先**：送信中に動き出したら、ファイルの合間でやめて再起動し、記録を始める
+- **秘密の置き場所**：Wi-Fi のパスワードと機器トークンは ESP32 の内部フラッシュ（NVS）だけ。ソースにも SD にも書かない
+
+最初の設定（1 回だけ。パスワードは本人が入力する）：
+
+```bash
+.venv/Scripts/python.exe -m ct125 register-device --id d01 --token-file config/d01.token
+```
+
+```powershell
+./scripts/provision-device.ps1 -Port COM5 -Ssid <家のルーターの 2.4GHz の SSID（末尾 -2G）> -DeviceId d01 -TokenFile config/d01.token
+```
+
+ESP32 は 5GHz の Wi-Fi に対応していないので、末尾 -5G の SSID は使えない。設定の確認はシリアルに `CFG STATUS`（値は出さず、入っているかどうかだけ出す）。
 
 ## 電源断への強さ
 
@@ -71,8 +105,10 @@ python tools/check_session.py E:/sessions
 ```
 
 ```bash
-"D:/ESP32/arduino-data/packages/esp32/tools/esptool_py/5.3.1/esptool.exe" --chip esp32 --port COM6 --baud 230400 write-flash 0x1000 build/ct125_logger.ino.bootloader.bin 0x8000 build/ct125_logger.ino.partitions.bin 0x10000 build/ct125_logger.ino.bin
+"D:/ESP32/arduino-data/packages/esp32/tools/esptool_py/5.3.1/esptool.exe" --chip esp32 --port COM5 --baud 230400 write-flash 0x1000 build/ct125_logger.ino.bootloader.bin 0x8000 build/ct125_logger.ino.partitions.bin 0x10000 build/ct125_logger.ino.bin
 ```
+
+（ポートは PC によって変わる。2026-11-08 は COM5。`arduino-cli board list` で確かめる）
 
 元のプログラム（SD_READER_V1）は `../backup/before-check-4MB.bin`（4MB全体、実機と照合済み）。ソースは見つかっていない。
 
