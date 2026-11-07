@@ -106,3 +106,11 @@
 - そのほか：S3 の `raw/` に memo.txt・readme.txt を上げた（以前の upload は .txt を上げていなかった）。`models/current.json` を作成。
 - 気づき：コンテナは 1.6 GB で初期化が約 10 秒かかる（Lambda の初期化の上限付近）。気になるなら folium・plotly を外す（viz.py への依存を切る）と軽くなる。
 - 次：C（ESP32 から Wi-Fi で直接 S3 に送る）。D（SageMaker）は後回し。
+
+## C：ESP32 から S3 へ直接送る ― サーバー側（2026-11-08 実施）
+
+- 設計：`docs/device_upload_design.md`。送るきっかけは「止まって静か 2 分で自動＋BOOT ボタン 2 秒」（本人決定）。記録と送信は同時にしない（core 0 の取り合いとメモリ）。送り方は署名付き URL（機器は AWS の鍵を持たず、取り消せる機器トークンだけ）。
+- できたこと：デバイス API（`D:/ct125-app/api` の `device_main.py`、Lambda `ct125-device-api`。画面用のデータ API とは別の関数・別の権限）。`POST /api/device/uploads`（走行名 `ride_<日時>` と 15 分の PUT 用 URL）、`POST /api/device/uploads/{ride_id}/complete`（大きさを確かめて `upload_complete.json` → B の自動処理）。機器登録 `register-device` / `revoke-device`（トークンのハッシュだけを SSM `/ct125/devices/<ID>/token-sha256`）、お手本 `tools/device_upload_simulator.py`。API のテスト 51 件、ct125-logger のテスト 50 件。
+- 確認：公開ドメイン経由で、トークンなし・違うトークン・登録の無い機器はすべて 401（後の 2 つは同じ文言）。機器のふりで ride_001 を送り、受け付け → PUT → 完了 → 自動処理 → 公開一覧（10 走行）まで通った。完了をもう一度呼んでも already_complete。確認後、テストの走行（raw・processed・公開データ・rides.json の 1 件）と機器 sim01 の登録は消した。
+- 途中で直したこと：boto3 の既定のクライアントだと署名付き URL が古い SigV2・グローバルのエンドポイントになる（ESP32 はリダイレクトに対応できない）。SigV4・リージョンのエンドポイントに固定した（テストで確認）。
+- 次：ファームウェア。その前に本人に確認：家の Wi-Fi（2.4GHz）とテザリングの有無、ブレッドボードで BOOT ボタンを押せるか。Wi-Fi のパスワードとトークンの書き込みは本人が行う。
