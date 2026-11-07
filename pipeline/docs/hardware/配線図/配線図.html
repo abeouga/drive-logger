@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>CT125ロガー 配線図</title>
+<style>
+  html, body { margin: 0; background: #ffffff; }
+  svg { display: block; font-family: "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif; }
+  .box { fill: #f7f7f4; stroke: #333; stroke-width: 2; }
+  .esp { fill: #2b2f3a; stroke: #111; stroke-width: 2; }
+  .title { font-size: 30px; font-weight: 700; fill: #111; }
+  .sub { font-size: 16px; fill: #a00; }
+  .name { font-size: 22px; font-weight: 700; fill: #111; }
+  .name-w { font-size: 22px; font-weight: 700; fill: #fff; }
+  .pin { font-size: 17px; fill: #111; }
+  .pin-w { font-size: 17px; fill: #fff; font-weight: 700; }
+  .pin-dim { font-size: 17px; fill: #999; }
+  .num { font-size: 20px; font-weight: 700; fill: #c00; }
+  .note { font-size: 15px; fill: #333; }
+  .wl { font-size: 15px; font-weight: 700; }
+  .w { fill: none; stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
+  .stub { stroke: #333; stroke-width: 2; }
+  .tag3 { fill: #e8590c; }
+  .tagg { fill: #222; }
+  .tagt { font-size: 14px; font-weight: 700; fill: #fff; }
+  .nc { stroke: #999; stroke-width: 2; }
+  .res { fill: #fff; stroke: #333; stroke-width: 2; }
+  .dot { fill: #333; }
+  .legend { font-size: 15px; fill: #111; }
+  .parts { font-size: 16px; fill: #111; }
+</style>
+</head>
+<body>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180">
+  <defs>
+    <!-- 電源タグ：3V3（橙）と GND（黒）。同じ名前どうしは全部つながっている -->
+    <g id="t3">
+      <rect x="0" y="-12" width="50" height="24" rx="5" class="tag3"/>
+      <text x="25" y="5" text-anchor="middle" class="tagt">3V3</text>
+    </g>
+    <g id="tg">
+      <rect x="0" y="-12" width="50" height="24" rx="5" class="tagg"/>
+      <text x="25" y="5" text-anchor="middle" class="tagt">GND</text>
+    </g>
+    <g id="x"><line x1="-6" y1="-6" x2="6" y2="6" class="nc"/><line x1="-6" y1="6" x2="6" y2="-6" class="nc"/></g>
+    <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/>
+    </marker>
+  </defs>
+
+  <text x="40" y="52" class="title">CT125ロガー 配線図（GPS・加速度・microSD → ESP32）</text>
+  <text x="40" y="82" class="sub">2026-11-02 実機で動作確認済みの配線。模式図なので、ESP32のピンの並び・位置は実物と違います（名前で合わせる）。</text>
+  <text x="40" y="106" class="sub">橙の「3V3」・黒の「GND」タグは、同じ名前どうしが全部つながっている意味。3V3は5Vと取り違えないこと。</text>
+
+  <!-- ================= ESP32 ================= -->
+  <rect x="620" y="250" width="250" height="640" rx="12" class="esp"/>
+  <text x="745" y="290" text-anchor="middle" class="name-w">ESP32</text>
+  <text x="745" y="316" text-anchor="middle" class="pin-w" style="font-weight:400;font-size:15px">Freenove（USB＝給電・PC通信）</text>
+  <!-- 左側のピン -->
+  <g>
+    <line x1="590" y1="350" x2="620" y2="350" class="stub"/><text x="632" y="356" class="pin-w">3V3</text>
+    <use href="#t3" x="540" y="350"/>
+    <text x="632" y="406" class="pin-w">IO21</text>
+    <text x="632" y="456" class="pin-w">IO22</text>
+    <text x="632" y="626" class="pin-w">IO32</text>
+    <text x="632" y="676" class="pin-w">IO33</text>
+    <line x1="590" y1="840" x2="620" y2="840" class="stub"/><text x="632" y="846" class="pin-w">GND</text>
+    <use href="#tg" x="540" y="840"/>
+  </g>
+  <!-- 右側のピン -->
+  <g>
+    <text x="858" y="356" text-anchor="end" class="pin-w">IO19</text>
+    <text x="858" y="406" text-anchor="end" class="pin-w">IO18</text>
+    <text x="858" y="456" text-anchor="end" class="pin-w">IO23</text>
+    <text x="858" y="506" text-anchor="end" class="pin-w">IO5</text>
+    <circle cx="660" cy="752" r="9" fill="#ffd43b" stroke="#111" stroke-width="2"/>
+    <text x="678" y="758" class="pin-w" style="font-weight:400;font-size:15px">IO2：ボード上のLED（仮定）</text>
+    <text x="678" y="780" class="pin-w" style="font-weight:400;font-size:15px">記録の状態を点滅で表示</text>
+  </g>
+
+  <!-- ================= ADXL345 ================= -->
+  <rect x="120" y="220" width="250" height="330" rx="10" class="box" style="fill:#efe3f6"/>
+  <text x="140" y="252" class="name">加速度 ADXL345</text>
+  <text x="140" y="274" class="note">GY-291・I2C アドレス 0x53</text>
+  <g>
+    <text x="355" y="306" text-anchor="end" class="pin">VCC</text>
+    <line x1="370" y1="300" x2="400" y2="300" class="stub"/><use href="#t3" x="400" y="300"/>
+    <text x="355" y="336" text-anchor="end" class="pin">GND</text>
+    <line x1="370" y1="330" x2="400" y2="330" class="stub"/><use href="#tg" x="400" y="330"/>
+    <text x="355" y="366" text-anchor="end" class="pin">CS</text>
+    <line x1="370" y1="360" x2="400" y2="360" class="stub"/><use href="#t3" x="400" y="360"/>
+    <text x="355" y="396" text-anchor="end" class="pin-dim">INT1</text><use href="#x" x="382" y="390"/>
+    <text x="355" y="426" text-anchor="end" class="pin-dim">INT2</text><use href="#x" x="382" y="420"/>
+    <text x="355" y="456" text-anchor="end" class="pin">SDO</text>
+    <line x1="370" y1="450" x2="400" y2="450" class="stub"/><use href="#tg" x="400" y="450"/>
+    <text x="355" y="486" text-anchor="end" class="pin">SDA</text>
+    <text x="355" y="526" text-anchor="end" class="pin">SCL</text>
+  </g>
+  <text x="140" y="420" class="note">CS→3V3 で I2C</text>
+  <text x="140" y="440" class="note">SDO→GND で 0x53</text>
+  <!-- SDA / SCL -->
+  <polyline points="370,480 490,480 490,400 620,400" class="w" stroke="#7048e8"/>
+  <text x="500" y="392" class="wl" fill="#7048e8">SDA</text>
+  <polyline points="370,520 530,520 530,450 620,450" class="w" stroke="#e64980"/>
+  <text x="540" y="442" class="wl" fill="#e64980">SCL</text>
+
+  <!-- ================= GPS ================= -->
+  <rect x="120" y="590" width="250" height="250" rx="10" class="box" style="fill:#dde8fb"/>
+  <text x="140" y="622" class="name">GPS ATGM336H</text>
+  <text x="140" y="644" class="note">UART 9600bps</text>
+  <g>
+    <text x="355" y="676" text-anchor="end" class="pin">VCC</text>
+    <line x1="370" y1="670" x2="400" y2="670" class="stub"/><use href="#t3" x="400" y="670"/>
+    <text x="355" y="716" text-anchor="end" class="pin">GND</text>
+    <line x1="370" y1="710" x2="400" y2="710" class="stub"/><use href="#tg" x="400" y="710"/>
+    <text x="355" y="756" text-anchor="end" class="pin">TX</text>
+    <text x="355" y="796" text-anchor="end" class="pin">RX</text>
+    <text x="355" y="826" text-anchor="end" class="pin-dim">PPS</text><use href="#x" x="382" y="820"/>
+  </g>
+  <!-- TX → IO32、RX ← IO33（交差させる） -->
+  <polyline points="370,750 500,750 500,620 612,620" class="w" stroke="#74b816" marker-end="url(#arr)"/>
+  <text x="400" y="744" class="wl" fill="#5c940d">TX → IO32</text>
+  <polyline points="612,670 550,670 550,790 378,790" class="w" stroke="#3bc9db" marker-end="url(#arr)"/>
+  <text x="400" y="784" class="wl" fill="#1098ad">RX ← IO33</text>
+  <text x="140" y="700" class="note">TXとRXは</text>
+  <text x="140" y="720" class="note">交差させる</text>
+
+  <!-- ================= microSD ================= -->
+  <rect x="1010" y="680" width="540" height="150" rx="10" class="box" style="fill:#dcf2e1"/>
+  <text x="1030" y="790" class="name">microSD 秋月105488（AE-MICRO-SD-DIP）</text>
+  <text x="1030" y="814" class="note">①〜⑩は秋月の説明書の番号。3.3Vで使う（レベル変換・電源ICなし）</text>
+  <!-- ピン（上辺）: x = 1040 + i*52 -->
+  <g>
+    <text x="1040" y="708" text-anchor="middle" class="num">①</text><text x="1040" y="742" text-anchor="middle" class="pin" style="font-size:13px">DAT2</text>
+    <text x="1092" y="708" text-anchor="middle" class="num">②</text><text x="1092" y="742" text-anchor="middle" class="pin" style="font-size:13px">CS</text>
+    <text x="1144" y="708" text-anchor="middle" class="num">③</text><text x="1144" y="742" text-anchor="middle" class="pin" style="font-size:13px">CMD</text>
+    <text x="1196" y="708" text-anchor="middle" class="num">④</text><text x="1196" y="742" text-anchor="middle" class="pin" style="font-size:13px">VDD</text>
+    <text x="1248" y="708" text-anchor="middle" class="num">⑤</text><text x="1248" y="742" text-anchor="middle" class="pin" style="font-size:13px">CLK</text>
+    <text x="1300" y="708" text-anchor="middle" class="num">⑥</text><text x="1300" y="742" text-anchor="middle" class="pin" style="font-size:13px">VSS</text>
+    <text x="1352" y="708" text-anchor="middle" class="num">⑦</text><text x="1352" y="742" text-anchor="middle" class="pin" style="font-size:13px">DAT0</text>
+    <text x="1404" y="708" text-anchor="middle" class="num">⑧</text><text x="1404" y="742" text-anchor="middle" class="pin" style="font-size:13px">DAT1</text>
+    <text x="1456" y="708" text-anchor="middle" class="num">⑨</text><text x="1456" y="742" text-anchor="middle" class="pin-dim" style="font-size:13px">検出B</text>
+    <text x="1508" y="708" text-anchor="middle" class="num">⑩</text><text x="1508" y="742" text-anchor="middle" class="pin-dim" style="font-size:13px">検出A</text>
+  </g>
+  <use href="#x" x="1456" y="666"/><use href="#x" x="1508" y="666"/>
+  <!-- 電源 ④VDD→3V3、⑥VSS→GND -->
+  <line x1="1196" y1="680" x2="1196" y2="650" class="stub"/><use href="#t3" x="1171" y="638"/>
+  <line x1="1300" y1="680" x2="1300" y2="650" class="stub"/><use href="#tg" x="1275" y="638"/>
+
+  <!-- 信号（交差しない順に並べている） -->
+  <polyline points="870,350 1352,350 1352,680" class="w" stroke="#a9a33a"/>
+  <text x="930" y="342" class="wl" fill="#868e2a">MISO：IO19 ← ⑦DAT0</text>
+  <polyline points="870,400 1248,400 1248,680" class="w" stroke="#8b5a2b"/>
+  <text x="930" y="392" class="wl" fill="#8b5a2b">SCK：IO18 → ⑤CLK</text>
+  <polyline points="870,450 1144,450 1144,680" class="w" stroke="#0b8f8f"/>
+  <text x="930" y="442" class="wl" fill="#0b8f8f">MOSI：IO23 → ③CMD</text>
+  <polyline points="870,500 1092,500 1092,680" class="w" stroke="#868e96"/>
+  <text x="930" y="492" class="wl" fill="#666">CS：IO5 → ②DAT3</text>
+
+  <!-- プルアップ 10kΩ（①②③⑦⑧ → 3V3） -->
+  <g>
+    <!-- ① -->
+    <line x1="1040" y1="680" x2="1040" y2="636" class="stub"/>
+    <rect x="1033" y="586" width="14" height="50" class="res"/>
+    <line x1="1040" y1="586" x2="1040" y2="572" class="stub"/><use href="#t3" x="1015" y="560"/>
+    <!-- ② -->
+    <circle cx="1092" cy="650" r="4" class="dot"/><line x1="1092" y1="650" x2="1110" y2="650" class="stub"/>
+    <line x1="1110" y1="650" x2="1110" y2="636" class="stub"/>
+    <rect x="1103" y="586" width="14" height="50" class="res"/>
+    <line x1="1110" y1="586" x2="1110" y2="572" class="stub"/><use href="#t3" x="1085" y="560"/>
+    <!-- ③ -->
+    <circle cx="1144" cy="650" r="4" class="dot"/><line x1="1144" y1="650" x2="1162" y2="650" class="stub"/>
+    <line x1="1162" y1="650" x2="1162" y2="636" class="stub"/>
+    <rect x="1155" y="586" width="14" height="50" class="res"/>
+    <line x1="1162" y1="586" x2="1162" y2="572" class="stub"/><use href="#t3" x="1137" y="560"/>
+    <!-- ⑦ -->
+    <circle cx="1352" cy="650" r="4" class="dot"/><line x1="1352" y1="650" x2="1334" y2="650" class="stub"/>
+    <line x1="1334" y1="650" x2="1334" y2="636" class="stub"/>
+    <rect x="1327" y="586" width="14" height="50" class="res"/>
+    <line x1="1334" y1="586" x2="1334" y2="572" class="stub"/><use href="#t3" x="1309" y="560"/>
+    <!-- ⑧ -->
+    <line x1="1404" y1="680" x2="1404" y2="636" class="stub"/>
+    <rect x="1397" y="586" width="14" height="50" class="res"/>
+    <line x1="1404" y1="586" x2="1404" y2="572" class="stub"/><use href="#t3" x="1379" y="560"/>
+  </g>
+  <text x="1440" y="600" class="note">10kΩ ×5</text>
+  <text x="1440" y="620" class="note">（プルアップ）</text>
+
+  <!-- パスコン -->
+  <g transform="translate(1030,880)">
+    <text x="0" y="0" class="name" style="font-size:18px">SDの電源のそばにコンデンサ2個（3V3とGNDの間）</text>
+    <use href="#t3" x="0" y="40"/>
+    <line x1="50" y1="40" x2="90" y2="40" class="stub"/>
+    <line x1="90" y1="26" x2="90" y2="54" stroke="#1c7ed6" stroke-width="4"/>
+    <line x1="100" y1="26" x2="100" y2="54" stroke="#1c7ed6" stroke-width="4"/>
+    <line x1="100" y1="40" x2="140" y2="40" class="stub"/><use href="#tg" x="140" y="40"/>
+    <text x="95" y="80" text-anchor="middle" class="note">0.1µF（図では青）</text>
+    <use href="#t3" x="240" y="40"/>
+    <line x1="290" y1="40" x2="330" y2="40" class="stub"/>
+    <line x1="330" y1="26" x2="330" y2="54" stroke="#b08900" stroke-width="4"/>
+    <line x1="340" y1="26" x2="340" y2="54" stroke="#b08900" stroke-width="4"/>
+    <line x1="340" y1="40" x2="380" y2="40" class="stub"/><use href="#tg" x="380" y="40"/>
+    <text x="335" y="80" text-anchor="middle" class="note">1µF（図では黄土）</text>
+  </g>
+
+  <!-- ================= 凡例・まとめ ================= -->
+  <g transform="translate(40,900)">
+    <text x="0" y="0" class="name" style="font-size:19px">ESP32 から見た一覧</text>
+    <text x="0" y="30" class="legend">IO21 … ADXL345 SDA　／　IO22 … ADXL345 SCL</text>
+    <text x="0" y="56" class="legend">IO32 … GPS TX（ESPが受信）　／　IO33 … GPS RX（ESPが送信）</text>
+    <text x="0" y="82" class="legend">IO5 … SD②CS　／　IO18 … SD⑤CLK　／　IO19 … SD⑦DAT0　／　IO23 … SD③CMD</text>
+    <text x="0" y="108" class="legend">3V3 … ADXL345 VCC・CS、GPS VCC、SD④VDD、プルアップ5本、コンデンサ</text>
+    <text x="0" y="134" class="legend">GND … ADXL345 GND・SDO、GPS GND、SD⑥VSS、コンデンサ</text>
+    <text x="0" y="160" class="legend" fill="#a00">× は未接続（ADXL345 INT1・INT2、GPS PPS、SD⑨⑩）。端子の並びは基板の刻印の名前で合わせる。</text>
+  </g>
+  <text x="1560" y="1165" text-anchor="end" class="note">D:\カブロガー\配線図\配線図.html（CT125-BB-R3 / CT125_LOGGER_V2）</text>
+</svg>
+</body>
+</html>
