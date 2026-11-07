@@ -85,3 +85,13 @@
 - 次：アップロード → `DATA_SOURCE=s3` で dev を確認 → 1 ファイルを `site-app/` に上げ、署名付き URL をスマホで確認。
 - 追記（同日）：本人の了承を得て `export --upload` で S3 の `app/v1/` に 37 ファイル（約 1.8 MB）を上げた。ct125-app を `DATA_SOURCE=s3` にして読めることと、`pull-data.ps1` の同期を確認。`site-app/index.html` へのアップロードと `web-app/` の扱いは未決。
 - 追記（同日）：本人の了承を得て `web-app/` を削除（コードは `D:/ct125-app` に移行済み、データは S3 の `app/v1/` と `export` で作り直せる）。
+
+## 公開版：CloudFront＋Cognito＋データ API（2026-11-07 実施）
+
+- できたこと：https://drive.herdio-system.com/ で公開（ログイン必須）。構成は CloudFront（`/*` → S3 `webapp/`、`/api/*` → API Gateway HTTP API）、API Gateway の JWT オーソライザー（Cognito）、Lambda のデータ API（`D:/ct125-app/api`、FastAPI＋Mangum、Python 3.13 arm64）。Terraform は `D:/ct125-logger-terraform`（追加 23・変更 1）。証明書は CloudFront 用に us-east-1、DNS は Cloudflare（`herdio-system.com`、2 つの CNAME はどちらもプロキシなし）。
+- データの置き場所：`app/v1/datasets/shared/` に移した（`app/v1/` の 37 ファイルをコピー。元は残している）。`config/default.yaml` の `aws.app_prefix` も変更。ユーザーごとにデータを分ける入口は `api/src/ct125_api/services/dataset_resolver.py`（今は全員 shared）。
+- ユーザー：Terraform（`cognito_users.tf`、値は `terraform.tfvars`、コミットしない）で admin と閲覧用のユーザーを作る。destroy しても apply で同じユーザー・パスワードに戻る。パスワードの決まりは本人の判断で緩めている（8 文字以上・英小文字と数字）。後で戻すこと。
+- 確認：`/api/health` 200、トークンなし・不正トークンで `/api/me`・`/api/data/*` は 401。CloudFront 経由で `site/`・`raw/`・`app/v1/datasets/` は 403（webapp/ 以外は見えない）。HTTP は HTTPS へ 301、HSTS・nosniff・X-Frame-Options あり。Lambda を直接呼んで S3 から 9 走行と PNG（バイナリ）が返ることを確認。ログインボタンから Cognito の日本語のログイン画面（PKCE S256）へ移ることを確認。
+- 未確認：実際のログインと、ログイン後に地図・グラフが出ること（本人が確認する）。
+- 計画からの変更：署名付き URL と 1 ファイル HTML の配布はやめ、CloudFront＋ログインにした。1 ファイル版は `npm run build:single` として残している。
+- 次：B（S3 の raw/ に置くと Lambda が前処理 → 推論 → JSON 書き出しまでする）。
