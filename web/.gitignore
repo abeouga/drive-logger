@@ -1,0 +1,20 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# 設定の実値（バケット名・プロファイル）
+.env.local
+.env.*.local
+
+# S3 から取ったデータの写し（自宅周辺はマスク済みだが、走行の座標が入っている）
+cache/*
+!cache/.gitkeep
+
+.DS_Store
+Thumbs.db
+
+# データ API（api/）
+api/.venv/
+api/build/
+__pycache__/
+.pytest_cache/
