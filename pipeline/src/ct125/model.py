@@ -115,18 +115,29 @@ def training_mask(df: pd.DataFrame) -> pd.Series:
     return (~df["is_edge"]) & (~df["is_clipped"])
 
 
-def score_windows(all_windows: pd.DataFrame, mcfg: dict, stop_speed_kmh: float = 5.0) -> tuple[pd.DataFrame, dict, IsolationForest]:
-    """全走行の windows を受け取り、ベースラインと Isolation Forest を学習してスコア列を付けて返す。
+def fit_models(all_windows: pd.DataFrame, mcfg: dict) -> tuple[dict, IsolationForest]:
+    """学習：全走行の windows から、速度補正ベースラインと Isolation Forest を作る。"""
+    train = all_windows[training_mask(all_windows)]
+    baseline = fit_speed_baseline(train[train["has_gps"]], mcfg.get("speed_bin_kmh", 5.0), mcfg.get("baseline_min_count", 10))
+    forest = fit_isolation_forest(train, mcfg.get("contamination", 0.03), mcfg.get("n_estimators", 300), mcfg.get("random_state", 0))
+    return baseline, forest
+
+
+def apply_models(windows: pd.DataFrame, baseline: dict, forest: IsolationForest, mcfg: dict, stop_speed_kmh: float = 5.0) -> pd.DataFrame:
+    """推論：学習済みのモデルで、windows（1 走行でも全走行でもよい）にスコア列を付けて返す。
 
     z_speed は速度のある全窓に付けるが、is_anomaly_z は走行中（speed ≥ stop_speed_kmh）の窓だけに立てる。
     停止ビン（0〜5 km/h）はアイドリングの窓が大半で MAD がとても小さく、発進・取り回しの窓が z>3 になってしまうため。
     """
-    train = all_windows[training_mask(all_windows)]
-    baseline = fit_speed_baseline(train[train["has_gps"]], mcfg.get("speed_bin_kmh", 5.0), mcfg.get("baseline_min_count", 10))
-    forest = fit_isolation_forest(train, mcfg.get("contamination", 0.03), mcfg.get("n_estimators", 300), mcfg.get("random_state", 0))
-    out = all_windows.copy()
+    out = windows.copy()
     out["is_stopped"] = out["has_gps"] & (out["speed_kmh"] < stop_speed_kmh)
     out["z_speed"] = apply_speed_baseline(out, baseline)
     out["is_anomaly_z"] = (out["z_speed"] > mcfg.get("z_threshold", 3.0)) & ~out["is_stopped"]
-    out = pd.concat([out, apply_isolation_forest(out, forest)], axis=1)
-    return out, baseline, forest
+    return pd.concat([out, apply_isolation_forest(out, forest)], axis=1)
+
+
+def score_windows(all_windows: pd.DataFrame, mcfg: dict, stop_speed_kmh: float = 5.0) -> tuple[pd.DataFrame, dict, IsolationForest]:
+    """学習してから、同じ windows にスコア列を付けて返す（fit_models → apply_models）。"""
+    baseline, forest = fit_models(all_windows, mcfg)
+    scored = apply_models(all_windows, baseline, forest, mcfg, stop_speed_kmh)
+    return scored, baseline, forest

@@ -95,3 +95,14 @@
 - 本人の確認（同日）：公開版にログインできた。
 - 計画からの変更：署名付き URL と 1 ファイル HTML の配布はやめ、CloudFront＋ログインにした。1 ファイル版は `npm run build:single` として残している。
 - 次：B（S3 の raw/ に置くと Lambda が前処理 → 推論 → JSON 書き出しまでする）。
+
+## B：AWS 上の自動処理（2026-11-07 実施）
+
+- できたこと：S3 の `raw/<走行>/upload_complete.json` を合図に、Lambda（コンテナ `ct125-ride-pipeline`、Python 3.12・x86_64・3008 MB）が 前処理 → 学習済みモデルで点数付け（推論だけ）→ 画面用データの書き出し → 座標検査 → `processed/` と `app/v1/datasets/shared/` へ上げ、`rides.json` の 1 件を差し替える。手動の `{"action": "retrain"}` で全走行の学習し直し（新しい版を `models/<日時>/` に置いてから `models/current.json` を切り替える）。
+- コードの整理：`process_ride`・`score_all` を `cli.py` から `processing.py` へ、`model.py` を `fit_models`（学習）と `apply_models`（推論）に分割、`export.py` に 1 走行ずつの `export_ride`、`io.read_memo`。AWS 用は `src/ct125/cloud/`（commands・ride_pipeline・s3_store・model_registry・rides_index・private_points・workspace・settings・lambda_handler）。テスト 43 件（追加 17）。
+- 自宅座標：`python -m ct125 sync-private-points` で座標だけを SSM の SecureString `/ct125/private-points` に上げた。Lambda は読めなければ止まる。書き出し後に半径 300 m の検査をして、引っかかれば上げない。
+- 同時処理：Lambda の同時実行の上限が 10 で予約できないため、`rides.json` は S3 の条件付き書き込み（ETag）で更新し、競合したら読み直す。
+- 確認：`upload --ride ride_004 --parts raw` → S3 イベントで Lambda が起動し 19 秒で完了（初期化 10 秒、メモリ 502 MB）。retrain は 9 走行で完了し、新しい版 `20261107-143620` のベースラインの値は旧版と同じ、公開データ 37 ファイルは refactor 前のローカル出力とバイト単位で一致（rides.json は時刻だけ違う）。
+- そのほか：S3 の `raw/` に memo.txt・readme.txt を上げた（以前の upload は .txt を上げていなかった）。`models/current.json` を作成。
+- 気づき：コンテナは 1.6 GB で初期化が約 10 秒かかる（Lambda の初期化の上限付近）。気になるなら folium・plotly を外す（viz.py への依存を切る）と軽くなる。
+- 次：C（ESP32 から Wi-Fi で直接 S3 に送る）。D（SageMaker）は後回し。

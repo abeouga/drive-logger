@@ -80,7 +80,7 @@ def load_ride(ride_id: str, raw_dir: Path | str) -> Ride:
     events = pd.read_csv(d / "events.csv") if (d / "events.csv").exists() else pd.DataFrame(columns=["t_us", "type", "detail"])
     status = pd.read_csv(d / "status.csv") if (d / "status.csv").exists() else None
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8")) if (d / "meta.json").exists() else {}
-    memo = " ".join(p.read_text(encoding="utf-8").strip() for p in sorted(d.glob("*.txt")))
+    memo = read_memo(d)
 
     acc = acc.sort_values("t_us", kind="stable").reset_index(drop=True)
     t0 = int(acc["t_us"].iloc[0])
@@ -88,6 +88,11 @@ def load_ride(ride_id: str, raw_dir: Path | str) -> Ride:
     gps["t_rel"] = (gps["t_rx_us"] - t0) / 1e6
     fs = (len(acc) - 1) / float(acc["t_rel"].iloc[-1]) if len(acc) > 1 else float("nan")
     return Ride(ride_id, acc, gps, events, meta, memo, t0, fs, utc_offset(gps), status)
+
+
+def read_memo(ride_dir: Path | str) -> str:
+    """走行フォルダーの *.txt（memo.txt・readme.txt）をつないだ本人のメモ。無ければ空文字。"""
+    return " ".join(p.read_text(encoding="utf-8").strip() for p in sorted(Path(ride_dir).glob("*.txt")))
 
 
 def list_rides(raw_dir: Path | str) -> list[str]:
