@@ -92,6 +92,6 @@
 - データの置き場所：`app/v1/datasets/shared/` に移した（`app/v1/` の 37 ファイルをコピー。元は残している）。`config/default.yaml` の `aws.app_prefix` も変更。ユーザーごとにデータを分ける入口は `api/src/ct125_api/services/dataset_resolver.py`（今は全員 shared）。
 - ユーザー：Terraform（`cognito_users.tf`、値は `terraform.tfvars`、コミットしない）で admin と閲覧用のユーザーを作る。destroy しても apply で同じユーザー・パスワードに戻る。パスワードの決まりは本人の判断で緩めている（8 文字以上・英小文字と数字）。後で戻すこと。
 - 確認：`/api/health` 200、トークンなし・不正トークンで `/api/me`・`/api/data/*` は 401。CloudFront 経由で `site/`・`raw/`・`app/v1/datasets/` は 403（webapp/ 以外は見えない）。HTTP は HTTPS へ 301、HSTS・nosniff・X-Frame-Options あり。Lambda を直接呼んで S3 から 9 走行と PNG（バイナリ）が返ることを確認。ログインボタンから Cognito の日本語のログイン画面（PKCE S256）へ移ることを確認。
-- 未確認：実際のログインと、ログイン後に地図・グラフが出ること（本人が確認する）。
+- 本人の確認（同日）：admin でログインできた。
 - 計画からの変更：署名付き URL と 1 ファイル HTML の配布はやめ、CloudFront＋ログインにした。1 ファイル版は `npm run build:single` として残している。
 - 次：B（S3 の raw/ に置くと Lambda が前処理 → 推論 → JSON 書き出しまでする）。
