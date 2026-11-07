@@ -136,3 +136,4 @@
 - 直したこと：絶対パス（`D:\ct125-app`・`D:\ct125-logger-terraform`・`D:\カブロガー\ct125-logger`）をリポジトリ内の相対に。スクリプトの既定のフォルダー（deploy・build-single・build-pipeline-image）、Terraform の zip の場所（`path.module` から）、ルートの .gitignore。この PROGRESS.md の過去の記述は、そのときの場所のまま残している。
 - 確認：pipeline のテスト 50 件（ライブラリの版は旧 .venv と同じにそろえた）、api 51 件、web の型チェックとビルド、書き出し 36 ファイルが公開中のデータとバイト単位で一致、Terraform の state を移して plan が Lambda 2 つの zip の場所の更新だけ。
 - 古いフォルダーは消さずに `D:\カブロガー\archive\old_repos\` に移した。
+- 履歴の点検（GitHub に上げる前）：全 38 コミット・ファイルの全 321 版を調べ、入れてはいけないファイル（state・tfvars・.env・local.yaml・トークン・生データ・モデル）0、秘密（AWS の鍵・秘密鍵・GitHub トークン・Wi-Fi のパスワードと SSID・Cognito のパスワード）0、登録地点から 300 m 以内の座標 0。ただし `pipeline/notebooks/01_inspect.ipynb` に、ride_004/005 の経路を「最初の fix を原点」にした図（自宅付近が起点）が 1 枚あったので、git filter-repo で全ての版から消した（コードと結論の文は残した）。CLAUDE.md に「経路の図をコミットしない」を足した。
