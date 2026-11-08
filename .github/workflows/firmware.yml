@@ -1,0 +1,43 @@
+# firmware/ を変えたときだけ、ESP32 のスケッチをコンパイルする（実機への書き込みはしない）。
+# コアの版とボードの設定は firmware/ct125_logger/README.md のコンパイルの手順と同じ。
+name: firmware
+
+on:
+  pull_request:
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware.yml"
+  push:
+    branches: [main]
+    paths:
+      - "firmware/**"
+      - ".github/workflows/firmware.yml"
+
+permissions:
+  contents: read
+
+env:
+  ESP32_CORE: "esp32:esp32@3.3.12"
+  FQBN: "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M"
+
+jobs:
+  compile:
+    name: firmware（コンパイル）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+      # ESP32 のコアと道具は数百 MB あるので、版ごとにキャッシュする
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15/packages
+            ~/.arduino15/staging
+          key: arduino-${{ env.ESP32_CORE }}
+      - name: ESP32 のコアを入れる
+        run: |
+          arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+          arduino-cli core install "$ESP32_CORE" --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+      - name: コンパイル
+        working-directory: firmware/ct125_logger
+        run: arduino-cli compile --fqbn "$FQBN" --warnings default .

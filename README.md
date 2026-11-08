@@ -103,6 +103,18 @@ Terraform の state はコミットせず、非公開の S3 に置いていま�
 | 自動処理のコンテナを更新する | `pipeline/scripts/build-pipeline-image.ps1` → `terraform -chdir=infra apply` |
 | ファームウェアを書き込む | `firmware/ct125_logger/README.md` の「書き込み方」 |
 
+## 自動のテスト（CI）
+
+PR と main への push ごとに、GitHub Actions が次を回します（AWS には繋がず、鍵も置いていません）。
+
+| 対象 | 中身 | 設定 |
+|---|---|---|
+| pipeline | pytest（Lambda のコンテナと同じ版のライブラリで） | `.github/workflows/ci.yml` |
+| api | pytest（`uv.lock` の版で） | 同上 |
+| web | 型チェックとビルド | 同上 |
+| infra | `terraform fmt -check` と `terraform validate`（backend なし） | 同上 |
+| firmware | ESP32 のコンパイル（firmware/ を変えたときだけ） | `.github/workflows/firmware.yml` |
+
 ## 技術
 
 ESP32（Arduino、FreeRTOS、mbedTLS）／ Python 3.12（pandas・numpy・scikit-learn・pyarrow）／
