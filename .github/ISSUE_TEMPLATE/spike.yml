@@ -1,0 +1,44 @@
+name: Spike
+description: 実装の前に、できるかどうかを短く調べて確かめる
+title: "[Spike] "
+labels:
+  - Spike
+
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: 確かめたいこと
+      placeholder: 例）ESP32 からテザリング経由で、走行中に 1 分ごとの要約を送れるか
+    validations:
+      required: true
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: この結果で何を決めるか
+      placeholder: 例）走行中のリアルタイム送信を作るかどうか
+    validations:
+      required: true
+
+  - type: textarea
+    id: method
+    attributes:
+      label: 調べ方
+      placeholder: |
+        例）
+        - 机の上で、記録しながら 1 KB を送り、取りこぼしが増えるか見る
+
+  - type: input
+    id: budget
+    attributes:
+      label: 使ってよい時間・費用
+      placeholder: 例）半日まで、AWS の費用は 100 円まで
+    validations:
+      required: true
+
+  - type: textarea
+    id: result
+    attributes:
+      label: 結果
+      description: 終わったら、分かったことと次に作る Issue を記載してください。

@@ -1,0 +1,54 @@
+name: Epic
+description: 複数のIssueにまたがる大きな作業をまとめる親Issue
+title: "[Epic] "
+labels:
+  - Epic
+
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: ゴール
+      placeholder: 例）走り終えて止まると、自動で S3 に送られ、数分後に公開版で見られる
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: なぜ今やるか
+      placeholder: 例）ローカルと Lambda で処理の流れが 2 本に分かれ、同じ本番のデータを書き換え合っている
+    validations:
+      required: true
+
+  - type: textarea
+    id: stages
+    attributes:
+      label: 段階と子Issue
+      value: |
+        - [ ] 段階1：#
+        - [ ] 段階2：#
+        - [ ] 段階3：#
+    validations:
+      required: true
+
+  - type: textarea
+    id: out_of_scope
+    attributes:
+      label: 今回やらないこと
+      placeholder: |
+        例）
+        - 走行中のリアルタイム送信
+        - ECU / K-Line（安全を確かめるまで触れない）
+
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連する設計
+      placeholder: 例）docs/device_upload_design.md
+
+  - type: input
+    id: deadline
+    attributes:
+      label: 期限
+      placeholder: 例）2026-12-31

@@ -1,0 +1,85 @@
+name: Bug
+description: 不具合や想定外の動作を報告する
+title: "[Bug] "
+labels:
+  - Bug
+
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: 起きている場所
+      multiple: true
+      options:
+        - firmware（ESP32）
+        - pipeline（解析・Lambda の自動処理）
+        - api（データ API・デバイス API）
+        - web（画面）
+        - infra（Terraform・AWS）
+        - docs
+        - わからない
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: 不具合の概要
+      description: 何が問題なのか簡潔に記載してください。
+      placeholder: 例）BOOT ボタンで始めた送信が、最初のファイルの前に止まる
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 再現手順
+      placeholder: |
+        例）
+        1. 記録中に BOOT ボタンを 2 秒押す
+        2. LED が 3 回点滅して送信が終わる
+        3. シリアルの LOG で /upload_log.csv を読む
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期待する動作
+      placeholder: 例）raw/<走行>/ に全ファイルが上がり、公開一覧に載る
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 実際の動作
+      placeholder: 例）ticket だけが記録され、put の記録が無い
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 発生環境
+      description: 必要に応じて、ファームの版・走行名・ブランチ・ブラウザなどを記載してください。
+      placeholder: |
+        例）
+        - CT125_LOGGER_V3.1 / COM5
+        - ride_013
+        - main
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: エラー・ログ
+      description: シリアルの出力、CloudWatch のログなど。緯度・経度の実値、Wi-Fi の SSID・パスワード、トークンは消してから貼ってください。
+      render: shell
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: 貼る前の確認
+      options:
+        - label: 座標の実値・自宅付近の経路の図・秘密の値（鍵・トークン・パスワード）が含まれていない
+          required: true
