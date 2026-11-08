@@ -7,7 +7,7 @@ Lambda ：lambda_handler.py が、このアプリを Mangum で包む
 from fastapi import FastAPI
 
 from .errors import register_error_handlers
-from .routers import data_router, health_router, me_router
+from .routers import data_router, health_router, me_router, models_router, rides_router
 
 API_PREFIX = "/api"
 
@@ -23,6 +23,8 @@ def create_app() -> FastAPI:
     app.include_router(health_router.router, prefix=API_PREFIX)
     app.include_router(me_router.router, prefix=API_PREFIX)
     app.include_router(data_router.router, prefix=API_PREFIX)
+    app.include_router(rides_router.router, prefix=API_PREFIX)
+    app.include_router(models_router.router, prefix=API_PREFIX)
     register_error_handlers(app)
     return app
 

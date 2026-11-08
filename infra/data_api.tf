@@ -29,7 +29,8 @@ resource "aws_iam_role" "data_api" {
   assume_role_policy = data.aws_iam_policy_document.data_api_assume.json
 }
 
-# ログを書く・公開用のデータセットを読む、の 2 つだけ（台帳の読み書きは #16 で足す）
+# ログを書く・公開用のデータセットを読む・作業用の台帳と記録を読む・台帳を書く・公開を処理の Lambda に頼む。
+# 公開用のバケットには書けない（公開用に書けるのは処理の Lambda だけ）
 data "aws_iam_policy_document" "data_api" {
   statement {
     sid       = "WriteOwnLogs"
@@ -40,6 +41,36 @@ data "aws_iam_policy_document" "data_api" {
     sid       = "ReadDatasets"
     actions   = ["s3:GetObject"]
     resources = ["${aws_s3_bucket.role["public"].arn}/${local.public_dataset_prefix}*"]
+  }
+  statement {
+    sid     = "ReadLedgerRunsModels"
+    actions = ["s3:GetObject"]
+    resources = [
+      "${aws_s3_bucket.role["work"].arn}/ledger/*",
+      "${aws_s3_bucket.role["work"].arn}/runs/*",
+      "${aws_s3_bucket.role["work"].arn}/models/*",
+    ]
+  }
+  statement {
+    sid       = "WriteLedger"
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.role["work"].arn}/ledger/rides.json"]
+  }
+  # モデルの版の一覧を取る。無いファイルを読んだとき 403 ではなく 404 になるようにも要る
+  statement {
+    sid       = "ListWork"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.role["work"].arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["ledger/*", "runs/*", "models/*"]
+    }
+  }
+  statement {
+    sid       = "AskPipelineToPublish"
+    actions   = ["lambda:InvokeFunction"]
+    resources = [aws_lambda_function.pipeline.arn]
   }
 }
 
@@ -67,8 +98,11 @@ resource "aws_lambda_function" "data_api" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.role["public"].bucket
-      DATA_PREFIX = local.public_dataset_prefix
+      DATA_BUCKET       = aws_s3_bucket.role["public"].bucket
+      DATA_PREFIX       = local.public_dataset_prefix
+      WORK_BUCKET       = aws_s3_bucket.role["work"].bucket
+      WORK_PREFIX       = ""
+      PIPELINE_FUNCTION = aws_lambda_function.pipeline.function_name
     }
   }
 
@@ -118,6 +152,16 @@ resource "aws_apigatewayv2_route" "health" {
 resource "aws_apigatewayv2_route" "authenticated" {
   api_id             = aws_apigatewayv2_api.data.id
   route_key          = "GET /api/{proxy+}"
+  target             = "integrations/${aws_apigatewayv2_integration.data_api.id}"
+  authorization_type = "JWT"
+  authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
+}
+
+# 書き換え（走行を消す・戻す・公開する結果やモデルの切り替え。#16・#17）もログインが必要。admin かどうかはデータ API が確かめる
+resource "aws_apigatewayv2_route" "authenticated_write" {
+  for_each           = toset(["DELETE /api/{proxy+}", "PUT /api/{proxy+}", "POST /api/rides/{proxy+}"])
+  api_id             = aws_apigatewayv2_api.data.id
+  route_key          = each.value
   target             = "integrations/${aws_apigatewayv2_integration.data_api.id}"
   authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id

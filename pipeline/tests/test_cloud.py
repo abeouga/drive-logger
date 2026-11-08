@@ -11,7 +11,7 @@ from botocore.response import StreamingBody
 from botocore.stub import Stubber
 
 from ct125 import model
-from ct125.cloud.commands import ProcessRides, Publish, RetrainAll, parse_command, ride_id_from_marker_key
+from ct125.cloud.commands import ProcessRides, Publish, RetrainAll, UseModel, parse_command, ride_id_from_marker_key
 from ct125.cloud.settings import CloudSettings
 from ct125.storage import Area, MemoryStore, S3Store, WriteConflictError
 
@@ -41,7 +41,8 @@ def test_manual_commands():
     assert parse_command({"action": "process", "ride_ids": ["ride_004"]}, "") == ProcessRides(("ride_004",))
     assert parse_command({"action": "publish"}, "") == Publish(None)
     assert parse_command({"action": "publish", "run_id": "20261109T031500Z-3f9a1c"}, "") == Publish("20261109T031500Z-3f9a1c")
-    for bad in ({"action": "process", "ride_ids": ["../x"]}, {"action": "delete"}, {"action": "publish", "run_id": "../x"}):
+    assert parse_command({"action": "use_model", "version": "20261109-031500"}, "") == UseModel("20261109-031500")
+    for bad in ({"action": "process", "ride_ids": ["../x"]}, {"action": "delete"}, {"action": "publish", "run_id": "../x"}, {"action": "use_model"}, {"action": "use_model", "version": "x"}):
         with pytest.raises(ValueError):
             parse_command(bad, "")
 

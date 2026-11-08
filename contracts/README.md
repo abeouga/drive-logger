@@ -13,6 +13,7 @@ firmware・pipeline・api・web の間でやりとりするファイルと JSON 
 | 機器からの送信の手順 | `upload/upload.json`・`upload/*.schema.json` | firmware・PC のツール | api（デバイス API）・pipeline |
 | 画面用 JSON（`rides.json`・`ride_<id>.json`・`spec_<id>.json`・`wave_<id>.json`） | `app/*.schema.json` | pipeline（export） | api・web |
 | 走行の台帳・処理の記録・モデルの記録 | `records/*.schema.json` | pipeline | api・web |
+| データ API の応答（走行の一覧・処理の記録・モデルの一覧） | `api/*.schema.json` | api | web |
 
 - JSON Schema は Draft 2020-12。どの定義にも `version`（整数）を持たせ、形を変えたら上げる
 - 画面用 JSON の見本は `examples/app/`。pipeline のテストが、本物の書き出しの関数から作り直して一致を確かめ、web の型チェック（`web/src/lib/contract.check.ts`）がこの見本を型に当てる
@@ -32,5 +33,5 @@ CI（`.github/workflows/ci.yml`）が PR ごとに全部を回す。
 手元で回す：
 
 ```bash
-uv run --no-project --with jsonschema==4.26.0 --with pytest==9.2.0 python -m pytest contracts/tests -q
+uv run --no-project --with jsonschema==4.26.0 --with pytest==9.2.0 --with pyyaml==6.0.3 python -m pytest contracts/tests -q
 ```

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/api/rides.schema.json",
+  "version": 1,
+  "title": "GET /api/rides の応答（走行の台帳から作る一覧）",
+  "type": "object",
+  "required": ["rides"],
+  "additionalProperties": false,
+  "properties": {
+    "rides": {
+      "type": "array",
+      "description": "走行 ID の順。ふつうは画面に出す走行だけ。admin が include_deleted=true を付けると、消した走行と机上の走行も入る",
+      "items": {
+        "type": "object",
+        "required": ["id", "original_name", "kind", "deleted", "deleted_at", "published_run", "summary"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "original_name": { "type": ["string", "null"] },
+          "kind": { "$ref": "../records/run.schema.json#/$defs/kind" },
+          "deleted": { "type": "boolean" },
+          "deleted_at": { "type": ["string", "null"], "format": "date-time" },
+          "published_run": { "type": ["string", "null"] },
+          "summary": {
+            "oneOf": [{ "$ref": "../app/rides.schema.json#/$defs/rideSummary" }, { "type": "null" }],
+            "description": "公開中の結果の要約（rides.json の 1 件と同じ形）。まだ処理していなければ null"
+          }
+        }
+      }
+    }
+  }
+}

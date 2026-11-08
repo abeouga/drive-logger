@@ -14,7 +14,7 @@ from ..config import load_config
 from ..flow import Pipeline, Places
 from ..records import code_commit
 from ..storage import Area, S3Store
-from .commands import ProcessRides, Publish, RetrainAll, parse_command
+from .commands import ProcessRides, Publish, RetrainAll, UseModel, parse_command
 from .settings import CloudSettings
 
 
@@ -40,6 +40,8 @@ def run(command, pipeline: Pipeline) -> dict:
         return pipeline.process(list(command.ride_ids), publish=True)
     if isinstance(command, Publish):
         return {"action": "publish", **pipeline.publish(command.run_id)}
+    if isinstance(command, UseModel):
+        return pipeline.use_model(command.version)
     raise TypeError(f"知らない命令です：{command}")
 
 
