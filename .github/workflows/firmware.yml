@@ -41,3 +41,13 @@ jobs:
       - name: コンパイル
         working-directory: firmware/ct125_logger
         run: arduino-cli compile --fqbn "$FQBN" --warnings default .
+
+  host-test:
+    name: firmware（PC で動かすテスト）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: JSON の読み取り（json_lite.h）
+        run: |
+          g++ -std=c++17 -Wall -Werror -I firmware/tests/host -I firmware/ct125_logger firmware/tests/host/test_json_lite.cpp -o /tmp/test_json_lite
+          /tmp/test_json_lite

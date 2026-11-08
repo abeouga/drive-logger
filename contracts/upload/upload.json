@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "description": "機器（ESP32・PC のツール）から生データを送る手順。設計は docs/device_upload_design.md",
   "auth": {
     "header": "Authorization",
@@ -63,9 +63,10 @@
     }
   },
   "device_rules": {
-    "firmware_prefix": "CT125_LOGGER_V3",
+    "firmware_name": "CT125_LOGGER_V",
+    "min_major_version": 3,
     "min_accel_bytes": 512000,
-    "description": "firmware が送るのは、この版以降で記録した・accel.csv がこの大きさ以上の・uploaded.json の無い走行だけ"
+    "description": "firmware が送るのは、meta.json の firmware の値が CT125_LOGGER_V<版> で版の上の数が 3 以上・accel.csv がこの大きさ以上・uploaded.json の無い走行だけ（firmware は meta.json を JSON として読む。#21）"
   },
   "same_ride": {
     "description": "同じ SD の走行を 2 回受け付けない（#14）。SD のセッション名と必須のファイルの大きさ（バイト）が同じなら同じ走行とみなし、送り終えていれば start は既にある走行名を status=already_uploaded・uploads=[] で返す。送った機器（ESP32・PC）は問わない",
