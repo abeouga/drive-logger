@@ -93,6 +93,8 @@ Terraform の state はコミットせず、非公開の S3 に置いていま�
 |---|---|
 | 画面をローカルで触る | `web/start.bat`（または `cd web; npm run dev`。公開版と同じログイン。`web/docs/local_dev.md`） |
 | 解析をローカルで流す | `cd pipeline; .venv/Scripts/python -m ct125 process --ride <走行>`（S3 から読み、作業用に結果を置く。画面に出すのは `publish`） |
+| PC から SD の走行を送る | `cd pipeline; .venv/Scripts/python -m ct125 upload-sd E:/sessions`（ESP32 と同じデバイス API。同じ走行は 2 回受け付けない） |
+| 走行の台帳を見る | `cd pipeline; .venv/Scripts/python -m ct125 rides`（消す・戻すは画面の admin のボタン） |
 | AWS のリソースを作る・変える | `terraform -chdir=infra apply` |
 | 画面を公開する | `web/scripts/deploy.ps1` |
 | データ API を更新する | `api/scripts/build-lambda.ps1` → `terraform -chdir=infra apply` |
