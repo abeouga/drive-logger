@@ -160,3 +160,13 @@
 - 直したずれ：必須のファイルを accel・gps・meta にそろえた（pipeline も確かめる）、走行 ID の決まりを 1 つにした（pipeline の処理も ride_<日時> と古い ride_NNN だけを受け付ける）、events の一覧を firmware に合わせた（ring_drop・sd_write_error は status.csv の数で、session_end を足した）、止まっているとみなす速さを 5 km/h にそろえた（firmware は 3 km/h だった）、data_spec_v2 に V3 のファイル（upload_state.json・uploaded.json・/upload_log.csv）を足した。
 - 走行メモ（#5）：notes.md を、firmware は送る・デバイス API は受け付ける・pipeline は読む（古い memo.txt・readme.txt も同じに読む）。firmware は V3.2（コンパイル 1,128,732 バイト、86%）。**実機への書き込みと、notes.md を置いた走行の送信はまだ**（本人の確認待ち）。
 - 確認：pipeline 72 件、api 57 件、contracts 77 件、web の型チェックとビルド。
+
+## 処理の流れを 1 本にした：分類・処理の記録・台帳・公開・モデルの記録（2026-11-09 実施、#8〜#11。本番には未反映）
+
+- コード：計算はファイルを読み書きしない関数（`processing.preprocess`・`classify`・`export.ride_files`）、保存は「保存の口」（`storage.py`：S3 と記憶の上）、流れは `flow.py`（process・retrain・publish）。ローカルの CLI と Lambda が同じ `Pipeline` を呼ぶ。手元の `data/` を使う命令（process --all・score・export・upload）はやめた。
+- 記録：処理ごとに `runs/<run_id>/run.json`（失敗も理由と一緒に）、走行の台帳 `ledger/rides.json`（条件付きの書き込み）、学習のたびに `models/<版>/model.json`・`notes.md`。モデルを読むときにライブラリの版を突き合わせる。ライブラリの版を `pyproject.toml` で固定し、コンテナと同じにした（テストで突き合わせ）。
+- 公開：台帳が指す結果から公開用を作り直す（公開用に書けるのは Lambda だけ）。ローカルの処理は作業用に置くだけで、`publish --run` で Lambda に頼む。前の結果に戻すのも同じ命令。
+- 同じであることの確かめ（#8）：本番の生データ 9 走行で、分類による学習の走行の選び分けを止めて新しい流れで学習し直し、前の流れの windows・scored（18 ファイル）と画面用のファイル（37）を比べて**すべて一致**（rides.json は作った時刻を除く）。
+- 分類（#9）：9 走行は ride_006＝机上、ride_001〜003＝停車、ride_004・005＝実走、ride_007〜009＝実走（GPS なし）。分類どおりに学習すると、学習は 5 走行・1,532 窓になり、GPS なしの郊外の走行で Isolation Forest の外れが大きく増えた（ride_007：81→486、ride_009：96→399）。学習から外れた走行なので「普段」から外れて見える。市街地の 2 走行だけで学習しているので、走行が増えるまでは IF の結果は参考程度。停車の ride_001・003 は短く、先頭・末尾 60 秒を除くと学習に使える窓が 0。
+- テスト：pipeline 91 件（処理の流れを端から端まで 9 件、分類 9 件、版の固定 2 件など）。
+- 本番に入れるには：作業用・公開用のバケットと Lambda の環境変数・権限（#6）、データの移し替え（12.）、新しいコンテナ。`build-pipeline-image.ps1` は、Terraform に作業用のバケットが無いと止まる。

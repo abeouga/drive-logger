@@ -1,3 +1,5 @@
 # PC ごとの設定。このファイルをコピーして config/local.yaml を作る（local.yaml は .gitignore でコミットされない）。
 aws:
-  bucket: ct125-logger-<アカウントID>   # infra の出力 bucket_name
+  pipeline_profile: ct125-local-pipeline   # ローカルの処理に使うプロファイル（公開用に書けないロールを引き受ける）
+  # バケット名を決まりと違うものにするときだけ書く
+  # raw_bucket: ct125-logger-raw-<アカウントID>

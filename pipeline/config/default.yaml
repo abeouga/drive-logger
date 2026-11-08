@@ -2,7 +2,14 @@
 window_sec: 1.0          # 1 秒窓、重なりなし（計画書 9.1）
 edge_sec: 60             # 走行の先頭・末尾を is_edge=True にする秒数
 clip_g: 15.9             # ADXL345 FULL_RES ±16g の上限（15.97 g）手前。これ以上は is_clipped
-stop_speed_kmh: 5        # 停止判定（停止中でも GPS 速度が 0〜4 km/h 出る）
+stop_speed_kmh: 5        # 停止判定（停止中でも GPS 速度が 0〜4 km/h 出る）。contracts/common.json と同じ値（firmware も使う）
+classify:                # 走行の分類（docs/data_flow_design.md 9.）。変えたら全走行を分類し直す（retrain）
+  desk_vib_median_g: 0.05   # 振動（1 秒窓の rms）の中央値がこれ未満なら机上（エンジン停止 約 0.015 g、アイドリング 約 0.13 g）
+  move_dist_m: 200          # GPS で始点からこれ以上動いたら「動いた」
+  min_moving_windows: 60    # 実走：止まる速さ以上の窓がこれ以上
+  min_gps_windows: 60       # 停車：GPS のある窓がこれ以上で、動いていない
+  train_kinds: [idle, ride] # 学習に使う分類（机上と GPS なしは使わない）
+  hidden_kinds: [desk]      # 画面に出さない分類
 gps:
   min_sats: 5            # これ未満の行は無効（ride_004 の 100 km/h 誤測位は sats 3〜4）
   max_hdop: 5.0          # これを超える行は無効
@@ -19,9 +26,14 @@ model:
   n_estimators: 300
   random_state: 0
 aws:
-  profile: ct125-logger     # ~/.aws のプロファイル名。リージョンはプロファイルのもの（ap-northeast-1）を使う
+  profile: ct125-logger     # 管理者のプロファイル（機器の登録・公開を Lambda に頼む）。リージョンはプロファイルのもの（ap-northeast-1）
+  pipeline_profile: null    # ローカルの処理に使うプロファイル（公開用に書けないロール。docs/data_flow_design.md 11.）。null なら profile
   region: null              # null＝プロファイルの region。明示するならここ
-  bucket: null              # バケットは infra で作成。名前（アカウント ID 入り）は config/local.yaml の aws.bucket に書く
+  bucket_name: "ct125-logger-{role}-{account_id}"  # 生データ（raw）・作業用（work）・公開用（public）のバケット名の決まり（infra と同じ）
+  raw_prefix: ""
+  work_prefix: ""
+  public_prefix: "datasets/shared/"
+  pipeline_function: ct125-ride-pipeline  # 公開を頼む Lambda
 bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
   band_1_5: [1, 5]
   band_5_15: [5, 15]

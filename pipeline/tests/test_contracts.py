@@ -19,7 +19,7 @@ import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
-from ct125 import aws, devices, export, io
+from ct125 import devices, export, flow, io, records
 from ct125.cloud import commands
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -72,10 +72,8 @@ def test_read_memo_prefers_notes_md(tmp_path):
 
 
 # ------------------------------------------------------------------ 送信の手順
-def test_raw_files_match_upload_contract():
-    upload = load("upload/upload.json")
-    assert set(aws.RAW_FILES) == set(upload["files"]["allowed"])
-    assert aws.UPLOAD_COMPLETE_MARKER == upload["raw_files"]["complete"]["name"]
+def test_marker_name_matches_upload_contract():
+    assert flow.UPLOAD_COMPLETE == load("upload/upload.json")["raw_files"]["complete"]["name"]
 
 
 def test_simulator_sends_only_allowed_files():
@@ -86,14 +84,14 @@ def test_simulator_sends_only_allowed_files():
     assert set(module.SEND_FILES) == set(load("upload/upload.json")["files"]["allowed"])
 
 
-def test_upload_complete_marker_matches_schema():
-    class FakeS3:
-        def put_object(self, **kwargs):
-            self.body = json.loads(kwargs["Body"])
-
-    s3 = FakeS3()
-    aws.mark_upload_complete(s3, "bucket", "ride_004", ["raw/ride_004/accel.csv", "raw/ride_004/notes.md"], verbose=False)
-    validator("upload/upload_complete.schema.json").validate(s3.body)
+def test_ledger_entry_reads_the_upload_marker():
+    example = load("examples/upload/upload_complete.json")
+    entry = records.new_entry(example["ride_id"], example)
+    assert (entry["device_id"], entry["local_session"], entry["source"]) == ("d01", "ride_013", "device")
+    legacy = {"ride_id": "ride_004", "files": ["accel.csv"], "uploaded_at": "2026-11-07T14:35:07.208985+00:00"}  # PC から直接上げた古い印
+    validator("upload/upload_complete.schema.json").validate(legacy)
+    assert records.new_entry("ride_004", legacy)["source"] == "legacy"
+    assert records.new_entry("ride_004", None)["received_at"] is None
 
 
 @pytest.mark.parametrize("ride_id", ["ride_20261108_011304", "ride_20261108_011304_2", "ride_004", "ride_1", "ride_0001", "x", "../ride_004", "ride_20261108"])

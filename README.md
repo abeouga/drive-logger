@@ -91,7 +91,7 @@ Terraform の state はコミットせず、非公開の S3 に置いていま�
 | やりたいこと | コマンド（リポジトリのルートから） |
 |---|---|
 | 画面をローカルで触る | `web/start.bat`（または `cd web; npm run dev`） |
-| 解析をローカルで流す | `cd pipeline; .venv/Scripts/python -m ct125 process --all`（→ `score` → `export`。作り直しの途中） |
+| 解析をローカルで流す | `cd pipeline; .venv/Scripts/python -m ct125 process --ride <走行>`（S3 から読み、作業用に結果を置く。画面に出すのは `publish`） |
 | AWS のリソースを作る・変える | `terraform -chdir=infra apply` |
 | 画面を公開する | `web/scripts/deploy.ps1` |
 | データ API を更新する | `api/scripts/build-lambda.ps1` → `terraform -chdir=infra apply` |
@@ -110,6 +110,7 @@ PR と main への push ごとに、GitHub Actions が次を回します（AWS �
 | infra | `terraform fmt -check` と `terraform validate`（backend なし） | 同上 |
 | contracts | 定義が正しいか、見本が定義に合うか、firmware のソースの定数が定義と同じか | 同上 |
 | firmware | ESP32 のコンパイル（firmware/ を変えたときだけ） | `.github/workflows/firmware.yml` |
+| pipeline のコンテナ | Lambda のコンテナを作り、入口が読み込めるか（pipeline/ を変えたときだけ。ECR には上げない） | `.github/workflows/pipeline-image.yml` |
 
 ## 技術
 

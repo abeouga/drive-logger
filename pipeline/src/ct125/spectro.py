@@ -82,8 +82,8 @@ def to_alpha(power: np.ndarray, lo_pct: float = 5.0, hi_pct: float = 99.5, level
     return img, {"db_min": round(lo, 1), "db_max": round(hi, 1), "pct": [lo_pct, hi_pct]}
 
 
-def write_png_alpha(path: Path, alpha: np.ndarray) -> int:
-    """グレー（黒）＋アルファの PNG を書く（外部ライブラリなし）。返り値はバイト数。"""
+def png_alpha(alpha: np.ndarray) -> bytes:
+    """グレー（黒）＋アルファの PNG の中身（外部ライブラリなし）。"""
     h, w = alpha.shape
     raw = bytearray()
     for row in alpha:
@@ -95,7 +95,12 @@ def write_png_alpha(path: Path, alpha: np.ndarray) -> int:
     def chunk(tag: bytes, data: bytes) -> bytes:
         return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
 
-    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 4, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 4, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b"")
+
+
+def write_png_alpha(path: Path, alpha: np.ndarray) -> int:
+    """png_alpha をファイルに書く。返り値はバイト数。"""
+    png = png_alpha(alpha)
     Path(path).write_bytes(png)
     return len(png)
 
