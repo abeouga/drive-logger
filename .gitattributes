@@ -1,0 +1,9 @@
+# どの PC で取り出しても同じ改行になるようにする（Git の中は LF）
+* text=auto eol=lf
+# cmd.exe は LF だと誤動作することがあるので CRLF で取り出す
+*.bat text eol=crlf
+*.cmd text eol=crlf
+# 中身をいじらない
+*.png binary
+*.jpg binary
+*.zip binary
