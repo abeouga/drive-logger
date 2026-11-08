@@ -43,6 +43,7 @@ class FakeRawUploads:
         self.sessions: dict[str, UploadSession] = {}
         self.objects: dict[tuple[str, str], int] = {}
         self.completed: set[str] = set()
+        self.fingerprints: dict[str, str] = {}
 
     def create_session(self, session):
         if session.ride_id in self.sessions:
@@ -68,6 +69,12 @@ class FakeRawUploads:
     def put(self, ride_id, files):
         for name, size in files:
             self.objects[(ride_id, name)] = size
+
+    def find_fingerprint(self, fingerprint):
+        return self.fingerprints.get(fingerprint)
+
+    def save_fingerprint(self, fingerprint, session):
+        self.fingerprints[fingerprint] = session.ride_id
 
 
 def _service(repository):
@@ -222,3 +229,53 @@ def test_http_rejects_missing_or_wrong_token(device_client):
     assert client.post("/api/device/uploads", json=body).status_code == 401
     wrong = {"Authorization": f"Device d01.{'x' * 43}"}
     assert client.post("/api/device/uploads", json=body, headers=wrong).status_code == 401
+
+
+# ------------------------------------------------------------------ 同じ SD の走行（#14）
+def test_same_sd_ride_is_not_uploaded_twice_even_from_another_device():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    first = service.start(D01, "ride_013", FILES)
+    assert first.status == "new"
+    repository.put(first.ride_id, FILES)
+    assert service.complete(D01, first.ride_id) is True
+
+    again = service.start(Device("pc01"), "ride_013", FILES + [("notes.md", 20)])   # PC から、メモを足して送り直した
+    assert again.status == "already_uploaded" and again.ride_id == first.ride_id and again.urls == {}
+
+
+def test_different_recording_or_unfinished_upload_is_a_new_ride():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    first = service.start(D01, "ride_013", FILES)
+    # 送り終えていない走行は、同じ印でも新しく受け付ける（ほかの機器の途中の受け付けは使い回さない）
+    assert service.start(Device("pc01"), "ride_013", FILES).ride_id != first.ride_id
+    repository.put(first.ride_id, FILES)
+    service.complete(D01, first.ride_id)
+    other = service.start(D01, "ride_013", [("accel.csv", 1001), ("gps.csv", 200), ("meta.json", 50)])   # 大きさが違う＝別の記録
+    assert other.status == "new" and other.ride_id != first.ride_id
+    assert service.start(D01, "ride_014", FILES).status == "new"   # セッション名が違う
+
+
+def test_complete_again_saves_the_mark_for_old_uploads():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    ticket = service.start(D01, "ride_013", FILES)
+    repository.put(ticket.ride_id, FILES)
+    repository.completed.add(ticket.ride_id)        # 印を付ける前に完了していた走行
+    assert service.complete(D01, ticket.ride_id) is False
+    assert list(repository.fingerprints.values()) == [ticket.ride_id]
+
+
+def test_http_returns_status_and_empty_uploads_for_a_duplicate(device_client):
+    client, repository = device_client
+    headers = {"Authorization": f"Device d01.{TOKEN}"}
+    body = {"local_session": "ride_012", "files": [{"name": n, "size": s} for n, s in FILES]}
+    first = client.post("/api/device/uploads", json=body, headers=headers).json()
+    assert first["status"] == "new"
+    repository.put(first["ride_id"], FILES)
+    client.post(f"/api/device/uploads/{first['ride_id']}/complete", headers=headers)
+    again = client.post("/api/device/uploads", json=body, headers=headers).json()
+    assert again["status"] == "already_uploaded" and again["uploads"] == [] and again["ride_id"] == first["ride_id"]
+    # 機器はそのまま完了を報告し、「前に完了済み」を受け取って送り終えた印を付ける（firmware は変えなくてよい）
+    assert client.post(f"/api/device/uploads/{again['ride_id']}/complete", headers=headers).json()["status"] == "already_complete"

@@ -8,7 +8,8 @@ process        ：走行を処理する（生データ → 作業用に結果と
 retrain        ：全走行で学習し直す（新しいモデルの版を作業用に置く。今使うモデルは変えない）
 publish        ：処理の結果を公開するよう、処理の Lambda に頼む
 rides          ：走行の台帳を表で見る
-register-device / revoke-device：ESP32 の機器トークンの登録と取り消し
+upload-sd      ：PC から SD の走行を送る（ESP32 と同じデバイス API を通す。同じ走行は 2 回受け付けない）
+register-device / revoke-device：ESP32・PC の機器トークンの登録と取り消し
 """
 from __future__ import annotations
 
@@ -30,6 +31,12 @@ def main(argv: list[str] | None = None) -> int:
     pb = sub.add_parser("publish", help="処理の結果を公開するよう、処理の Lambda に頼む")
     pb.add_argument("--run", default=None, help="公開する処理の ID（省くと台帳のとおりに作り直すだけ）")
     sub.add_parser("rides", help="走行の台帳を表で見る")
+    us = sub.add_parser("upload-sd", help="PC から SD の走行を送る（デバイス API を通す。走行 ID はサーバーが付ける）")
+    us.add_argument("paths", nargs="+", help="SD の走行のフォルダー（accel.csv がある所）か、その親（/sessions など）")
+    us.add_argument("--device-id", default=None, help="機器 ID（既定は config の upload.device_id）")
+    us.add_argument("--token-file", default=None, help="register-device --token-file で作ったファイル（既定は config の upload.token_file）")
+    us.add_argument("--base-url", default=None, help="公開ドメイン（既定は config の upload.base_url）")
+    us.add_argument("--resume", default=None, metavar="RIDE_ID", help="途中で切れたとき：前回の走行 ID（フォルダーを 1 つだけ渡す）")
     rg = sub.add_parser("register-device", help="ESP32 の機器トークンを作り、ハッシュだけを SSM に登録する")
     rg.add_argument("--id", required=True, help="機器 ID（英小文字・数字・-。例 d01）")
     rg.add_argument("--token-file", default=None, help="トークンをこのファイルに書く（画面には出さない）。省略すると画面に 1 回だけ出す")
@@ -50,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
         return _invoke_publish(acfg, args.run)
     if args.cmd == "rides":
         return _print_ledger(cfg, acfg)
+    if args.cmd == "upload-sd":
+        return _upload_sd(cfg, args)
     if args.cmd in ("register-device", "revoke-device"):
         from . import devices
 
@@ -126,6 +135,38 @@ def _invoke_publish(acfg: dict, run_id: str | None) -> int:
         return 1
     print(f"公開しました：{body.get('n_rides')} 走行（入れ替え {body.get('copied')}、外した {body.get('removed')}）")
     return 0
+
+
+def _upload_sd(cfg: dict, args) -> int:
+    from .device_upload import UploadError, session_folders, upload_session
+
+    ucfg = cfg.get("upload", {})
+    device_id = args.device_id or ucfg.get("device_id")
+    token_path = Path(args.token_file or ucfg.get("token_file", ""))
+    if not token_path.is_absolute():
+        token_path = Path(cfg["_root"]) / token_path
+    if not device_id or not token_path.is_file():
+        print(f"機器 ID とトークンのファイルが要ります（{token_path}）。作るとき：python -m ct125 register-device --id {device_id or 'pc01'} --token-file {token_path}", file=sys.stderr)
+        return 2
+    token = token_path.read_text(encoding="ascii").strip()
+    base_url = args.base_url or ucfg.get("base_url", "https://drive.herdio-system.com")
+    folders = [folder for path in args.paths for folder in session_folders(Path(path))]
+    if args.resume and len(folders) != 1:
+        print("--resume はフォルダーを 1 つだけ渡すときに使います", file=sys.stderr)
+        return 2
+    failed = 0
+    for folder in folders:
+        try:
+            result = upload_session(base_url, device_id, token, folder, resume_ride_id=args.resume)
+        except UploadError as error:
+            print(f"{folder.name}: 送れませんでした：{error}", file=sys.stderr)
+            failed += 1
+            continue
+        if result.status == "already_uploaded":
+            print(f"{folder.name}: 送り終えている走行です（{result.ride_id}）。新しくは作りません")
+        else:
+            print(f"{folder.name}: {result.ride_id} として送りました（{len(result.sent)} ファイル、{result.completed}）。AWS 側で処理が始まります")
+    return 1 if failed else 0
 
 
 def _print_ledger(cfg: dict, acfg: dict) -> int:

@@ -42,7 +42,8 @@ ESP32    ─https（署名付き URL）→ S3 生データ <走行>/ → 完了�
 | `POST /api/device/uploads/{ride_id}/complete` | 機器 | S3 の大きさが申告どおりなら完了の合図を置く（違えば 409）。完了済みなら `already_complete` |
 
 機器の認証ヘッダー：`Authorization: Device <機器ID>.<トークン>`。機器の登録・無効化は ct125-logger の
-`python -m ct125 register-device --id d01` / `revoke-device`。手順のお手本は ct125-logger の `tools/device_upload_simulator.py`。
+`python -m ct125 register-device --id d01` / `revoke-device`（pipeline/）。PC から送る道具は pipeline の `python -m ct125 upload-sd`（ESP32 と同じ手順）。
+同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えていれば、`POST /api/device/uploads` は既にある走行 ID を `status: already_uploaded`・`uploads: []` で返す（#14。印は生データのバケットの `_uploads/`）。
 
 ## フォルダー構成と役割
 

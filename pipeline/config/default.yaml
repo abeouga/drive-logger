@@ -3,6 +3,10 @@ window_sec: 1.0          # 1 秒窓、重なりなし（計画書 9.1）
 edge_sec: 60             # 走行の先頭・末尾を is_edge=True にする秒数
 clip_g: 15.9             # ADXL345 FULL_RES ±16g の上限（15.97 g）手前。これ以上は is_clipped
 stop_speed_kmh: 5        # 停止判定（停止中でも GPS 速度が 0〜4 km/h 出る）。contracts/common.json と同じ値（firmware も使う）
+upload:                  # PC から SD の走行を送る（python -m ct125 upload-sd。ESP32 と同じデバイス API を通す）
+  base_url: https://drive.herdio-system.com
+  device_id: pc01
+  token_file: config/pc01.token   # register-device --id pc01 --token-file config/pc01.token で作る（*.token はコミットしない）
 classify:                # 走行の分類（docs/data_flow_design.md 9.）。変えたら全走行を分類し直す（retrain）
   desk_vib_median_g: 0.05   # 振動（1 秒窓の rms）の中央値がこれ未満なら机上（エンジン停止 約 0.015 g、アイドリング 約 0.13 g）
   move_dist_m: 200          # GPS で始点からこれ以上動いたら「動いた」

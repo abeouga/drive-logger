@@ -51,7 +51,7 @@ npm run dev:local
 
 ## データを新しくする
 
-画面用のデータを書くのは、AWS の処理の Lambda だけ。走行を足すときは機器（または `pipeline/tools/device_upload_simulator.py`）から送る。
+画面用のデータを書くのは、AWS の処理の Lambda だけ。走行を足すときは機器から送る（PC からは `python -m ct125 upload-sd`）。
 全走行を作り直すときは、Lambda に `{"action": "retrain"}` を渡す（`pipeline/README.md`）。終わったらブラウザを再読み込みする。
 
 ## 困ったとき
