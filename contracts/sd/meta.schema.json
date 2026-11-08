@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/sd/meta.schema.json",
+  "version": 1,
+  "title": "meta.json（記録の始めに firmware が書く、版・設定・単位）",
+  "type": "object",
+  "required": ["spec", "firmware", "build", "clock", "accel", "gps", "mounting", "flush_ms"],
+  "properties": {
+    "spec": { "type": "string", "description": "データ仕様の版（例：データ仕様.md v2）" },
+    "firmware": { "type": "string", "pattern": "^CT125_LOGGER_V[0-9]+\\.[0-9]+$", "description": "firmware の版。V3 以降の走行だけが機器から送られる" },
+    "build": { "type": "string", "description": "コンパイルした日時" },
+    "clock": { "type": "string" },
+    "accel": {
+      "type": "object",
+      "required": ["chip", "odr_hz", "range_g", "lsb_g", "unit", "axes"],
+      "properties": {
+        "chip": { "const": "ADXL345" },
+        "odr_hz": { "type": "number" },
+        "range_g": { "type": "number" },
+        "lsb_g": { "type": "number" },
+        "unit": { "const": "g" },
+        "axes": { "type": "string" }
+      }
+    },
+    "gps": {
+      "type": "object",
+      "required": ["chip", "baud", "t_rx_us", "pps_pin"],
+      "properties": {
+        "chip": { "type": "string" },
+        "baud": { "type": "integer" },
+        "t_rx_us": { "type": "string" },
+        "pps_pin": { "type": "integer", "description": "-1＝PPS なし" }
+      }
+    },
+    "mounting": { "type": "string", "description": "取り付けの説明（未記入なら notes.md に書く）" },
+    "flush_ms": { "type": "integer" }
+  }
+}

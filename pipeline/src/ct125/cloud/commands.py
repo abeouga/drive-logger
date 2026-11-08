@@ -13,7 +13,8 @@ from urllib.parse import unquote_plus
 
 from .settings import UPLOAD_COMPLETE_MARKER
 
-RIDE_ID_PATTERN = re.compile(r"[A-Za-z0-9_-]+")
+# 走行 ID（contracts/common.json の ride_id）。サーバーが付ける ride_<日時> と、上げ直す前の ride_NNN
+RIDE_ID_PATTERN = re.compile(r"ride_([0-9]{8}_[0-9]{6}(_[0-9]{1,2})?|[0-9]{3})")
 
 
 @dataclass(frozen=True)

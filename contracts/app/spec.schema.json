@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/spec.schema.json",
+  "version": 1,
+  "title": "spec_<id>.json（spec_<id>.png の説明。画像は 行＝周波数（上が高い）、列＝窓、不透明度＝強さ）",
+  "type": "object",
+  "required": ["id", "n_cols", "f_max_hz", "window_sec", "db_min", "db_max", "pct", "peak_hz"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "n_cols": { "type": "integer", "minimum": 0, "description": "画像の列の数（＝窓の数）" },
+    "f_max_hz": { "type": "integer", "description": "画像の一番上の周波数" },
+    "window_sec": { "type": "number" },
+    "db_min": { "type": "number", "description": "不透明度 0 に当てた強さ（dB）" },
+    "db_max": { "type": "number", "description": "不透明度 1 に当てた強さ（dB）" },
+    "pct": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2, "description": "db_min・db_max に使った分位点" },
+    "peak_hz": { "type": "array", "items": { "type": ["integer", "null"] }, "description": "各窓で最も強い周波数（5 Hz 以上）" }
+  }
+}

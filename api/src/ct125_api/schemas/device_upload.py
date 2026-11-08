@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field
 
 
 class UploadFile(BaseModel):
-    name: str = Field(description="ファイル名（accel.csv・gps.csv・events.csv・status.csv・meta.json・memo.txt）")
+    name: str = Field(description="ファイル名（accel.csv・gps.csv・events.csv・status.csv・meta.json・notes.md。古い走行メモの memo.txt・readme.txt も可）")
     size: int = Field(description="バイト数")
 
 

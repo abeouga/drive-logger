@@ -1,0 +1,41 @@
+{
+  "generated_at_ms": 1762650000000,
+  "rides": [
+    {
+      "id": "ride_007",
+      "start_ms": null,
+      "duration_s": 11.5,
+      "distance_km": 0.0,
+      "max_speed_kmh": null,
+      "fix_ratio": 0.0,
+      "gps": "none",
+      "n_windows": 12,
+      "n_highlights": 10,
+      "highlight_basis": "score_if_top",
+      "n_anomaly_z": 0,
+      "n_anomaly_if": 1,
+      "n_clipped": 1,
+      "rms_median": 0.65,
+      "spark": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
+      "memo": ""
+    },
+    {
+      "id": "ride_20261108_011304",
+      "start_ms": 1793595600500,
+      "duration_s": 11.5,
+      "distance_km": 0.13,
+      "max_speed_kmh": 33.0,
+      "fix_ratio": 0.833,
+      "gps": "partial",
+      "n_windows": 12,
+      "n_highlights": 10,
+      "highlight_basis": "z_speed_top",
+      "n_anomaly_z": 0,
+      "n_anomaly_if": 1,
+      "n_clipped": 1,
+      "rms_median": 0.65,
+      "spark": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
+      "memo": "# 例\n家の前で 2 分アイドリングしてから出発"
+    }
+  ]
+}

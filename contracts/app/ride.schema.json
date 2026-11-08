@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/ride.schema.json",
+  "version": 1,
+  "title": "ride_<id>.json（1 走行の 1 秒窓の列。どの列も長さ n）",
+  "type": "object",
+  "required": ["id", "n", "has_abs_time", "highlight_basis", "columns"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "n": { "type": "integer", "minimum": 0, "description": "窓の数" },
+    "has_abs_time": { "type": "boolean", "description": "GPS の時刻があるか（無ければ t_abs_ms は null）" },
+    "highlight_basis": { "enum": ["z_speed>3", "z_speed_top", "score_if_top"] },
+    "columns": {
+      "type": "object",
+      "required": ["t_rel", "t_abs_ms", "lat", "lon", "speed", "rms", "log_rms", "p2p", "crest", "z", "score_if", "band_1_5", "band_5_15", "band_15_40", "has_gps", "is_stopped", "is_edge", "is_clipped", "is_anomaly_z", "is_anomaly_if", "cls", "highlight"],
+      "additionalProperties": false,
+      "properties": {
+        "t_rel": { "$ref": "#/$defs/numbers", "description": "窓の中心の相対秒（小数 1 桁）" },
+        "t_abs_ms": { "oneOf": [{ "type": "array", "items": { "type": ["integer", "null"] } }, { "type": "null" }], "description": "窓の中心の UNIX ミリ秒。GPS なしの走行は null" },
+        "lat": { "$ref": "#/$defs/numbers", "description": "小数 5 桁（約 1 m）。GPS なしの窓は null" },
+        "lon": { "$ref": "#/$defs/numbers" },
+        "speed": { "$ref": "#/$defs/numbers", "description": "km/h" },
+        "rms": { "$ref": "#/$defs/numbers", "description": "g（重力を除いた合成加速度）" },
+        "log_rms": { "$ref": "#/$defs/numbers" },
+        "p2p": { "$ref": "#/$defs/numbers" },
+        "crest": { "$ref": "#/$defs/numbers" },
+        "z": { "$ref": "#/$defs/numbers", "description": "z_speed（速度で補正したベースラインからの逸脱）" },
+        "score_if": { "$ref": "#/$defs/numbers", "description": "Isolation Forest（大きいほど外れ）" },
+        "band_1_5": { "$ref": "#/$defs/numbers" },
+        "band_5_15": { "$ref": "#/$defs/numbers" },
+        "band_15_40": { "$ref": "#/$defs/numbers" },
+        "has_gps": { "$ref": "#/$defs/booleans" },
+        "is_stopped": { "$ref": "#/$defs/booleans", "description": "5 km/h 未満" },
+        "is_edge": { "$ref": "#/$defs/booleans", "description": "記録の先頭・末尾 60 秒" },
+        "is_clipped": { "$ref": "#/$defs/booleans", "description": "±16 g に達したサンプルを含む" },
+        "is_anomaly_z": { "$ref": "#/$defs/booleans" },
+        "is_anomaly_if": { "$ref": "#/$defs/booleans" },
+        "cls": { "type": "array", "items": { "type": "integer", "minimum": -1, "maximum": 4 }, "description": "地図の色の段階 0〜4（座標の無い窓は -1）" },
+        "highlight": { "$ref": "#/$defs/booleans", "description": "見どころの窓" }
+      }
+    }
+  },
+  "$defs": {
+    "numbers": { "type": "array", "items": { "type": ["number", "null"] } },
+    "booleans": { "type": "array", "items": { "type": "boolean" } }
+  }
+}

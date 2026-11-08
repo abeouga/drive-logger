@@ -21,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-SEND_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "memo.txt"]
+SEND_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"]
 DEFAULT_BASE_URL = "https://drive.herdio-system.com"
 
 

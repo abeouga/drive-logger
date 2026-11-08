@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/wave.schema.json",
+  "version": 1,
+  "title": "wave_<id>.json（見どころの窓の 1 秒分の生波形。平均を引いた mg の整数）",
+  "type": "object",
+  "required": ["id", "unit", "windows"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string" },
+    "unit": { "const": "mg" },
+    "windows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["i", "fs", "t0", "ax", "ay", "az"],
+        "additionalProperties": false,
+        "properties": {
+          "i": { "type": "integer", "minimum": 0, "description": "窓の添字（ride_<id>.json の列の位置）" },
+          "fs": { "type": "number", "description": "サンプリング周波数（Hz）" },
+          "t0": { "type": "number", "description": "窓の始まりの相対秒" },
+          "ax": { "type": "array", "items": { "type": "integer" } },
+          "ay": { "type": "array", "items": { "type": "integer" } },
+          "az": { "type": "array", "items": { "type": "integer" } }
+        }
+      }
+    }
+  }
+}

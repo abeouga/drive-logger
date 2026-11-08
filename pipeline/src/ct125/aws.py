@@ -14,7 +14,8 @@ from pathlib import Path
 import boto3
 from botocore.config import Config
 
-RAW_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "memo.txt", "readme.txt"]  # 無いファイルは飛ばす
+# 生データとして上げるファイル（contracts/upload/upload.json の files.allowed）。無いファイルは飛ばす
+RAW_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"]
 # 生データを上げ終わった印。これが置かれると、AWS の Lambda がその走行を処理する（ct125/cloud/）
 UPLOAD_COMPLETE_MARKER = "upload_complete.json"
 PROCESSED_FILES = ["windows.parquet", "scored.parquet"]
@@ -44,6 +45,7 @@ def content_type_of(path: Path) -> str:
         ".json": "application/json; charset=utf-8",  # 日本語のメモを含むので文字コードを明示
         ".png": "image/png",
         ".txt": "text/plain; charset=utf-8",
+        ".md": "text/markdown; charset=utf-8",
     }
     return fixed.get(path.suffix.lower()) or mimetypes.guess_type(str(path))[0] or "application/octet-stream"
 

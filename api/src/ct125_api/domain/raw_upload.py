@@ -10,8 +10,9 @@ from datetime import datetime
 
 from .exceptions import InvalidUploadRequestError
 
-# 受け付けるファイル（ESP32 が SD の /sessions/ride_NNN/ に書くもの）
-ALLOWED_FILES = ("accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "memo.txt")
+# 送信の約束（contracts/upload/upload.json・contracts/common.json）。合っているかは tests/test_contracts.py で確かめる
+# 受け付けるファイル（ESP32 が SD の /sessions/ride_NNN/ に書くものと、走行メモ。memo.txt・readme.txt は走行メモの古い名前）
+ALLOWED_FILES = ("accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt")
 # これが無いと処理できない
 REQUIRED_FILES = ("accel.csv", "gps.csv", "meta.json")
 # 1 ファイルの上限（1 時間で約 55MB。余裕を見て）

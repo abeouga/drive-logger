@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "description": "フォルダーをまたいで使う共通の決まり",
+  "ride_id": {
+    "description": "サーバー（デバイス API）が付ける走行 ID。ride_<UTC の年月日>_<時分秒>。同じ秒に重なったら _2, _3 …",
+    "pattern": "^ride_[0-9]{8}_[0-9]{6}(_[0-9]{1,2})?$",
+    "legacy_pattern": "^ride_[0-9]{3}$",
+    "legacy_description": "デバイス API より前に PC から上げた走行（ride_001〜ride_009）。#15 で上げ直すまで、処理は受け付ける"
+  },
+  "local_session": {
+    "description": "SD の上の走行のフォルダー名（firmware は ride_NNN を作る）。デバイス API に申告する",
+    "pattern": "^[A-Za-z0-9_-]{1,32}$"
+  },
+  "device_id": {
+    "description": "機器 ID（英小文字・数字・-、1〜32 文字。例 d01）",
+    "pattern": "^[a-z0-9][a-z0-9-]{0,31}$"
+  },
+  "stop_speed_kmh": {
+    "description": "GPS の速さがこれ未満なら止まっているとみなす。止まっていても GPS は 0〜4 km/h を出すため 5。firmware（自動送信のきっかけ）と pipeline（is_stopped・走行の分類）で同じ値を使う",
+    "value": 5
+  },
+  "timezone": "Asia/Tokyo"
+}

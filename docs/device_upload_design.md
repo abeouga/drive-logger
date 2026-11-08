@@ -2,6 +2,7 @@
 
 作成：2026-11-08。状態：**サーバー側は実装・確認済み。ファームウェア V3 は書き込み済み（記録の動作を確認）。Wi-Fi の設定（本人）と送信の確認がまだ**（2026-11-08）。決めたこと・まだ決めていないことは末尾の「決めること」。
 
+- 送信の手順の正式な定義：[contracts/upload/](../contracts/upload/)（送るファイル・必須のファイル・要求と応答の JSON・完了の印。CI が firmware・api・pipeline のコードと突き合わせる）
 - ファームウェア：`firmware/ct125_logger/`（`uploader.cpp`・`config_store.cpp`・`root_ca.h`）。設定は `scripts/provision-device.ps1`
 
 - サーバー側：`api` のデバイス API（`device_main.py`・`routers/device_upload_router.py` など）、`infra\device_api.tf`

@@ -63,14 +63,16 @@ drive-logger/
 
 ## データの約束事
 
-フォルダーの間は、次の「形」でつながっています。片方を変えるときは、同じコミットでもう片方も直します。
+フォルダーの間は、次の「形」でつながっています。形は [contracts/](contracts/) に機械が読める定義（JSON Schema・Table Schema）として 1 か所だけ書き、
+各フォルダーのコードがそれと合っているかを CI のテストで突き合わせます。片方を変えるときは、同じ PR でもう片方も直します。
 
-| 約束 | 作る側 | 使う側 | 書いてある場所 |
-|---|---|---|---|
-| SD の CSV の形 | `firmware/` | `pipeline/` | [docs/data_spec_v2.md](docs/data_spec_v2.md) |
-| 機器からの送信の手順 | `firmware/`（`uploader.cpp`） | `api/`（デバイス API） | [docs/device_upload_design.md](docs/device_upload_design.md) |
-| 画面用 JSON の形 | `pipeline/`（`export.py`） | `web/`（`types.ts`）・`api/` | [web/docs/data_contract.md](web/docs/data_contract.md) |
-| AWS の名前・場所 | `infra/` | 各フォルダーのスクリプト（Terraform の出力を読む） | `infra/outputs.tf` |
+| 約束 | 作る側 | 使う側 | 定義 | 説明 |
+|---|---|---|---|---|
+| SD の CSV と meta.json の形 | `firmware/` | `pipeline/` | [contracts/sd/](contracts/sd/) | [docs/data_spec_v2.md](docs/data_spec_v2.md) |
+| 機器からの送信の手順 | `firmware/`（`uploader.cpp`）・PC のツール | `api/`（デバイス API） | [contracts/upload/](contracts/upload/) | [docs/device_upload_design.md](docs/device_upload_design.md) |
+| 画面用 JSON の形 | `pipeline/`（`export.py`） | `web/`（`types.ts`）・`api/` | [contracts/app/](contracts/app/) | [web/docs/data_contract.md](web/docs/data_contract.md) |
+| 走行の台帳・処理の記録・モデルの記録 | `pipeline/` | `api/`・`web/` | [contracts/records/](contracts/records/) | [docs/data_flow_design.md](docs/data_flow_design.md) |
+| AWS の名前・場所 | `infra/` | 各フォルダーのスクリプト（Terraform の出力を読む） | `infra/outputs.tf` | `infra/README.md` |
 
 ## コミットしないもの
 
@@ -104,8 +106,9 @@ PR と main への push ごとに、GitHub Actions が次を回します（AWS �
 |---|---|---|
 | pipeline | pytest（Lambda のコンテナと同じ版のライブラリで） | `.github/workflows/ci.yml` |
 | api | pytest（`uv.lock` の版で） | 同上 |
-| web | 型チェックとビルド | 同上 |
+| web | 型チェックとビルド（画面用 JSON の見本と型の突き合わせを含む） | 同上 |
 | infra | `terraform fmt -check` と `terraform validate`（backend なし） | 同上 |
+| contracts | 定義が正しいか、見本が定義に合うか、firmware のソースの定数が定義と同じか | 同上 |
 | firmware | ESP32 のコンパイル（firmware/ を変えたときだけ） | `.github/workflows/firmware.yml` |
 
 ## 技術

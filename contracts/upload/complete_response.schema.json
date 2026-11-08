@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/upload/complete_response.schema.json",
+  "version": 1,
+  "title": "POST /api/device/uploads/{ride_id}/complete の応答",
+  "type": "object",
+  "required": ["ride_id", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "ride_id": { "type": "string" },
+    "status": { "enum": ["complete", "already_complete"], "description": "complete＝今回完了、already_complete＝前に完了済み（やり直しても困らない）" }
+  }
+}
