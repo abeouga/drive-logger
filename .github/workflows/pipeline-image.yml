@@ -1,0 +1,41 @@
+# pipeline/ を変えたときだけ、Lambda のコンテナを作り、入口が読み込めることを確かめる（ECR には上げない。AWS に繋がない）。
+name: pipeline-image
+
+on:
+  pull_request:
+    paths:
+      - "pipeline/src/**"
+      - "pipeline/config/**"
+      - "pipeline/deploy/**"
+      - ".github/workflows/pipeline-image.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pipeline/src/**"
+      - "pipeline/config/**"
+      - "pipeline/deploy/**"
+      - ".github/workflows/pipeline-image.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: pipeline（Lambda のコンテナ）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pipeline
+    steps:
+      - uses: actions/checkout@v4
+      - name: コンテナを作る
+        run: docker build --platform linux/amd64 --provenance=false --build-arg "GIT_COMMIT=${GITHUB_SHA::7}" -f deploy/lambda/Dockerfile -t ct125-ride-pipeline:ci .
+      - name: 入口が読み込めて、ライブラリの版が固定のとおりか
+        run: |
+          docker run --rm --entrypoint python3 ct125-ride-pipeline:ci -c "
+          import sys
+          import ct125.cloud.lambda_handler
+          from ct125.records import code_commit, library_versions
+          assert 'folium' not in sys.modules and 'plotly' not in sys.modules
+          print(code_commit(), library_versions())
+          "

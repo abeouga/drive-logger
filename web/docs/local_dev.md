@@ -44,14 +44,7 @@ S3 の画面用データを書くのは、AWS の自動処理（Lambda）だけ�
 
 `.env.local` を `DATA_SOURCE=cache` にして `npm run dev`。`cache/` だけを読む。
 
-`cache/` の作り方は 2 通り：
-
-- S3 から写す：`scripts/pull-data.ps1`（S3 に `rides.json` がないときは何もしない）
-- S3 を通さず pipeline から直接書き出す（`pipeline/` で）：
-
-```bash
-.venv/Scripts/python.exe -m ct125 export --out ../web/cache
-```
+`cache/` は S3 から写す：`scripts/pull-data.ps1`（S3 に `rides.json` がないときは何もしない）。
 
 ## 困ったとき
 

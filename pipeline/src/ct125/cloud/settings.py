@@ -1,35 +1,30 @@
 # -*- coding: utf-8 -*-
-"""設定。Lambda では Terraform が環境変数を入れる。"""
+"""設定。Lambda では Terraform が環境変数を入れる（docs/data_flow_design.md 3.・4.）。"""
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
 
-from ..aws import UPLOAD_COMPLETE_MARKER  # 生データを上げ終わった印（ローカルの upload が最後に置く）
-
 
 @dataclass(frozen=True)
 class CloudSettings:
-    bucket: str
-    raw_prefix: str              # 生データ：raw/<走行>/accel.csv など
-    processed_prefix: str        # 中間データ：processed/<走行>/windows.parquet・scored.parquet
-    models_prefix: str           # モデル：models/<版>/、models/current.json
-    app_prefix: str              # 画面用データ：app/v1/datasets/shared/
-    work_dir: str                # 作業フォルダー（Lambda では /tmp の下）
+    raw_bucket: str      # 生データ：<走行>/accel.csv など。<走行>/upload_complete.json が処理の合図
+    raw_prefix: str
+    work_bucket: str     # 作業用：runs/・models/・ledger/
+    work_prefix: str
+    public_bucket: str   # 公開用：画面が読む rides.json・ride_<id>.json など
+    public_prefix: str
 
     @classmethod
     def from_env(cls) -> "CloudSettings":
         return cls(
-            bucket=_required("DATA_BUCKET"),
-            raw_prefix=os.environ.get("RAW_PREFIX", "raw/"),
-            processed_prefix=os.environ.get("PROCESSED_PREFIX", "processed/"),
-            models_prefix=os.environ.get("MODELS_PREFIX", "models/"),
-            app_prefix=os.environ.get("APP_PREFIX", "app/v1/datasets/shared/"),
-            work_dir=os.environ.get("WORK_DIR", "/tmp/ct125"),
+            raw_bucket=_required("RAW_BUCKET"),
+            raw_prefix=os.environ.get("RAW_PREFIX", ""),
+            work_bucket=_required("WORK_BUCKET"),
+            work_prefix=os.environ.get("WORK_PREFIX", ""),
+            public_bucket=_required("PUBLIC_BUCKET"),
+            public_prefix=os.environ.get("PUBLIC_PREFIX", "datasets/shared/"),
         )
-
-
-__all__ = ["CloudSettings", "UPLOAD_COMPLETE_MARKER"]
 
 
 def _required(name: str) -> str:

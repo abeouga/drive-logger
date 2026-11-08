@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import json
 import math
-from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -177,12 +176,6 @@ def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
     return summary, payload
 
 
-def _dump(obj, path: Path) -> int:
-    text = json.dumps(obj, ensure_ascii=False, separators=(",", ":"), allow_nan=False)
-    path.write_text(text, encoding="utf-8")
-    return len(text.encode("utf-8"))
-
-
 def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, highlight_rows: list[int], window_sec: float = 1.0) -> tuple[np.ndarray, dict, dict]:
     """スペクトログラムの画像（不透明度）とその情報、見どころの生波形。df は scored.parquet（win 順）。"""
     from . import spectro
@@ -201,58 +194,39 @@ def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, highlight_rows: list[int
 
 
 def ride_output_files(ride_id: str) -> list[str]:
-    """1 走行分の書き出しファイル名（rides.json は含まない）。"""
+    """1 走行分の画面用のファイル名（rides.json は含まない）。"""
     return [f"ride_{ride_id}.json", f"spec_{ride_id}.png", f"spec_{ride_id}.json", f"wave_{ride_id}.json"]
 
 
-def rides_document(summaries: list[dict]) -> dict:
+def rides_document(summaries: list[dict], generated_at_ms: int | None = None) -> dict:
     """rides.json の中身。走行は ID 順に並べる。"""
     ordered = sorted(summaries, key=lambda s: s["id"])
-    return {"generated_at_ms": int(pd.Timestamp.now(tz="UTC").value // 1_000_000), "rides": ordered}
+    if generated_at_ms is None:
+        generated_at_ms = int(pd.Timestamp.now(tz="UTC").value // 1_000_000)
+    return {"generated_at_ms": generated_at_ms, "rides": ordered}
 
 
-def export_ride(ride_id: str, processed_dir: Path, interim_dir: Path, out_dir: Path, memo: str = "", verbose: bool = True) -> dict:
-    """1 走行分を書き出す（ride_<id>.json、あればスペクトログラムと生波形）。返り値は rides.json に載せる要約。
+def dump_json(obj) -> bytes:
+    """画面用 JSON の中身（区切りの空白なし、NaN なし）。"""
+    return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
 
-    読むのは processed_dir/<id>/scored.parquet と interim_dir/<id>/accel.parquet。
+
+def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "") -> tuple[dict, dict[str, bytes]]:
+    """1 走行分の (rides.json に載せる要約, {ファイル名: 中身})。ファイルには書かない。
+
+    scored は点数付きの窓、accel はクリーニング後の加速度（t_rel・ax_g・ay_g・az_g）。
+    accel が無ければスペクトログラムと生波形は作らない。
     """
     from . import spectro
 
-    df = pd.read_parquet(processed_dir / ride_id / "scored.parquet").sort_values("win").reset_index(drop=True)
+    df = scored.sort_values("win").reset_index(drop=True)
     summary, payload = ride_payload(df, memo)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    size = _dump(payload, out_dir / f"ride_{summary['id']}.json")
-    extra = ""
-    acc_path = interim_dir / ride_id / "accel.parquet"
-    if acc_path.exists():
-        acc = pd.read_parquet(acc_path, columns=["t_rel", "ax_g", "ay_g", "az_g"])
+    ride_id = summary["id"]
+    files = {f"ride_{ride_id}.json": dump_json(payload)}
+    if accel is not None:
         rows = [i for i, h in enumerate(payload["columns"]["highlight"]) if h]
-        img, meta, waves = extras_payload(df, acc, rows)
-        png = spectro.write_png_alpha(out_dir / f"spec_{ride_id}.png", img)
-        _dump(meta, out_dir / f"spec_{ride_id}.json")
-        wsize = _dump(waves, out_dir / f"wave_{ride_id}.json")
-        extra = f", スペクトログラム {img.shape[1]}×{img.shape[0]} {png / 1024:.0f} KB, 生波形 {len(waves['windows'])} 窓 {wsize / 1024:.0f} KB"
-    if verbose:
-        print(f"{summary['id']}: 窓 {payload['n']}, 座標あり {sum(v is not None for v in payload['columns']['lat'])}, "
-              f"見どころ {summary['n_highlights']}（{summary['highlight_basis']}）, {size / 1024:.0f} KB{extra}")
-    return summary
-
-
-def export_all(processed_dir: Path, out_dir: Path, memos: dict[str, str] | None = None, verbose: bool = True, interim_dir: Path | None = None) -> list[dict]:
-    """全走行を書き出し、rides.json を作り直す。"""
-    paths = sorted(processed_dir.glob("ride_*/scored.parquet"))
-    if not paths:
-        raise FileNotFoundError("scored.parquet がありません。先に process と score を実行してください")
-    interim_dir = interim_dir or processed_dir.parent / "interim"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    for pattern in ("ride_*.json", "spec_*.json", "spec_*.png", "wave_*.json"):
-        for old in out_dir.glob(pattern):
-            old.unlink()
-    summaries = []
-    for p in paths:
-        rid = p.parent.name
-        summaries.append(export_ride(rid, processed_dir, interim_dir, out_dir, (memos or {}).get(rid, ""), verbose))
-    total = _dump(rides_document(summaries), out_dir / "rides.json")
-    if verbose:
-        print(f"rides.json: {len(summaries)} 走行, {total / 1024:.1f} KB → {out_dir}")
-    return summaries
+        img, meta, waves = extras_payload(df, accel, rows)
+        files[f"spec_{ride_id}.png"] = spectro.png_alpha(img)
+        files[f"spec_{ride_id}.json"] = dump_json(meta)
+        files[f"wave_{ride_id}.json"] = dump_json(waves)
+    return summary, files
