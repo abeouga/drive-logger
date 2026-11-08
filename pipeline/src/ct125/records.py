@@ -7,10 +7,17 @@ from __future__ import annotations
 
 import os
 import platform
+import re
 import secrets
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+
+# 走行 ID（contracts/common.json の ride_id）。サーバーが付ける ride_<日時> と、上げ直す前の ride_NNN
+RIDE_ID_PATTERN = re.compile(r"ride_([0-9]{8}_[0-9]{6}(_[0-9]{1,2})?|[0-9]{3})")
+# 処理の ID とモデルの版（contracts/records/）
+RUN_ID_PATTERN = re.compile(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}")
+MODEL_VERSION_PATTERN = re.compile(r"[0-9]{8}(-[0-9]{6})?")
 
 RUN_SCHEMA = "run/1"
 LEDGER_SCHEMA = "ledger/1"

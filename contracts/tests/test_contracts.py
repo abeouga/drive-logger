@@ -110,6 +110,9 @@ EXAMPLES = {
     "examples/upload/start_response.json": "upload/start_response.schema.json",
     "examples/upload/complete_response.json": "upload/complete_response.schema.json",
     "examples/upload/upload_complete.json": "upload/upload_complete.schema.json",
+    "examples/api/rides.json": "api/rides.schema.json",
+    "examples/api/runs.json": "api/runs.schema.json",
+    "examples/api/models.json": "api/models.schema.json",
 }
 
 
@@ -138,6 +141,15 @@ def string_array(source: str, name: str) -> list[str]:
     match = re.search(rf"{name}\[\]\s*=\s*\{{([^}}]*)\}}", source)
     assert match, f"{name} が見つかりません"
     return re.findall(r'"([^"]+)"', match.group(1))
+
+
+def test_pipeline_hides_the_same_kinds_as_common():
+    import yaml  # noqa: F401  （pyyaml が無い環境では飛ばす）
+
+    cfg = yaml.safe_load((CONTRACTS.parent / "pipeline" / "config" / "default.yaml").read_text(encoding="utf-8"))
+    common = load("common.json")
+    assert cfg["classify"]["hidden_kinds"] == common["hidden_kinds"]["value"]
+    assert cfg["stop_speed_kmh"] == common["stop_speed_kmh"]["value"]
 
 
 def test_firmware_sends_only_allowed_files():

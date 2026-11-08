@@ -68,7 +68,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv run --no-project --python 3.12 --with jsonschema==4.26.0 --with pytest==9.2.0 python -m pytest contracts/tests -q
+      - run: uv run --no-project --python 3.12 --with jsonschema==4.26.0 --with pytest==9.2.0 --with pyyaml==6.0.3 python -m pytest contracts/tests -q
 
   infra:
     name: infra（terraform fmt・validate）

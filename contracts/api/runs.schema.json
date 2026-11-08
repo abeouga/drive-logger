@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/api/runs.schema.json",
+  "version": 1,
+  "title": "GET /api/rides/{ride_id}/runs の応答（その走行を処理した記録。新しい順）",
+  "type": "object",
+  "required": ["ride_id", "runs"],
+  "additionalProperties": false,
+  "properties": {
+    "ride_id": { "type": "string" },
+    "runs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["run_id", "action", "created_at", "finished_at", "where", "commit", "model_version", "status", "error", "published"],
+        "additionalProperties": false,
+        "properties": {
+          "run_id": { "type": "string" },
+          "action": { "enum": ["process", "retrain"] },
+          "created_at": { "type": "string", "format": "date-time" },
+          "finished_at": { "type": ["string", "null"], "format": "date-time" },
+          "where": { "enum": ["local", "lambda"] },
+          "commit": { "type": ["string", "null"] },
+          "model_version": { "type": ["string", "null"] },
+          "status": { "enum": ["running", "succeeded", "failed"], "description": "この走行の結果（処理の中で、この走行がどうだったか）" },
+          "error": { "type": ["string", "null"] },
+          "published": { "type": "boolean", "description": "今、画面に出している結果か" }
+        }
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@
 process：生データ → 前処理 → 分類 → 今のモデルで点数付け → 画面用の書き出し → 作業用に保存 → 処理の記録 → 台帳
 retrain：台帳で「学習に使う」走行だけで学習 → 新しいモデルの版 → 全走行を点数付けし直す → 作業用に保存 → 記録 → 台帳
 publish：台帳が指す結果から、公開用（画面が読む場所）を作り直す
+use_model：今使うモデルを選んだ版にし、全走行を点数付けし直して公開する（画面の「このモデルに切り替える」）
 
 違うのは「どこで動いたか（where）」と「公開してよいか」だけ。公開用に書けるのは Lambda だけで、
 ローカルの処理は作業用に結果を置くだけ（公開は Lambda に頼む）。
@@ -20,6 +21,7 @@ import pandas as pd
 
 from . import classify as classifymod
 from . import export, io, processing, records
+from .records import RIDE_ID_PATTERN
 from .model import apply_models, fit_models, training_mask
 from .models import ModelStore
 from .storage import Area, WriteConflictError
@@ -94,7 +96,7 @@ class Pipeline:
             ledger = self._read_ledger()
             analyzed: dict[str, _Analyzed] = {}
             failed: dict[str, str] = {}
-            for ride_id in self._places.raw.folders():
+            for ride_id in self.ride_ids():
                 markers[ride_id] = self._marker(ride_id)
                 try:
                     analyzed[ride_id] = self._analyze(ride_id)
@@ -121,6 +123,20 @@ class Pipeline:
             self._fail(run, error)
             raise
         return self._finish(run, markers, publish, switch_model=True)
+
+    # ================================================================ モデルの切り替え
+    def use_model(self, version: str) -> dict:
+        """今使うモデルを version にし、全走行をそのモデルで点数付けし直して公開する。"""
+        if self._places.public is None:
+            raise PublishNotAllowedError("モデルの切り替えは処理の Lambda だけが行います")
+        self._models.load(version)  # 無い版・ライブラリの版が合わない版は、切り替える前に止める
+        self._models.set_current(version)
+        self._log(f"今使うモデルを {version} にしました。全走行を点数付けし直します")
+        return self.process(self.ride_ids(), publish=True)
+
+    def ride_ids(self) -> list[str]:
+        """生データの場所にある走行（走行 ID の形のフォルダーだけ。受け付けの記録などは除く）。"""
+        return [name for name in self._places.raw.folders() if RIDE_ID_PATTERN.fullmatch(name)]
 
     def _choose_training(self, analyzed: dict[str, _Analyzed], failed: dict[str, str], ledger: dict) -> tuple[list[str], list[dict]]:
         train, excluded = [], []

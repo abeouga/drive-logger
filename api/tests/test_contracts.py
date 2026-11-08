@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -99,3 +100,40 @@ def test_session_and_marker_files_match_schemas():
     S3RawUploadRepository(s3, "bucket", "raw/").mark_complete(session)
     assert s3.key == "raw/ride_20261108_153012/upload_complete.json"
     validator("upload/upload_complete.schema.json").validate(s3.body)
+
+
+# ------------------------------------------------------------------ 走行の台帳（#16・#17）
+def test_ledger_rules_match_common_and_records():
+    from ct125_api.domain import ledger
+
+    common = load("common.json")
+    ledger_schema = load("records/ledger.schema.json")
+    assert "^" + ledger.RIDE_ID_PATTERN.pattern + "$" == ledger_schema["properties"]["rides"]["propertyNames"]["pattern"]
+    assert re.fullmatch(common["ride_id"]["pattern"], "ride_20261109_010000") and ledger.RIDE_ID_PATTERN.fullmatch("ride_20261109_010000")
+    assert ledger.RIDE_ID_PATTERN.fullmatch("ride_004") and re.fullmatch(common["ride_id"]["legacy_pattern"], "ride_004")
+    run_schema = load("records/run.schema.json")
+    assert "^" + ledger.RUN_ID_PATTERN.pattern + "$" == run_schema["properties"]["run_id"]["pattern"]
+    assert "^" + ledger.MODEL_VERSION_PATTERN.pattern + "$" == run_schema["properties"]["model_version"]["pattern"]
+    assert list(ledger.HIDDEN_KINDS) == common["hidden_kinds"]["value"]
+    assert ledger.ADMIN_GROUP == common["admin_group"]["value"]
+
+
+def test_work_repository_writes_the_ledger_conditionally():
+    import boto3
+    from botocore.stub import ANY, Stubber
+
+    from ct125_api.repositories.work_repository import LedgerWriteConflict, S3WorkRepository
+
+    client = boto3.client("s3", region_name="ap-northeast-1", aws_access_key_id="x", aws_secret_access_key="x")
+    with Stubber(client) as stubber:
+        stubber.add_response("put_object", {}, {"Bucket": "w", "Key": "ledger/rides.json", "Body": ANY, "ContentType": ANY, "IfMatch": '"v1"'})
+        stubber.add_client_error("put_object", service_error_code="PreconditionFailed", http_status_code=412)
+        stubber.add_client_error("get_object", service_error_code="NoSuchKey", http_status_code=404)
+        repository = S3WorkRepository(client, "w")
+        repository.write_ledger({"rides": {}}, '"v1"')
+        try:
+            repository.write_ledger({"rides": {}}, '"v1"')
+            raise AssertionError("衝突になるはず")
+        except LedgerWriteConflict:
+            pass
+        assert repository.read_ledger() == (None, None)

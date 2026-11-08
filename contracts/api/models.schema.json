@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/api/models.schema.json",
+  "version": 1,
+  "title": "GET /api/models の応答（モデルの版の一覧。新しい順）",
+  "type": "object",
+  "required": ["current", "models"],
+  "additionalProperties": false,
+  "properties": {
+    "current": { "type": ["string", "null"], "description": "今使っている版" },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["version", "created_at", "where", "commit", "n_rides", "n_windows", "has_record"],
+        "additionalProperties": false,
+        "properties": {
+          "version": { "type": "string" },
+          "created_at": { "type": ["string", "null"], "format": "date-time" },
+          "where": { "enum": ["local", "lambda", null] },
+          "commit": { "type": ["string", "null"] },
+          "n_rides": { "type": ["integer", "null"], "description": "学習に使った走行の数" },
+          "n_windows": { "type": ["integer", "null"], "description": "学習に使った窓の数" },
+          "has_record": { "type": "boolean", "description": "model.json があるか（作り直しの前に作った版には無い）。詳しくは GET /api/models/{version}、ナレッジは GET /api/models/{version}/notes" }
+        }
+      }
+    }
+  }
+}

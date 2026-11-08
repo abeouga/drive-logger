@@ -13,6 +13,11 @@ class Settings:
     data_prefix: str
     # ローカル開発だけ true にする。ログインなしで「ローカルの開発者」として扱う。Lambda では必ず false
     allow_local_user: bool
+    # 作業用のバケット（走行の台帳 ledger/・処理の記録 runs/・モデル models/）。台帳だけ書ける
+    work_bucket: str = ""
+    work_prefix: str = ""
+    # 公開用を作り直す処理の Lambda（消す・戻す・切り替えの後に呼ぶ）
+    pipeline_function: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -20,6 +25,9 @@ class Settings:
             data_bucket=_required("DATA_BUCKET"),
             data_prefix=os.environ.get("DATA_PREFIX", "datasets/"),
             allow_local_user=_flag("ALLOW_LOCAL_USER"),
+            work_bucket=_required("WORK_BUCKET"),
+            work_prefix=os.environ.get("WORK_PREFIX", ""),
+            pipeline_function=_required("PIPELINE_FUNCTION"),
         )
 
 

@@ -19,5 +19,15 @@
     "description": "GPS の速さがこれ未満なら止まっているとみなす。止まっていても GPS は 0〜4 km/h を出すため 5。firmware（自動送信のきっかけ）と pipeline（is_stopped・走行の分類）で同じ値を使う",
     "value": 5
   },
-  "timezone": "Asia/Tokyo"
+  "timezone": "Asia/Tokyo",
+  "hidden_kinds": {
+    "description": "画面に出さない走行の分類（机上の試験）。pipeline（公開）と api（走行の一覧）で同じにする",
+    "value": [
+      "desk"
+    ]
+  },
+  "admin_group": {
+    "description": "画面から走行を消す・戻す・公開する結果やモデルを切り替えられる Cognito のグループ",
+    "value": "admin"
+  }
 }
