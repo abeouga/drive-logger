@@ -21,7 +21,7 @@
 - 前処理・時刻同期・傾き・振動・GPS についての知見は [docs/knowledge_preprocessing.md](docs/knowledge_preprocessing.md)。構成図は [docs/architecture.md](docs/architecture.md)。
 - S3 バケット（東京、非公開）は Terraform（`infra`）で作成済み。アップロードと署名付き URL のコマンド（`upload` / `share`）と手順は [docs/aws_setup.md](docs/aws_setup.md)。走行データと走行ページは自宅マスクを適用してから上げる。
 - 健康な車両の走行データのみ。故障データは含まれていないため、この先作る異常スコアは「速度で補正した正常時のベースラインからの逸脱」であり、故障の予測ではない。
-- ECU / K-Line 接続はスコープ外（端子・電圧・プロトコルが未検証で期限内に安全に検証できないと判断）。GPS と振動の 2 系統でパイプラインを作る。
+- ECU / K-Line 接続はスコープ外（端子・電圧・プロトコルが未検証で、今は安全に検証できないと判断）。GPS と振動の 2 系統でパイプラインを作る。
 
 ## セットアップ
 
