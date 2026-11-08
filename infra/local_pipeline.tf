@@ -5,7 +5,7 @@
 
 resource "aws_iam_role" "local_pipeline" {
   name                 = "ct125-local-pipeline"
-  description          = "PC の解析パイプライン（python -m ct125 process / retrain）。公開用のバケットには書けない"
+  description          = "Local pipeline CLI (python -m ct125 process/retrain). Cannot write the public bucket." # IAM の説明に日本語は使えない
   max_session_duration = 3600
 
   assume_role_policy = jsonencode({

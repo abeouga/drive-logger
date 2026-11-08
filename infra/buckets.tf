@@ -19,9 +19,9 @@ resource "aws_s3_bucket" "role" {
   # 中身があるバケットは terraform destroy でも消えない（生データを誤って消さないため。ほかの 2 つも同じにそろえる）
   force_destroy = false
 
+  # タグの値に日本語は使えない（S3 の決まり）ので、役割の名前だけを付ける。中身の説明は上の data_roles
   tags = {
-    Role        = each.key
-    Description = each.value
+    Role = each.key
   }
 }
 
