@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "name": "accel",
+  "description": "加速度（ADXL345、約 400 Hz、毎行 1 サンプル）。1 行目は列名",
+  "dialect": { "delimiter": ",", "header": true },
+  "fields": [
+    { "name": "n", "type": "integer", "description": "加速度のサンプル番号（0 から連番）。欠けは events.csv の fifo_overrun で分かる" },
+    { "name": "t_us", "type": "integer", "unit": "us", "description": "ESP32 の esp_timer（起動からのマイクロ秒）。前のサンプルの時刻＋周期で進め、FIFO を読んだ時刻とのずれを少しずつ戻す" },
+    { "name": "ax_g", "type": "number", "unit": "g", "description": "センサー基板の X 軸。±16 g、分解能 3.9 mg" },
+    { "name": "ay_g", "type": "number", "unit": "g", "description": "センサー基板の Y 軸" },
+    { "name": "az_g", "type": "number", "unit": "g", "description": "センサー基板の Z 軸" }
+  ]
+}

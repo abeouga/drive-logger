@@ -4,6 +4,7 @@
 ファームウェア（`firmware/ct125_logger`）と、PC 側の確認・前処理はこの仕様に合わせる。
 
 > **状態**：机上で確認した範囲の仕様。実車走行での検証はまだ。
+> **正式な定義は [contracts/sd/](../contracts/sd/)**（ファイルの一覧・CSV の列・meta.json の形を機械が読める形で書き、CI が firmware と pipeline のコードと突き合わせる）。この文書は考え方と説明。両方を直すときは contracts を先に直す（2026-11-09）。
 > 「決めたこと」と「まだ決めていないこと（末尾）」を分けて書いている。
 
 ---
@@ -42,7 +43,10 @@
   gps.csv       GPS（1Hz）
   events.csv    起動・あふれ・再試行などの出来事
   status.csv    10秒ごとの件数・実測周波数
-  notes.md      走行メモ（PC で後から追加）
+  notes.md      走行メモ（PC で後から追加。古い名前の memo.txt・readme.txt も同じに読む）
+  upload_state.json  送信の途中（V3。切れたら続きから）
+  uploaded.json      送り終えた印（V3。あればもう送らない）
+/upload_log.csv      送信の記録（V3。SD の最上位。列名の行なし）
 ```
 
 ## 4. ファイルの列
@@ -75,7 +79,7 @@
 | 列 | 内容 |
 |---|---|
 | `t_us` | 出来事の時刻 |
-| `type` | `boot`、`sd_retry`、`adxl_retry`、`fifo_overrun`、`ring_drop`、`gps_valid`、`gps_lost`、`sd_write_error`、`time_resync` |
+| `type` | `boot`、`sd_retry`、`adxl_retry`、`fifo_overrun`、`gps_valid`、`gps_lost`、`time_resync`、`session_end`（V3。記録を閉じた理由）。リングバッファの取りこぼしと SD の書き込みエラーは出来事ではなく `status.csv` の `ring_drops`・`sd_write_errors` に数える |
 | `detail` | 補足（回数など） |
 
 ### status.csv（10秒ごと）

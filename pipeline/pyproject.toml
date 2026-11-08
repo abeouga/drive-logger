@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "jupyter", "matplotlib>=3.8", "nbformat", "nbconvert", "ipykernel"]
+dev = ["pytest>=8", "jsonschema>=4.26", "jupyter", "matplotlib>=3.8", "nbformat", "nbconvert", "ipykernel"]
 
 [build-system]
 requires = ["hatchling"]

@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/records/run.schema.json",
+  "version": 1,
+  "title": "処理の記録（work バケットの runs/<run_id>/run.json）。処理 1 回ごとに 1 つ。失敗しても残す",
+  "type": "object",
+  "required": ["schema", "run_id", "action", "where", "commit", "started_at", "finished_at", "status", "error", "config", "model_version", "rides"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "run/1" },
+    "run_id": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$", "description": "<UTC の日時>-<6 桁の 16 進>" },
+    "action": { "enum": ["process", "retrain"] },
+    "where": { "enum": ["local", "lambda"] },
+    "commit": { "type": ["string", "null"], "description": "コードのコミット（分からなければ null）" },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": ["string", "null"], "format": "date-time" },
+    "status": { "enum": ["running", "succeeded", "failed"] },
+    "error": { "type": ["string", "null"], "description": "失敗の理由" },
+    "config": { "type": "object", "description": "使った設定（config/default.yaml の中身）" },
+    "model_version": { "type": ["string", "null"], "pattern": "^[0-9]{8}(-[0-9]{6})?$", "description": "点数付けに使ったモデルの版（retrain なら作った版）" },
+    "rides": { "type": "array", "items": { "$ref": "#/$defs/rideResult" } }
+  },
+  "$defs": {
+    "kind": {
+      "enum": ["desk", "idle", "ride", "ride_nogps", null],
+      "description": "desk＝机上、idle＝停車、ride＝実走、ride_nogps＝実走（GPS なし）。null＝まだ分類していない"
+    },
+    "kindMetrics": {
+      "type": "object",
+      "required": ["vib_median_g", "gps_windows", "max_dist_m", "moving_windows"],
+      "additionalProperties": false,
+      "properties": {
+        "vib_median_g": { "type": "number", "description": "1 秒窓の rms の中央値" },
+        "gps_windows": { "type": "integer", "minimum": 0, "description": "GPS のある窓の数" },
+        "max_dist_m": { "type": ["number", "null"], "description": "始点から最も離れた距離。GPS が無ければ null" },
+        "moving_windows": { "type": "integer", "minimum": 0, "description": "止まっているとみなす速さ以上の窓の数" }
+      }
+    },
+    "rideResult": {
+      "type": "object",
+      "required": ["ride_id", "status", "kind", "kind_metrics", "n_windows", "n_highlights", "error"],
+      "additionalProperties": false,
+      "properties": {
+        "ride_id": { "type": "string" },
+        "status": { "enum": ["succeeded", "failed"] },
+        "kind": { "$ref": "#/$defs/kind" },
+        "kind_metrics": { "oneOf": [{ "$ref": "#/$defs/kindMetrics" }, { "type": "null" }] },
+        "n_windows": { "type": ["integer", "null"], "minimum": 0 },
+        "n_highlights": { "type": ["integer", "null"], "minimum": 0 },
+        "error": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

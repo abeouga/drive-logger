@@ -27,7 +27,7 @@ jobs:
       - name: 環境を作る（Lambda のコンテナと同じ版）
         run: |
           uv venv --python 3.12
-          uv pip install -r deploy/lambda/requirements.txt pytest==9.2.0
+          uv pip install -r deploy/lambda/requirements.txt pytest==9.2.0 jsonschema==4.26.0
           uv pip install --no-deps -e .
       - run: .venv/bin/python -m pytest -q
 
@@ -61,6 +61,14 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+
+  contracts:
+    name: contracts（定義と firmware の突き合わせ）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv run --no-project --python 3.12 --with jsonschema==4.26.0 --with pytest==9.2.0 python -m pytest contracts/tests -q
 
   infra:
     name: infra（terraform fmt・validate）

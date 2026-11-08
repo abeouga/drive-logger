@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/sd/uploaded.schema.json",
+  "version": 1,
+  "title": "uploaded.json（送り終えた印。firmware が書き、あればもう送らない）",
+  "type": "object",
+  "required": ["ride_id", "uploaded_at"],
+  "properties": {
+    "ride_id": { "type": "string", "description": "サーバーが付けた走行 ID" },
+    "uploaded_at": { "type": "integer", "description": "送り終えた UNIX 秒" }
+  }
+}

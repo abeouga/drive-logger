@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/upload/start_request.schema.json",
+  "version": 1,
+  "title": "POST /api/device/uploads の要求",
+  "type": "object",
+  "required": ["local_session", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "local_session": { "type": "string", "pattern": "^[A-Za-z0-9_-]{1,32}$", "description": "SD の上の走行のフォルダー名（例：ride_012）" },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "size"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "enum": ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"] },
+          "size": { "type": "integer", "minimum": 0, "maximum": 209715200 }
+        }
+      }
+    },
+    "ride_id": { "type": ["string", "null"], "pattern": "^ride_[0-9]{8}_[0-9]{6}(_[0-9]{1,2})?$", "description": "途中で切れたときだけ：前にもらった走行 ID" }
+  }
+}

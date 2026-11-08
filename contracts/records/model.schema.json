@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/records/model.schema.json",
+  "version": 1,
+  "title": "モデルの記録（work バケットの models/<version>/model.json）。同じものを作り直せるように残す",
+  "type": "object",
+  "required": ["schema", "version", "created_at", "where", "commit", "run_id", "libraries", "config", "train", "excluded", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "model/1" },
+    "version": { "type": "string", "pattern": "^[0-9]{8}-[0-9]{6}$", "description": "<UTC の日時>" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "where": { "enum": ["local", "lambda"] },
+    "commit": { "type": ["string", "null"] },
+    "run_id": { "type": ["string", "null"], "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$", "description": "このモデルを作った処理" },
+    "libraries": {
+      "type": "object",
+      "description": "学習したときのライブラリの版。読むときに突き合わせ、違えば止める",
+      "required": ["python", "numpy", "pandas", "scipy", "scikit-learn"],
+      "additionalProperties": { "type": "string" }
+    },
+    "config": { "type": "object", "description": "使った設定（model・stop_speed_kmh・classify など）" },
+    "train": {
+      "type": "object",
+      "required": ["rides", "n_windows"],
+      "additionalProperties": false,
+      "properties": {
+        "rides": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["ride_id", "kind", "n_windows"],
+            "additionalProperties": false,
+            "properties": { "ride_id": { "type": "string" }, "kind": { "enum": ["idle", "ride"] }, "n_windows": { "type": "integer", "minimum": 0 } }
+          }
+        },
+        "n_windows": { "type": "integer", "minimum": 0, "description": "学習に使った窓の数（先頭・末尾と振り切れの窓を除く）" }
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "description": "学習に使わなかった走行と理由",
+      "items": {
+        "type": "object",
+        "required": ["ride_id", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "ride_id": { "type": "string" },
+          "reason": { "enum": ["desk", "ride_nogps", "deleted", "failed", "unclassified"] }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["baseline_bins", "baseline_n_train", "n_anomaly_z", "n_anomaly_if"],
+      "additionalProperties": false,
+      "properties": {
+        "baseline_bins": { "type": "integer", "minimum": 0, "description": "速度補正ベースラインのビンの数" },
+        "baseline_n_train": { "type": "integer", "minimum": 0, "description": "ベースラインの学習に使った窓の数（GPS のある窓）" },
+        "n_anomaly_z": { "type": "integer", "minimum": 0, "description": "学習した窓のうち z_speed > しきい値の窓の数" },
+        "n_anomaly_if": { "type": "integer", "minimum": 0, "description": "学習した窓のうち Isolation Forest が外れとした窓の数" }
+      }
+    }
+  }
+}

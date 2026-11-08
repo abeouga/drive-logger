@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/records/ledger.schema.json",
+  "version": 1,
+  "title": "走行の台帳（work バケットの ledger/rides.json）。走行ごとに 1 件。React 用の rides.json はここから作る",
+  "type": "object",
+  "required": ["schema", "updated_at", "rides"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": "ledger/1" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "rides": {
+      "type": "object",
+      "description": "走行 ID → 1 件",
+      "propertyNames": { "pattern": "^ride_([0-9]{8}_[0-9]{6}(_[0-9]{1,2})?|[0-9]{3})$" },
+      "additionalProperties": { "$ref": "#/$defs/entry" }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": ["ride_id", "original_name", "device_id", "local_session", "source", "received_at", "kind", "kind_metrics", "deleted", "deleted_at", "deleted_by", "published_run", "runs"],
+      "additionalProperties": false,
+      "properties": {
+        "ride_id": { "type": "string" },
+        "original_name": { "type": ["string", "null"], "description": "上げ直す前の名前（ride_004 など）" },
+        "device_id": { "type": ["string", "null"], "description": "記録した機器。古い走行は null" },
+        "local_session": { "type": ["string", "null"], "description": "SD のセッション名" },
+        "source": { "enum": ["device", "pc", "legacy"], "description": "device＝ESP32、pc＝PC からデバイス API、legacy＝デバイス API より前" },
+        "received_at": { "type": ["string", "null"], "format": "date-time" },
+        "kind": { "$ref": "run.schema.json#/$defs/kind" },
+        "kind_metrics": { "oneOf": [{ "$ref": "run.schema.json#/$defs/kindMetrics" }, { "type": "null" }] },
+        "deleted": { "type": "boolean", "description": "画面で消したか（画面と学習から外すだけ。生データと結果は残す）" },
+        "deleted_at": { "type": ["string", "null"], "format": "date-time" },
+        "deleted_by": { "type": ["string", "null"], "description": "消した人（Cognito のユーザー名）" },
+        "published_run": { "type": ["string", "null"], "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$", "description": "公開中の処理の結果" },
+        "runs": { "type": "array", "items": { "type": "string", "pattern": "^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}$" }, "description": "この走行を処理した run_id（新しい順）" }
+      }
+    }
+  }
+}

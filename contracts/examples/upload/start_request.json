@@ -1,0 +1,11 @@
+{
+  "local_session": "ride_013",
+  "files": [
+    { "name": "accel.csv", "size": 4321098 },
+    { "name": "gps.csv", "size": 20480 },
+    { "name": "events.csv", "size": 120 },
+    { "name": "status.csv", "size": 2048 },
+    { "name": "meta.json", "size": 522 },
+    { "name": "notes.md", "size": 64 }
+  ]
+}

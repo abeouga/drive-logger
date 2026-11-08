@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "name": "gps",
+  "description": "GPS（ATGM336H、1 Hz。RMC 文が来るたびに 1 行）。1 行目は列名。pps_us は PPS をつないだ版だけ（今は無い）",
+  "dialect": { "delimiter": ",", "header": true },
+  "fields": [
+    { "name": "t_rx_us", "type": "integer", "unit": "us", "description": "RMC 文の先頭 $ を受け取った時刻（ESP32 の時計）" },
+    { "name": "utc", "type": "string", "format": "hhmmss.sss", "description": "GPS の UTC 時刻。測位していないと空のことがある" },
+    { "name": "date", "type": "string", "format": "ddmmyy", "description": "GPS の日付" },
+    { "name": "status", "type": "string", "constraints": { "enum": ["A", "V"] }, "description": "A＝有効、V＝無効" },
+    { "name": "fix", "type": "integer", "description": "0＝測位なし、1＝単独測位、2＝DGPS（GGA より）" },
+    { "name": "sats", "type": "integer", "description": "使っている衛星数（GGA より）" },
+    { "name": "hdop", "type": "number", "description": "水平精度の目安（小さいほどよい。GGA より）" },
+    { "name": "lat", "type": "number", "unit": "deg", "description": "緯度（十進の度）。無効のときは空" },
+    { "name": "lon", "type": "number", "unit": "deg", "description": "経度（十進の度）。無効のときは空" },
+    { "name": "speed_kmh", "type": "number", "unit": "km/h", "description": "対地速度（RMC のノットを km/h にしたもの）" },
+    { "name": "course_deg", "type": "number", "unit": "deg", "description": "進行方向（真北から時計回り）。止まっていると空のことがある" }
+  ],
+  "optional_fields": [
+    { "name": "pps_us", "type": "integer", "unit": "us", "description": "直前の PPS の立ち上がりの時刻。PPS をつないだときだけ" }
+  ]
+}

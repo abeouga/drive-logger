@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/rides.schema.json",
+  "version": 1,
+  "title": "rides.json（走行一覧。カード用の要約とスパークライン）",
+  "type": "object",
+  "required": ["generated_at_ms", "rides"],
+  "additionalProperties": false,
+  "properties": {
+    "generated_at_ms": { "type": "integer", "description": "作った UNIX ミリ秒" },
+    "rides": { "type": "array", "items": { "$ref": "#/$defs/rideSummary" }, "description": "走行 ID の順" }
+  },
+  "$defs": {
+    "nullableNumber": { "type": ["number", "null"] },
+    "rideSummary": {
+      "type": "object",
+      "required": ["id", "start_ms", "duration_s", "distance_km", "max_speed_kmh", "fix_ratio", "gps", "n_windows", "n_highlights", "highlight_basis", "n_anomaly_z", "n_anomaly_if", "n_clipped", "rms_median", "spark", "memo"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "description": "走行 ID" },
+        "start_ms": { "type": ["integer", "null"], "description": "記録開始の UNIX ミリ秒。GPS なしは null" },
+        "duration_s": { "type": "number", "description": "長さ（秒）" },
+        "distance_km": { "type": "number", "description": "GPS のある連続する窓の距離の合計" },
+        "max_speed_kmh": { "type": ["number", "null"], "description": "GPS なしは null" },
+        "fix_ratio": { "type": "number", "minimum": 0, "maximum": 1, "description": "GPS のある窓の割合" },
+        "gps": { "enum": ["full", "partial", "none"], "description": "0.95 以上／0.10 以上／未満" },
+        "n_windows": { "type": "integer", "minimum": 0 },
+        "n_highlights": { "type": "integer", "minimum": 0 },
+        "highlight_basis": { "enum": ["z_speed>3", "z_speed_top", "score_if_top"] },
+        "n_anomaly_z": { "type": "integer", "minimum": 0 },
+        "n_anomaly_if": { "type": "integer", "minimum": 0 },
+        "n_clipped": { "type": "integer", "minimum": 0 },
+        "rms_median": { "type": "number" },
+        "spark": { "type": "array", "items": { "$ref": "#/$defs/nullableNumber" }, "maxItems": 60, "description": "rms を最大 60 区間に平均したもの" },
+        "memo": { "type": "string", "description": "走行メモ（notes.md・memo.txt・readme.txt）" }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "description": "機器（ESP32・PC のツール）から生データを送る手順。設計は docs/device_upload_design.md",
+  "auth": {
+    "header": "Authorization",
+    "scheme": "Device",
+    "format": "Device <device_id>.<token>",
+    "token_pattern": "^[A-Za-z0-9_-]{32,128}$",
+    "description": "トークンはサーバー側ではハッシュ（SHA-256 の 16 進）だけを SSM に置く"
+  },
+  "steps": [
+    { "name": "start", "method": "POST", "path": "/api/device/uploads", "request": "start_request.schema.json", "response": "start_response.schema.json", "description": "送るファイルの一覧 → 走行 ID とファイルごとの PUT 用 URL。途中で切れたら、前にもらった走行 ID を付けて呼び直す" },
+    { "name": "put", "method": "PUT", "path": "<start の応答の url>", "description": "ファイルの中身をそのまま送る（S3 の署名付き URL）" },
+    { "name": "complete", "method": "POST", "path": "/api/device/uploads/{ride_id}/complete", "response": "complete_response.schema.json", "description": "大きさを確かめ、完了の印（upload_complete.json）を置く。これが置かれると処理が動く" }
+  ],
+  "files": {
+    "allowed": ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"],
+    "required": ["accel.csv", "gps.csv", "meta.json"],
+    "max_bytes": 209715200
+  },
+  "url_seconds": 900,
+  "raw_files": {
+    "session": { "name": "upload_session.json", "definition": "upload_session.schema.json", "description": "受け付けの記録（デバイス API が raw/<走行>/ に置く）" },
+    "complete": { "name": "upload_complete.json", "definition": "upload_complete.schema.json", "description": "完了の印（raw/<走行>/ の最後に置く）" }
+  },
+  "device_rules": {
+    "firmware_prefix": "CT125_LOGGER_V3",
+    "min_accel_bytes": 512000,
+    "description": "firmware が送るのは、この版以降で記録した・accel.csv がこの大きさ以上の・uploaded.json の無い走行だけ"
+  }
+}

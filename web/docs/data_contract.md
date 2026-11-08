@@ -1,6 +1,6 @@
 # データの約束事（S3 の `app/v1/datasets/<データセット>/`）
 
-このアプリが読むデータの形。作る側は `pipeline/` の `src/ct125/export.py`・`spectro.py`、読む側の型は `src/lib/types.ts`。**3 つは同じ形に保つ。** 形を変えるときは `app/v2/` を作り、古いアプリが壊れないようにする。
+このアプリが読むデータの形。正式な定義は [contracts/app/](../../contracts/app/)（JSON Schema）と見本 `contracts/examples/app/`。作る側は `pipeline/` の `src/ct125/export.py`・`spectro.py`、読む側の型は `src/lib/types.ts`。pipeline のテストが書き出しを定義に当て、`src/lib/contract.check.ts`（型チェック）が見本を型に当てる。**3 つは同じ形に保つ。** 形を変えるときは `app/v2/` を作り、古いアプリが壊れないようにする。
 
 ## 置き場所とファイル
 

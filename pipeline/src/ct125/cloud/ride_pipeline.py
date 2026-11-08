@@ -72,8 +72,9 @@ class RidePipeline:
 
     def _download_raw(self, ride_id: str, workspace: Workspace) -> None:
         files = self._store.download_folder(f"{self._settings.raw_prefix}{ride_id}/", workspace.raw_dir / ride_id)
-        if not (workspace.raw_dir / ride_id / "accel.csv").exists():
-            raise FileNotFoundError(f"{ride_id} の accel.csv が S3 にありません（{len(files)} ファイル）")
+        missing = [name for name in io.REQUIRED_FILES if not (workspace.raw_dir / ride_id / name).exists()]
+        if missing:
+            raise FileNotFoundError(f"{ride_id} の {', '.join(missing)} が S3 にありません（{len(files)} ファイル）")
 
     def _memo(self, ride_id: str, workspace: Workspace) -> str:
         return io.read_memo(workspace.raw_dir / ride_id)
