@@ -2,6 +2,8 @@
 
 `docs/data_flow_design.md` 12. の手順を、コマンドまで書いたもの。**画面を止めずに**移す。どの段階でも前に戻せる（今のバケットの中身は消さない）。
 
+> **2026-11-09 に、この手順で本番を移した**（結果は docs/PROGRESS.md）。前の状態の印は git のタグ `before-split-buckets`。
+
 - 前提：AWS のプロファイル `ct125-logger` でログイン済み。リージョンは ap-northeast-1（AWS Settings > View all projects > Overview > Additional Info > Region で確認）
 - Docker Desktop が起動している（新しい処理のコンテナを作る）
 - PowerShell で、リポジトリのルートから流す
@@ -10,10 +12,10 @@
 ## 0. 前の状態に印を付ける
 
 ```powershell
-git tag before-split-buckets origin/main~1
+git tag before-split-buckets origin/main
 ```
 
-（この PR をマージする前の main に印を付ける。戻すときに使う）
+（移し替えの PR をマージする前の main に印を付ける。戻すときに使う）
 
 ```powershell
 terraform -chdir=infra plan
