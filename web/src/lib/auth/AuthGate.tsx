@@ -1,12 +1,12 @@
 // ログインの門番。hosted（CloudFront で配る版）のときだけ、ログインするまで中身を見せない。
-// dev（npm run dev）と embedded（1 ファイル版）はログインなしで中身を見せる。
+// dev（npm run dev）はログインなしで中身を見せる。
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { DATA_MODE } from "../dataSource";
 import LoginScreen from "../../components/LoginScreen";
 import { completeSignInIfReturning, currentUser, signIn, signOut, type SignedInUser } from "./authClient";
 
 interface AuthState {
-  /** ログイン中のユーザー。ログインのない版（dev・embedded）では null */
+  /** ログイン中のユーザー。ログインのない版（dev）では null */
   user: SignedInUser | null;
   signOut: () => Promise<void>;
 }

@@ -1,4 +1,4 @@
-# 設定の既定値（根拠は docs/data_schema.md 6.）。自宅座標などは config/local.yaml（コミットしない）に置く。
+# 設定の既定値（根拠は docs/data_schema.md 6.）。PC ごとの値（AWS のバケット名など）は config/local.yaml（コミットしない）に置く。
 window_sec: 1.0          # 1 秒窓、重なりなし（計画書 9.1）
 edge_sec: 60             # 走行の先頭・末尾を is_edge=True にする秒数
 clip_g: 15.9             # ADXL345 FULL_RES ±16g の上限（15.97 g）手前。これ以上は is_clipped
@@ -11,7 +11,6 @@ gps:
   max_speed_kmh: null    # 速度の上限（null＝なし）。ride_004 14:15 の 98 km/h が実速度でなければ 80 などを入れる
   max_gap_sec: 5         # fix 間隔がこれを超える区間は補間しない（has_gps=False）
   speed_smooth_points: 3 # 速度の移動中央値の点数
-private_radius_m: 300    # local.yaml の座標から半径この距離内の窓は is_private=True
 model:
   speed_bin_kmh: 5       # 速度補正ベースラインのビン幅
   baseline_min_count: 10 # 窓数がこれ未満のビンは最寄りのビンの中央値・MAD を借りる
@@ -22,13 +21,7 @@ model:
 aws:
   profile: ct125-logger     # ~/.aws のプロファイル名。リージョンはプロファイルのもの（ap-northeast-1）を使う
   region: null              # null＝プロファイルの region。明示するならここ
-  app_prefix: app/v1/datasets/shared/  # Web アプリ（web）が読むデータの置き場所。全ユーザー共通のデータセット（2026-11-07 に app/v1/ から移動）
-  site_app_key: site-app/index.html  # Web アプリの 1 ファイルの置き場所
   bucket: null              # バケットは infra で作成。名前（アカウント ID 入り）は config/local.yaml の aws.bucket に書く
-viz:
-  map_min_fix_ratio: 0.10   # GPS 有効割合がこれ未満なら地図を描かない（計画書 10.2）
-  map_full_fix_ratio: 0.95  # これ以上なら「部分欠損」の注意書きを出さない
-  top_n_markers: 10         # z_speed 上位 N 窓を橙丸で描く（しきい値超えの赤丸とは別）
 bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
   band_1_5: [1, 5]
   band_5_15: [5, 15]

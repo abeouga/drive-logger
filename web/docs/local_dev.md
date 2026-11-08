@@ -37,11 +37,8 @@ http://localhost:5173 を開く。起動時のログに `データの出どこ�
 
 ### データを新しくする
 
-ct125-logger で書き出して S3 に上げ、ブラウザを再読み込みする：
-
-```bash
-.venv/Scripts/python.exe -m ct125 export --upload
-```
+S3 の画面用データを書くのは、AWS の自動処理（Lambda）だけ。走行を足すときは機器（または `pipeline/tools/device_upload_simulator.py`）から送る。
+全走行を作り直すときは、Lambda に `{"action": "retrain"}` を渡す（`pipeline/README.md`）。終わったらブラウザを再読み込みする。
 
 ## 回線なし・S3 を使わない（cache モード）
 
@@ -50,28 +47,10 @@ ct125-logger で書き出して S3 に上げ、ブラウザを再読み込みす
 `cache/` の作り方は 2 通り：
 
 - S3 から写す：`scripts/pull-data.ps1`（S3 に `rides.json` がないときは何もしない）
-- S3 を通さず ct125-logger から直接書き出す：
+- S3 を通さず pipeline から直接書き出す（`pipeline/` で）：
 
 ```bash
 .venv/Scripts/python.exe -m ct125 export --out ../web/cache
-```
-
-## 配布用の 1 ファイルを作る
-
-```powershell
-scripts\build-single.ps1
-```
-
-S3 から `cache/` を更新 → `npm run build`（`cache/` のデータを HTML に埋め込む）→ ct125-logger の `check-privacy` で自宅周辺の座標がないか検査、の順に行う。今の `cache/` のままビルドするなら `-NoPull`。
-
-できた `dist/index.html` を S3 に上げて URL を出す（ct125-logger で）：
-
-```bash
-.venv/Scripts/python.exe -m ct125 upload --site-app ../web/dist/index.html
-```
-
-```bash
-.venv/Scripts/python.exe -m ct125 share --app --expires-hours 72
 ```
 
 ## 困ったとき
@@ -79,8 +58,7 @@ S3 から `cache/` を更新 → `npm run build`（`cache/` のデータを HTML
 | 症状 | 原因と対処 |
 |---|---|
 | 「走行一覧を読み込めませんでした（HTTP 502）」 | AWS の認証切れ。プロファイル `ct125-logger` の鍵を確認（`aws sts get-caller-identity --profile ct125-logger`）。`cache/` に前のデータがあれば、それを返して画面は出る（レスポンスヘッダー `X-Data-Source: cache-fallback`） |
-| 「…がありません（HTTP 404）」 | S3 の `app/v1/datasets/shared/` にまだ上げていない。ct125-logger で `export --upload` |
+| 「…がありません（HTTP 404）」 | S3 の `app/v1/datasets/shared/` にまだ無い。AWS の自動処理が終わったか確かめる（Lambda `ct125-ride-pipeline` のログ） |
 | dev サーバーが起動時に止まる「S3_BUCKET が未設定」 | `.env.local` を作っていない／`<アカウントID>` のまま |
-| `npm run build` が「cache/rides.json がありません」で止まる | 先に `scripts/pull-data.ps1`（または `export --out ../web/cache`） |
 | 地図が出ない | 回線（OpenFreeMap のタイル）を確認。地図の枠の上にエラーの内容が出る |
 | 地図をホイールで拡大できない | Ctrl（Mac は ⌘）を押しながらホイール。ページのスクロールを妨げないため |

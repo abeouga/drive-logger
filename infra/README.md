@@ -34,7 +34,7 @@ state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`
   1. `terraform apply -target=aws_ecr_repository.pipeline`
   2. `pipeline/scripts/build-pipeline-image.ps1`（`pipeline_image.auto.tfvars` に digest を書く。書き換わったらコミットする）
   3. `terraform apply`
-- マスクする地点：`pipeline/` で `python -m ct125 sync-private-points`（SSM の `/ct125/private-points`。Terraform は値を持たない）
+- 自宅周辺のマスクはやめた（#13）。処理の Lambda の SSM（`/ct125/private-points`）を読む権限と環境変数 `PRIVATE_POINTS_PARAMETER` は、新しいコンテナに入れ替えるときに外す（今のコンテナはまだ読むため）
 - モデルの版：S3 の `models/current.json`（`{"version": "..."}`）。retrain が書き換える
 - DNS は Cloudflare（`herdio-system.com`）。次の 2 つの CNAME を **プロキシなし（DNS のみ）** で置く
   - 証明書の確認用：`terraform output certificate_validation_record`

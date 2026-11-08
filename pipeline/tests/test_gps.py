@@ -31,14 +31,6 @@ def test_interpolate_to_windows_gap_and_edges():
     assert out["lat"].iloc[5] == pytest.approx(35.1)             # 最後の fix から 0.5 秒後：最寄り値
 
 
-def test_mask_private():
-    pts = [(35.0, 135.0)]
-    lat = np.array([35.0, 35.001, 35.01, np.nan])
-    lon = np.array([135.0, 135.0, 135.0, 135.0])
-    m = gps.mask_private(lat, lon, pts, radius_m=300)
-    assert m.tolist() == [True, True, False, False]           # 0.001 度 ≈ 111 m、0.01 度 ≈ 1.1 km
-
-
 def test_validate_gps_reasons():
     g = pd.DataFrame({
         "t_rel": [0, 1, 2, 3, 4, 5, 6],

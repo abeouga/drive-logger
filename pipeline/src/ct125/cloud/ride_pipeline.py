@@ -1,19 +1,17 @@
 # -*- coding: utf-8 -*-
 """AWS 上での処理の流れ。ローカルの CLI と同じ関数（processing・model・export）を、作業フォルダーの上で順に呼ぶ。
 
-process_rides：新しい走行 → 前処理 → 今の版のモデルで点数付け（推論） → 書き出し → 検査 → アップロード → 一覧に追加
-retrain_all  ：全走行 → 前処理 → 学習 → 点数付け → 書き出し → 検査 → アップロード → モデルの版を切り替え
+process_rides：新しい走行 → 前処理 → 今の版のモデルで点数付け（推論） → 書き出し → アップロード → 一覧に追加
+retrain_all  ：全走行 → 前処理 → 学習 → 点数付け → 書き出し → アップロード → モデルの版を切り替え
 """
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pandas as pd
 
 from .. import export as exportmod
 from .. import io
-from ..config import private_points
 from ..model import apply_models
 from ..processing import process_ride, score_all
 from .model_registry import ModelRegistry, TrainedModels
@@ -25,13 +23,9 @@ from .workspace import Workspace
 PROCESSED_FILES = ["windows.parquet", "scored.parquet"]
 
 
-class PrivacyCheckError(RuntimeError):
-    """書き出したデータに、マスクする地点の近くの座標が入っていた（だから上げない）。"""
-
-
 class RidePipeline:
     def __init__(self, cfg: dict, settings: CloudSettings, store: S3Store, models: ModelRegistry) -> None:
-        self._cfg = cfg  # config/default.yaml＋マスクする地点（cfg["local"]）
+        self._cfg = cfg  # config/default.yaml
         self._settings = settings
         self._store = store
         self._models = models
@@ -47,7 +41,6 @@ class RidePipeline:
         trained = self._models.load_current(workspace.models_dir)
         self._score_with(trained, ride_id, windows, workspace)
         summary = exportmod.export_ride(ride_id, workspace.processed_dir, workspace.interim_dir, workspace.app_dir, self._memo(ride_id, workspace))
-        self._check_privacy(workspace.app_dir)
         self._upload_ride_outputs(ride_id, workspace)
         save_summary(self._store, self._rides_key, summary)
         return {"ride_id": ride_id, "model_version": trained.version, "n_windows": summary["n_windows"], "n_highlights": summary["n_highlights"]}
@@ -66,7 +59,6 @@ class RidePipeline:
         version_dir = score_all(self._cfg, workspace.processed_dir, workspace.models_dir, version=_new_version())
         memos = {ride_id: self._memo(ride_id, workspace) for ride_id in ride_ids}
         summaries = exportmod.export_all(workspace.processed_dir, workspace.app_dir, memos, interim_dir=workspace.interim_dir)
-        self._check_privacy(workspace.app_dir)
         for ride_id in ride_ids:
             self._upload_ride_outputs(ride_id, workspace)
         self._store.upload_file(workspace.app_dir / "rides.json", self._rides_key)
@@ -85,14 +77,6 @@ class RidePipeline:
 
     def _memo(self, ride_id: str, workspace: Workspace) -> str:
         return io.read_memo(workspace.raw_dir / ride_id)
-
-    def _check_privacy(self, app_dir: Path) -> None:
-        points = private_points(self._cfg)
-        files = sorted(app_dir.glob("*.json"))
-        results = exportmod.check_files(files, points, self._cfg["private_radius_m"])
-        leaked = [result["file"] for result in results if result["within_radius"]]
-        if leaked:
-            raise PrivacyCheckError(f"マスクする地点の近くの座標が入っています：{leaked}")
 
     def _upload_ride_outputs(self, ride_id: str, workspace: Workspace) -> None:
         processed = [workspace.processed_dir / ride_id / name for name in PROCESSED_FILES]

@@ -1,5 +1,5 @@
-// データの型。S3 の app/v1/ に置く JSON の形（docs/data_contract.md と同じ）。
-// 作る側は ct125-logger の `python -m ct125 export`（src/ct125/export.py・spectro.py）。
+// データの型。画面用 JSON の形（docs/data_contract.md と同じ）。
+// 作る側は pipeline/ の export.py・spectro.py。
 
 export type GpsKind = "full" | "partial" | "none";
 export type HighlightBasis = "z_speed>3" | "z_speed_top" | "score_if_top";
@@ -19,7 +19,6 @@ export interface RideSummary {
   highlight_basis: HighlightBasis;
   n_anomaly_z: number;
   n_anomaly_if: number;
-  n_private: number;
   n_clipped: number;
   rms_median: number;
   spark: Num[]; // rms を 60 区間に平均したもの
@@ -35,7 +34,7 @@ export interface RidesFile {
 export interface RideColumns {
   t_rel: Num[];
   t_abs_ms: Num[] | null; // GPS なしは null
-  lat: Num[]; // 自宅周辺・GPS なしは null
+  lat: Num[]; // GPS なしは null
   lon: Num[];
   speed: Num[];
   rms: Num[];
@@ -50,7 +49,6 @@ export interface RideColumns {
   has_gps: boolean[];
   is_stopped: boolean[];
   is_edge: boolean[];
-  is_private: boolean[];
   is_clipped: boolean[];
   is_anomaly_z: boolean[];
   is_anomaly_if: boolean[];

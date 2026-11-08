@@ -122,7 +122,6 @@ export default function DetailPanel({ data, selected, ranked, waves, theme, onSe
       <div className="flex flex-wrap gap-1 text-[11px] text-ink-2">
         {c.is_stopped[i] && <span className="rounded border border-line px-1.5 py-0.5">停止中（5 km/h 未満）</span>}
         {c.is_edge[i] && <span className="rounded border border-line px-1.5 py-0.5">記録の先頭・末尾 60 秒</span>}
-        {c.is_private[i] && <span className="rounded border border-line px-1.5 py-0.5">自宅周辺のため地図に出さない</span>}
         {c.is_clipped[i] && <span className="rounded border border-line px-1.5 py-0.5">±16 g に達したサンプルを含む</span>}
       </div>
       <p className="text-[11px] leading-relaxed text-muted">

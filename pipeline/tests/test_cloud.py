@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AWS 上の処理（ct125/cloud/）と、学習・推論の分割のテスト。S3・SSM には繋がない。"""
+"""AWS 上の処理（ct125/cloud/）と、学習・推論の分割のテスト。S3 には繋がない。"""
 import io as stdio
 import json
 
@@ -12,7 +12,6 @@ from botocore.stub import Stubber
 
 from ct125 import model
 from ct125.cloud.commands import ProcessRides, RetrainAll, parse_command, ride_id_from_marker_key
-from ct125.cloud.private_points import PrivatePointsUnavailableError, load_private_settings, to_parameter_value
 from ct125.cloud.rides_index import save_summary, upsert_summary
 from ct125.cloud.s3_store import S3Store, WriteConflictError
 
@@ -116,30 +115,6 @@ def test_read_json_returns_document_and_etag():
         assert S3Store(client, "bucket").read_json("app/rides.json") == ({"rides": []}, '"abc"')
 
 
-# ------------------------------------------------------------------ マスクする地点
-def test_parameter_value_keeps_only_coordinates():
-    local = {"home": {"lat": 32.1, "lon": 130.2}, "places": [{"name": "歯医者", "lat": 32.3, "lon": 130.4}, {"name": "座標なし"}]}
-    value = json.loads(to_parameter_value(local))
-    assert value == {"home": {"lat": 32.1, "lon": 130.2}, "places": [{"lat": 32.3, "lon": 130.4}]}
-    assert "歯医者" not in to_parameter_value(local)
-
-
-def test_missing_parameter_stops_processing():
-    ssm = boto3.client("ssm", region_name="ap-northeast-1", aws_access_key_id="x", aws_secret_access_key="x")
-    with Stubber(ssm) as stubber:
-        stubber.add_client_error("get_parameter", service_error_code="ParameterNotFound", http_status_code=400)
-        with pytest.raises(PrivatePointsUnavailableError):
-            load_private_settings(ssm, "/ct125/private-points")
-
-
-def test_empty_parameter_stops_processing():
-    ssm = boto3.client("ssm", region_name="ap-northeast-1", aws_access_key_id="x", aws_secret_access_key="x")
-    with Stubber(ssm) as stubber:
-        stubber.add_response("get_parameter", {"Parameter": {"Value": json.dumps({"home": None, "places": []})}})
-        with pytest.raises(PrivatePointsUnavailableError):
-            load_private_settings(ssm, "/ct125/private-points")
-
-
 # ------------------------------------------------------------------ 学習と推論の分割
 def _feature_windows(n=400, seed=0):
     rng = np.random.default_rng(seed)
@@ -169,3 +144,16 @@ def test_apply_models_on_a_single_new_ride():
     assert len(scored) == 50
     assert scored["score_if"].notna().all()
     assert {"z_speed", "is_anomaly_z", "is_stopped", "is_anomaly_if"} <= set(scored.columns)
+
+
+# ------------------------------------------------------------------ コンテナに入れるライブラリ
+def test_lambda_entry_does_not_need_plotting_libraries():
+    """Lambda のコンテナには folium・plotly を入れない（deploy/lambda/requirements.txt）。入口がそれらを読まないこと。"""
+    import importlib
+    import sys
+
+    import ct125.cloud.lambda_handler  # noqa: F401
+
+    for name in ("ct125.export", "ct125.spectro", "ct125.cloud.lambda_handler"):
+        importlib.import_module(name)
+    assert "folium" not in sys.modules and "plotly" not in sys.modules

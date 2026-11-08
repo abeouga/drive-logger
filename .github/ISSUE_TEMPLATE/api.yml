@@ -44,7 +44,7 @@ body:
     id: response
     attributes:
       label: 応答
-      description: 返す項目を記載してください。座標を返す場合は、自宅付近を除いた後のものだけにしてください。
+      description: 返す項目を記載してください。
       render: json
     validations:
       required: true
