@@ -14,13 +14,14 @@ flowchart LR
         ESP --> SD[(microSD)]
     end
 
-    ESP -->|家の Wi-Fi・署名付き URL| RAW[(S3 raw/)]
+    ESP -->|家の Wi-Fi・署名付き URL| RAW[(S3 生データ)]
     ESP -->|機器トークン| DEV[デバイス API<br/>api/ → Lambda]
     DEV -->|PUT 用 URL を発行| ESP
     DEV -->|完了の合図| RAW
 
-    RAW -->|S3 イベント| PIPE[自動処理<br/>pipeline/ → Lambda コンテナ<br/>前処理・推論・書き出し]
-    PIPE --> APPDATA[(S3 app/v1/datasets/)]
+    RAW -->|S3 イベント| PIPE[自動処理<br/>pipeline/ → Lambda コンテナ<br/>前処理・分類・推論・書き出し]
+    PIPE --> WORK[(S3 作業用<br/>処理の記録・台帳・モデル)]
+    PIPE -->|公開| APPDATA[(S3 公開用<br/>datasets/)]
 
     USER[ブラウザ] --> CF[CloudFront]
     CF -->|/*| WEB[画面<br/>web/ React]

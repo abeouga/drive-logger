@@ -15,14 +15,16 @@ state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`
 
 | ファイル | リソース | 内容 |
 |---|---|---|
-| `s3.tf` | S3 バケット `ct125-logger-<アカウントID>` | 非公開・SSE-S3・HTTPS のみ・バージョニング。CloudFront には `webapp/` だけ読ませる |
+| `s3.tf` | S3 バケット `ct125-logger-<アカウントID>` | 画面（React のビルド結果 `webapp/`）。非公開・SSE-S3・HTTPS のみ・バージョニング。CloudFront には `webapp/` だけ読ませる。作り直しの前の走行データ（`raw/` など）も残っている |
+| `buckets.tf` | S3 バケット `ct125-logger-{raw,work,public}-<アカウントID>` | 生データ・作業用（処理の結果と記録・モデル・台帳）・公開用（画面が読む `datasets/shared/`）。設定は同じ（docs/data_flow_design.md 3.） |
+| `local_pipeline.tf` | IAM ロール `ct125-local-pipeline` | PC の処理（`python -m ct125 process` など）が使う。生データを読み、作業用に書ける。公開用には書けない |
 | `certificate.tf` | ACM 証明書（**us-east-1**） | `drive.herdio-system.com`。CloudFront 用なので us-east-1 に置く決まり |
 | `cognito.tf` | Cognito ユーザープール・アプリクライアント・ログイン画面 | 新規登録は不可。認可コード＋PKCE |
 | `cognito_users.tf` | ログインできるユーザー | `terraform.tfvars` の `app_users` と `app_user_passwords` どおりに作る |
-| `data_api.tf` | API Gateway（HTTP API）・Lambda・IAM ロール・ログ | `/api/health` 以外は JWT が必要。Lambda は `app/v1/datasets/*` だけ読める |
+| `data_api.tf` | API Gateway（HTTP API）・Lambda・IAM ロール・ログ | `/api/health` 以外は JWT が必要。Lambda は公開用のバケットの `datasets/*` だけ読める |
 | `cloudfront.tf` | CloudFront・OAC | `/*` → S3 `webapp/`、`/api/*` → API Gateway |
-| `ride_pipeline.tf` | ECR・Lambda（コンテナ）・IAM ロール・S3 イベント | `raw/<走行>/upload_complete.json` で前処理 → 推論 → 書き出し。手動で `{"action":"retrain"}` |
-| `device_api.tf` | Lambda（デバイス API）・IAM ロール・API Gateway の POST ルート | ESP32 が生データを `raw/` に直接置くための受付。権限は raw/ に置くことと機器トークンのハッシュを読むことだけ |
+| `ride_pipeline.tf` | ECR・Lambda（コンテナ）・IAM ロール・S3 イベント | 生データのバケットの `<走行>/upload_complete.json` で処理して公開。手動で `{"action":"retrain"}`・`{"action":"publish"}`。公開用に書けるのはこの Lambda だけ |
+| `device_api.tf` | Lambda（デバイス API）・IAM ロール・API Gateway の POST ルート | ESP32 が生データを生データのバケットに直接置くための受付。権限は生データのバケットに置くことと機器トークンのハッシュを読むことだけ |
 
 ## 前提
 
@@ -34,8 +36,10 @@ state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`
   1. `terraform apply -target=aws_ecr_repository.pipeline`
   2. `pipeline/scripts/build-pipeline-image.ps1`（`pipeline_image.auto.tfvars` に digest を書く。書き換わったらコミットする）
   3. `terraform apply`
-- 自宅周辺のマスクはやめた（#13）。処理の Lambda の SSM（`/ct125/private-points`）を読む権限と環境変数 `PRIVATE_POINTS_PARAMETER` は、新しいコンテナに入れ替えるときに外す（今のコンテナはまだ読むため）
-- モデルの版：S3 の `models/current.json`（`{"version": "..."}`）。retrain が書き換える
+- 自宅周辺のマスクはやめた（#13）。処理の Lambda の SSM を読む権限は外した。SSM の `/ct125/private-points` そのものは、本人の了承の後に消す
+- 作り直し（役割ごとのバケット・1 本の処理の流れ）を本番に入れる手順：[docs/migration_split_buckets.md](../docs/migration_split_buckets.md)
+- PC の処理のロールを使うプロファイル（`~/.aws/config`）：`[profile ct125-local-pipeline]` に `role_arn = <terraform output -raw local_pipeline_role_arn>`・`source_profile = ct125-logger`・`region = ap-northeast-1`
+- モデルの版：作業用のバケットの `models/current.json`（`{"version": "..."}`）。Lambda の retrain・publish が書き換える
 - DNS は Cloudflare（`herdio-system.com`）。次の 2 つの CNAME を **プロキシなし（DNS のみ）** で置く
   - 証明書の確認用：`terraform output certificate_validation_record`
   - 公開用：`drive` → `terraform output cloudfront_domain`

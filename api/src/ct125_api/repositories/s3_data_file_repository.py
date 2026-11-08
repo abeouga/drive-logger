@@ -1,7 +1,7 @@
 """S3 からデータファイルを読む。
 
 置き場所：s3://<bucket>/<prefix><データセット>/<ファイル名>
-例：s3://ct125-logger-xxxx/app/v1/datasets/shared/rides.json
+例：s3://ct125-logger-public-xxxx/datasets/shared/rides.json
 """
 
 from botocore.exceptions import ClientError
