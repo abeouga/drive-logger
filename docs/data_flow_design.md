@@ -167,7 +167,7 @@ public バケット
 
 ## 12. 今のバケットからの移し方（#6・#15）
 
-本番の画面を止めずに移す。どの段階でも、前の段階に戻せる。
+本番の画面を止めずに移す。どの段階でも、前の段階に戻せる。コマンドまで書いた手順は [migration_split_buckets.md](migration_split_buckets.md)。
 
 1. Terraform で raw・work・public を足す（今のバケットには触らない）
 2. 今の `raw/ride_001`〜`009` を raw バケットにコピーする（今のバケットの中身は消さない）

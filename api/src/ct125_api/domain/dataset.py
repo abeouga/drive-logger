@@ -1,4 +1,4 @@
-"""データセット：ユーザーが見る走行データのまとまり（S3 の app/v1/datasets/<id>/）。"""
+"""データセット：ユーザーが見る走行データのまとまり（公開用のバケットの datasets/<id>/）。"""
 
 from dataclasses import dataclass
 

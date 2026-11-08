@@ -29,7 +29,7 @@ resource "aws_iam_role" "data_api" {
   assume_role_policy = data.aws_iam_policy_document.data_api_assume.json
 }
 
-# ログを書く・データセットを読む、の 2 つだけ
+# ログを書く・公開用のデータセットを読む、の 2 つだけ（台帳の読み書きは #16 で足す）
 data "aws_iam_policy_document" "data_api" {
   statement {
     sid       = "WriteOwnLogs"
@@ -39,7 +39,7 @@ data "aws_iam_policy_document" "data_api" {
   statement {
     sid       = "ReadDatasets"
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.data.arn}/${var.data_prefix}*"]
+    resources = ["${aws_s3_bucket.role["public"].arn}/${local.public_dataset_prefix}*"]
   }
 }
 
@@ -67,8 +67,8 @@ resource "aws_lambda_function" "data_api" {
 
   environment {
     variables = {
-      DATA_BUCKET = aws_s3_bucket.data.bucket
-      DATA_PREFIX = var.data_prefix
+      DATA_BUCKET = aws_s3_bucket.role["public"].bucket
+      DATA_PREFIX = local.public_dataset_prefix
     }
   }
 

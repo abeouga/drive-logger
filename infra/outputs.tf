@@ -1,6 +1,26 @@
 output "bucket_name" {
-  description = "pipeline/ の config/local.yaml の aws.bucket に書く"
+  description = "画面（React のビルド結果 webapp/）のバケット。作り直しの前は走行データもここにあった"
   value       = aws_s3_bucket.data.bucket
+}
+
+output "raw_bucket_name" {
+  description = "生データのバケット（デバイス API が書き、処理が読む）"
+  value       = aws_s3_bucket.role["raw"].bucket
+}
+
+output "work_bucket_name" {
+  description = "作業用のバケット（処理の結果と記録・モデル・走行の台帳）"
+  value       = aws_s3_bucket.role["work"].bucket
+}
+
+output "public_bucket_name" {
+  description = "公開用のバケット（画面が読む datasets/shared/。書けるのは処理の Lambda だけ）"
+  value       = aws_s3_bucket.role["public"].bucket
+}
+
+output "local_pipeline_role_arn" {
+  description = "PC の処理に使うロール（~/.aws/config の ct125-local-pipeline プロファイルの role_arn）"
+  value       = aws_iam_role.local_pipeline.arn
 }
 
 output "bucket_region" {

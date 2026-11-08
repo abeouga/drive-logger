@@ -1,11 +1,11 @@
-# データの約束事（S3 の `app/v1/datasets/<データセット>/`）
+# データの約束事（公開用のバケットの `datasets/<データセット>/`）
 
 このアプリが読むデータの形。正式な定義は [contracts/app/](../../contracts/app/)（JSON Schema）と見本 `contracts/examples/app/`。作る側は `pipeline/` の `src/ct125/export.py`・`spectro.py`、読む側の型は `src/lib/types.ts`。pipeline のテストが書き出しを定義に当て、`src/lib/contract.check.ts`（型チェック）が見本を型に当てる。**3 つは同じ形に保つ。** 形を変えるときは `app/v2/` を作り、古いアプリが壊れないようにする。
 
 ## 置き場所とファイル
 
 ```
-s3://ct125-logger-<アカウントID>/app/v1/datasets/shared/   （今は全ユーザー共通の shared だけ）
+s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユーザー共通の shared だけ）
 ├── rides.json               走行一覧
 ├── ride_<id>.json           1 秒窓の列
 ├── spec_<id>.png            スペクトログラムの画像

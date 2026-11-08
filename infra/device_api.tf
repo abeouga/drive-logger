@@ -1,15 +1,16 @@
-# デバイス API：ESP32 が生データを S3 の raw/ に直接置くための受付（C）。
+# デバイス API：ESP32 が生データを生データのバケット（buckets.tf の raw）に直接置くための受付（C）。
 #   POST /api/device/uploads                    → 走行名とファイルごとの PUT 用 URL（15 分）
-#   POST /api/device/uploads/{ride_id}/complete → 大きさを確かめて raw/<走行>/upload_complete.json を置く（→ ct125-ride-pipeline）
+#   POST /api/device/uploads/{ride_id}/complete → 大きさを確かめて <走行>/upload_complete.json を置く（→ ct125-ride-pipeline）
 # 認証は機器トークン（ハッシュは SSM の /ct125/devices/<機器ID>/token-sha256。pipeline/ の register-device で登録）。
 # コードは画面用のデータ API と同じ zip（api/）。ハンドラーと権限だけが違う。
 
 locals {
   device_api_name = "ct125-device-api"
-  raw_prefix      = "raw/"
+  raw_prefix      = "" # 生データのバケットの直下に <走行>/ を置く
+  raw_bucket      = aws_s3_bucket.role["raw"]
 }
 
-# ---------------------------------------------------------------- 権限：raw/ に置くことと、機器トークンのハッシュを読むことだけ
+# ---------------------------------------------------------------- 権限：生データのバケットに置くことと、機器トークンのハッシュを読むことだけ
 
 resource "aws_iam_role" "device_api" {
   name               = "${local.device_api_name}-role"
@@ -26,24 +27,19 @@ data "aws_iam_policy_document" "device_api" {
   statement {
     sid       = "PutRawFiles"
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.data.arn}/${local.raw_prefix}*"]
+    resources = ["${local.raw_bucket.arn}/*"]
   }
   # 受け付けの記録を読む・置かれたファイルの大きさを確かめる（中身は返さない）
   statement {
     sid       = "CheckRawFiles"
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.data.arn}/${local.raw_prefix}*"]
+    resources = ["${local.raw_bucket.arn}/*"]
   }
   # 無いファイルを確かめたとき 403 ではなく 404 になるように
   statement {
     sid       = "ListRawFolder"
     actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.data.arn]
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["${local.raw_prefix}*"]
-    }
+    resources = [local.raw_bucket.arn]
   }
   statement {
     sid       = "ReadDeviceTokenHashes"
@@ -88,7 +84,7 @@ resource "aws_lambda_function" "device_api" {
 
   environment {
     variables = {
-      RAW_BUCKET                    = aws_s3_bucket.data.bucket
+      RAW_BUCKET                    = local.raw_bucket.bucket
       RAW_PREFIX                    = local.raw_prefix
       DEVICE_TOKEN_PARAMETER_PREFIX = "/ct125/devices/"
       UPLOAD_URL_SECONDS            = "900"

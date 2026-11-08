@@ -18,7 +18,7 @@ class Settings:
     def from_env(cls) -> "Settings":
         return cls(
             data_bucket=_required("DATA_BUCKET"),
-            data_prefix=os.environ.get("DATA_PREFIX", "app/v1/datasets/"),
+            data_prefix=os.environ.get("DATA_PREFIX", "datasets/"),
             allow_local_user=_flag("ALLOW_LOCAL_USER"),
         )
 

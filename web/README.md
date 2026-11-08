@@ -3,7 +3,7 @@
 ハンターカブ CT125 の走行データ（GPS＋振動）を、地図とタイムラインで見る画面です。
 
 - 公開先：**https://drive.herdio-system.com/**（ログインが必要。ユーザーは `infra` の `terraform.tfvars` で管理）
-- データを作る側は `pipeline/`。生データが S3 の `raw/` に届くと、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして `app/v1/datasets/shared/` に書き出す
+- データを作る側は `pipeline/`。生データのバケットに走行が届くと、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして、公開用のバケットの `datasets/shared/` に書き出す
 - ログインした人にだけデータを返すデータ API は `api/`（FastAPI）。AWS のリソースは `infra/` の Terraform
 - 表現上の制約（「故障予測」と言わない等）と「ECU / K-Line に触れない」は `docs/DEV_PLAN.md` 4. のとおり
 
@@ -16,11 +16,11 @@
 ```
 ブラウザ ─https→ CloudFront（drive.herdio-system.com）
                    ├─ /*      → S3 webapp/            React のビルド結果。走行データは入っていない
-                   └─ /api/*  → API Gateway（JWT を検証）→ Lambda（api/、FastAPI）→ S3 app/v1/datasets/<データセット>/
+                   └─ /api/*  → API Gateway（JWT を検証）→ Lambda（api/、FastAPI）→ 公開用のバケット datasets/<データセット>/
 ログイン：Cognito（managed login、認可コード＋PKCE）。アクセストークンを /api に付ける
 ```
 
-- バケットは非公開のまま。CloudFront は `webapp/` だけ、Lambda は `app/v1/datasets/` だけを読める
+- バケットは非公開のまま。CloudFront は `webapp/` だけ、データ API の Lambda は公開用のバケットの `datasets/` だけを読める
 - ユーザーごとにデータを分ける入口は `api/src/ct125_api/services/dataset_resolver.py`。今は全員が `shared` を見る
 
 ---
@@ -59,7 +59,7 @@ web\
 │       └── colors.ts  format.ts  route.ts  など
 │
 ├── server/                Vite の dev サーバー（Node）の中だけで動くコード。ブラウザには出ない
-│   └── s3-data.ts         /data/<ファイル名> → S3 の app/v1/datasets/shared/<ファイル名>。cache/ にも保存
+│   └── s3-data.ts         /data/<ファイル名> → 公開用のバケットの datasets/shared/<ファイル名>。cache/ にも保存
 │
 ├── scripts/
 │   ├── start-dev.ps1      start.bat の中身
@@ -76,18 +76,16 @@ web\
 ### S3 側の置き場所
 
 ```
-s3://ct125-logger-<アカウントID>/          （非公開のまま。リージョンは ap-northeast-1）
-├── raw/  processed/  models/            pipeline が使う（公開しない）
-├── app/v1/datasets/shared/               この画面が読むデータ（全ユーザー共通）
-│   ├── rides.json                        走行一覧
-│   ├── ride_<id>.json                    1 秒窓の列（GPS なしの窓は lat/lon が null）
-│   ├── spec_<id>.png ／ spec_<id>.json   スペクトログラム
-│   └── wave_<id>.json                    見どころの生波形
-└── webapp/                               React のビルド結果（CloudFront だけが読める）
+s3://ct125-logger-public-<アカウントID>/   公開用（非公開のまま。書けるのは処理の Lambda だけ）
+└── datasets/shared/                      この画面が読むデータ（全ユーザー共通）
+    ├── rides.json                        走行一覧
+    ├── ride_<id>.json                    1 秒窓の列（GPS なしの窓は lat/lon が null）
+    ├── spec_<id>.png ／ spec_<id>.json   スペクトログラム
+    └── wave_<id>.json                    見どころの生波形
+s3://ct125-logger-<アカウントID>/webapp/   React のビルド結果（CloudFront だけが読める）
 ```
 
-`v1` はデータの形の版。形を変えるときは `v2/` を作り、古い画面が壊れないようにする。
-置き場所は役割ごとのバケットに分ける予定（`docs/data_flow_design.md`）。
+生データ・作業用のバケットは `docs/data_flow_design.md`。データの形は `contracts/app/` に版付きで定義している。
 
 ---
 
@@ -100,8 +98,8 @@ s3://ct125-logger-<アカウントID>/          （非公開のまま。リー�
 | `DATA_SOURCE` | `s3` | `s3` か `cache` |
 | `AWS_PROFILE` | `ct125-logger` | `~/.aws` のプロファイル |
 | `AWS_REGION` | `ap-northeast-1` | バケットのリージョン |
-| `S3_BUCKET` | `ct125-logger-<アカウントID>` | バケット名 |
-| `S3_PREFIX` | `app/v1/datasets/shared/` | データの置き場所 |
+| `S3_BUCKET` | `ct125-logger-public-<アカウントID>` | 公開用のバケット名 |
+| `S3_PREFIX` | `datasets/shared/` | データの置き場所 |
 
 **注意：`VITE_` で始まる変数はブラウザに埋め込まれる。** AWS の認証に関わる変数には `VITE_` を付けない。
 （`.env.production.local` の `VITE_AUTH_*` はログイン画面の場所とクライアント ID で、ブラウザに見えてよい値）
