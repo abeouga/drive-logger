@@ -234,3 +234,22 @@ def test_model_trained_with_other_library_versions_is_refused(cfg, stores):
     work.put(key, json.dumps(record).encode("utf-8"), "application/json")
     with pytest.raises(ModelLibraryMismatchError, match="scikit-learn"):
         ModelStore(Area(work, "", "work")).load_current()
+
+
+# ------------------------------------------------------------------ モデルの切り替え
+def test_use_model_rescores_every_ride_with_the_chosen_version(cfg, stores):
+    raw, work, public = stores
+    clock = Clock()
+    first = lambda_pipeline(cfg, stores, clock).retrain(publish=True)
+    second = lambda_pipeline(cfg, stores, clock).retrain(publish=True)
+    raw.put("_uploads/abc.json", b"{}", "application/json")              # 走行でないフォルダーは数えない
+    assert read(work, "models/current.json") == {"version": second["model_version"]}
+
+    result = lambda_pipeline(cfg, stores, clock).use_model(first["model_version"])
+
+    assert read(work, "models/current.json") == {"version": first["model_version"]}
+    assert result["action"] == "process" and result["model_version"] == first["model_version"]
+    assert sorted(r["ride_id"] for r in result["rides"]) == ["ride_20261109_010000", "ride_20261109_011000", "ride_20261109_012000"]
+    assert all(entry["published_run"] == result["run_id"] for entry in read(work, LEDGER)["rides"].values())
+    with pytest.raises(PublishNotAllowedError):
+        local_pipeline(cfg, stores, clock).use_model(first["model_version"])

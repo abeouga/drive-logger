@@ -32,3 +32,32 @@ class UploadNotFoundError(DomainError):
 
 class UploadConflictError(DomainError):
     """受け付けの状態と合わない（完了済み、または大きさが申告と違う）。"""
+
+
+# ------------------------------------------------------------------ 走行の台帳・処理の記録・モデル（#16・#17）
+class InvalidRequestError(DomainError):
+    """ID の形が違うなど、要求の中身が決まりに合わない。"""
+
+
+class ForbiddenError(DomainError):
+    """ログインしているが、その操作をする権限が無い（admin でない）。"""
+
+
+class RideNotFoundError(DomainError):
+    """台帳に無い走行（または、見せない走行）。"""
+
+
+class RunNotFoundError(DomainError):
+    """その走行の処理の記録に無い処理。"""
+
+
+class ModelNotFoundError(DomainError):
+    """無いモデルの版。"""
+
+
+class RunNotPublishableError(DomainError):
+    """失敗した処理の結果は公開できない。"""
+
+
+class LedgerConflictError(DomainError):
+    """台帳をほかの処理が続けて書き換えていて、書けなかった（読み直してやり直す）。"""

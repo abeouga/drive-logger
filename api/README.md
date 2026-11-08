@@ -26,7 +26,17 @@ ESP32    ─https（署名付き URL）→ S3 生データ <走行>/ → 完了�
 |---|---|---|
 | `GET /api/health` | 不要 | `{"status": "ok"}` |
 | `GET /api/me` | ログイン | ユーザー名・グループ・見るデータセット |
-| `GET /api/data/{file_name}` | ログイン | データファイル（`rides.json`・`ride_<id>.json`・`spec_<id>.png` など。形は `../docs/data_contract.md`） |
+| `GET /api/data/{file_name}` | ログイン | データファイル（`rides.json`・`ride_<id>.json`・`spec_<id>.png` など。形は `../web/docs/data_contract.md`） |
+| `GET /api/rides` | ログイン | 走行の台帳から作った一覧（画面に出す走行と要約）。admin は `?include_deleted=true` で消した走行も |
+| `DELETE /api/rides/{ride_id}` | admin | 走行を画面と学習から外す（生データは残す）。処理の Lambda に公開用の作り直しを頼む |
+| `POST /api/rides/{ride_id}/restore` | admin | 外した走行を戻す |
+| `GET /api/rides/{ride_id}/runs` | ログイン | その走行を処理した記録（新しい順。どれを画面に出しているか） |
+| `PUT /api/rides/{ride_id}/published-run` | admin | 画面に出す結果を、前の処理の結果などに切り替える |
+| `GET /api/models` | ログイン | モデルの版の一覧と、今使っている版 |
+| `GET /api/models/{version}`・`/notes` | ログイン | その版の記録（model.json）とナレッジ（notes.md） |
+| `PUT /api/models/current` | admin | 今使うモデルを切り替える（全走行の点数付けし直しは処理の Lambda。202 を返し、数分で画面に出る） |
+
+応答の形は `../contracts/api/`（`tests/test_rides_api.py` が定義に当てる）。データ API が書けるのは作業用のバケットの台帳（`ledger/rides.json`）だけで、公開用には書けない。
 | `GET /api/docs` | ― | データ API の説明書（OpenAPI） |
 | `POST /api/device/uploads` | 機器 | 送るファイルと大きさ → 走行名（`ride_<日時>`）とファイルごとの PUT 用 URL（15 分）。途中で切れたら前回の走行名を付けて呼び直す |
 | `POST /api/device/uploads/{ride_id}/complete` | 機器 | S3 の大きさが申告どおりなら完了の合図を置く（違えば 409）。完了済みなら `already_complete` |

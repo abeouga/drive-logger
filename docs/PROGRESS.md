@@ -186,3 +186,10 @@
 - 途中で直したこと：S3 のタグの値と IAM の説明に日本語は使えなかった（タグは役割の名前だけ、説明は英語にした）。
 - 残したもの：今のバケットの古い場所（`raw/`・`processed/`・`models/`・`app/`・`site/`）と SSM の `/ct125/private-points`。新しい流れで数日動いてから消す。
 - 手元の設定：`web/.env.local` を公開用のバケットに、`~/.aws/config` に `ct125-local-pipeline`、`pipeline/config/local.yaml` に `pipeline_profile` を足した。
+
+## 走行の台帳・処理の記録・モデルの API（2026-11-09 実施、#16・#17）
+
+- データ API に `GET /api/rides`（台帳から作る一覧）、`DELETE /api/rides/{id}`・`POST …/restore`（admin。画面と学習から外す・戻す。生データは残す）、`GET …/runs`（処理の記録）、`PUT …/published-run`（admin。前の結果に戻す）、`GET /api/models`・`/{version}`・`/notes`、`PUT /api/models/current`（admin。処理の Lambda が全走行を点数付けし直す）を足した。応答の形は `contracts/api/`。
+- 台帳は条件付きで書き、衝突したら読み直してやり直す。書き換えたら処理の Lambda に公開用の作り直しを非同期で頼む（データ API は公開用に書けない）。処理の Lambda に `use_model` を足し、生データの場所の走行でないフォルダーを数えないようにした。
+- 権限：データ API は作業用の台帳だけ書ける、`ledger/`・`runs/`・`models/` を読める、処理の Lambda を呼べる。API Gateway に書き換え（DELETE・PUT・POST /api/rides/*）の道筋を足した（JWT が要る。admin かどうかは API が確かめる）。
+- テスト：api 71 件（admin でない人は 403、無い走行は 404、失敗した処理は公開できない 409、台帳の衝突のやり直し）、pipeline 94 件、contracts 90 件。

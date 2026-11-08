@@ -9,10 +9,17 @@ from fastapi.responses import JSONResponse
 from .domain.exceptions import (
     DataFileNotFoundError,
     DomainError,
+    ForbiddenError,
     InvalidDeviceCredentialError,
     InvalidFileNameError,
+    InvalidRequestError,
     InvalidUploadRequestError,
+    LedgerConflictError,
+    ModelNotFoundError,
     NotAuthenticatedError,
+    RideNotFoundError,
+    RunNotFoundError,
+    RunNotPublishableError,
     UploadConflictError,
     UploadNotFoundError,
 )
@@ -20,11 +27,18 @@ from .domain.exceptions import (
 STATUS_BY_ERROR: dict[type[DomainError], int] = {
     InvalidFileNameError: 400,
     InvalidUploadRequestError: 400,
+    InvalidRequestError: 400,
     NotAuthenticatedError: 401,
     InvalidDeviceCredentialError: 401,
+    ForbiddenError: 403,
     DataFileNotFoundError: 404,
     UploadNotFoundError: 404,
+    RideNotFoundError: 404,
+    RunNotFoundError: 404,
+    ModelNotFoundError: 404,
     UploadConflictError: 409,
+    RunNotPublishableError: 409,
+    LedgerConflictError: 409,
 }
 
 
