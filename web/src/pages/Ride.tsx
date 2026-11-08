@@ -14,7 +14,6 @@ import Spectrogram from "../components/Spectrogram";
 import DetailPanel from "../components/DetailPanel";
 import Tabs from "../components/Tabs";
 import LoadState from "../components/LoadState";
-import { Badge } from "../components/RideCard";
 
 type ChartKey = "timeline" | "spectrogram";
 type MobileKey = "map" | "chart" | "detail";
@@ -109,7 +108,6 @@ export default function Ride({ id }: { id: string }) {
           {summary.gps !== "none" && <span><span className="text-ink-2">距離 </span>{fmtKm(summary.distance_km)} km</span>}
           {summary.max_speed_kmh !== null && <span><span className="text-ink-2">最高 </span>{summary.max_speed_kmh.toFixed(0)} km/h</span>}
           <span><span className="text-ink-2">GPS 有効 </span>{Math.round(summary.fix_ratio * 100)}%</span>
-          {summary.n_private > 0 && <Badge>自宅周辺 {summary.n_private} 窓は地図に出さない</Badge>}
         </div>
       </div>
     </>

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""GPS の距離・速度・補間・自宅マスク。"""
+"""GPS の距離・速度・補間。"""
 from __future__ import annotations
 
 import numpy as np
@@ -70,14 +70,3 @@ def interpolate_to_windows(gps_valid: pd.DataFrame, t_centers: np.ndarray, max_g
     out["has_gps"] = use & np.isfinite(res[:, 0])
     out.loc[~out["has_gps"], ["lat", "lon", "speed_kmh"]] = np.nan
     return out
-
-
-def mask_private(lat, lon, points: list[tuple[float, float]], radius_m: float) -> np.ndarray:
-    """登録地点のどれかから radius_m 以内なら True。lat/lon が NaN の行は False。"""
-    lat = np.asarray(lat, dtype=float)
-    lon = np.asarray(lon, dtype=float)
-    mask = np.zeros(len(lat), dtype=bool)
-    for plat, plon in points:
-        d = haversine_m(lat, lon, plat, plon)
-        mask |= np.nan_to_num(d, nan=np.inf) <= radius_m
-    return mask

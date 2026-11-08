@@ -3,11 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "CT125 走行データの Web アプリ（Vite。dev は S3 から、build は CloudFront 配信用、build:single は 1 ファイル）",
+  "description": "CT125 走行データの Web アプリ（Vite。dev は S3 から、build は CloudFront 配信用）",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "build:single": "tsc -b && vite build --mode single",
     "preview": "vite preview",
     "typecheck": "tsc -b"
   },
@@ -28,7 +27,6 @@
     "@vitejs/plugin-react": "^6.2.1",
     "tailwindcss": "^4.3.4",
     "typescript": "^7.0.2",
-    "vite": "^8.3.6",
-    "vite-plugin-singlefile": "^2.3.4"
+    "vite": "^8.3.6"
   }
 }

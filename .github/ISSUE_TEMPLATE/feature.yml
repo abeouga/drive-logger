@@ -57,7 +57,6 @@ body:
         例）
         - [ ] pipeline のテストが通る
         - [ ] 公開版で表示できる
-        - [ ] 書き出したファイルに自宅 300 m 以内の座標が 0
     validations:
       required: true
 

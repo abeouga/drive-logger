@@ -8,6 +8,3 @@ joblib==1.6.0
 pyarrow==26.0.1
 pyyaml==6.0.3
 boto3==1.43.125
-# export.py が viz.py の関数を使い、viz.py が読み込むため（Lambda では HTML は作らない）
-folium==0.20.0
-plotly==7.1.0

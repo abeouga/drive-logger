@@ -1,10 +1,9 @@
 // データファイルの取り出し口。起動のしかた（DATA_MODE）によって「どこから・どう取るか」だけが変わる。
 //   dev      : /data/<名前>      … Vite の dev サーバー（server/s3-data.ts）が S3 から返す。ログインなし
 //   hosted   : /api/data/<名前>  … データ API（ログインが必要）。アクセストークンを付ける
-//   embedded : HTML に埋め込み済み（src/lib/data.ts が直接読む）。ここは通らない
 import { accessToken, signIn } from "./auth/authClient";
 
-declare const __DATA_MODE__: "dev" | "hosted" | "embedded"; // vite.config.ts の define
+declare const __DATA_MODE__: "dev" | "hosted"; // vite.config.ts の define
 
 export const DATA_MODE = __DATA_MODE__;
 

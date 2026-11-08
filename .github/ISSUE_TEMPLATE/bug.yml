@@ -81,5 +81,5 @@ body:
     attributes:
       label: 貼る前の確認
       options:
-        - label: 座標の実値・自宅付近の経路の図・秘密の値（鍵・トークン・パスワード）が含まれていない
+        - label: 秘密の値（鍵・トークン・パスワード・Wi-Fi の SSID）が含まれていない
           required: true

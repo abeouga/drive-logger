@@ -35,9 +35,9 @@ flowchart LR
 |---|---|---|
 | 記録 | ESP32 が GPS（1Hz）と加速度（400Hz）を microSD に書く。電源断に強い（1 秒ごとに確定） | `firmware/` |
 | 送信 | 走行後、止まって静かになったら（または BOOT ボタン）、家の Wi-Fi で S3 に直接送る。機器は AWS の鍵を持たず、取り消せる機器トークンと 15 分だけ有効な URL だけを使う | `firmware/`、`api/`（デバイス API） |
-| 前処理 | 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）と GPS の結合、自宅周辺のマスク | `pipeline/` |
+| 前処理 | 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）と GPS の結合 | `pipeline/` |
 | 異常スコア | 速度で補正した正常時のベースラインからの逸脱（z_speed）と Isolation Forest（scikit-learn） | `pipeline/` |
-| 自動処理 | S3 に生データが届くと Lambda（コンテナ）が前処理 → 推論 → 画面用データの書き出し → 座標の検査。学習し直しも Lambda で | `pipeline/src/ct125/cloud/` |
+| 自動処理 | S3 に生データが届くと Lambda（コンテナ）が前処理 → 推論 → 画面用データの書き出し。学習し直しも Lambda で | `pipeline/src/ct125/cloud/` |
 | 画面 | 走行一覧、地図（MapLibre）とタイムライン（ECharts）とスペクトログラムが連動する走行ページ | `web/` |
 | 公開 | CloudFront＋Cognito のログイン、データ API（FastAPI） | `web/`、`api/`、`infra/` |
 | インフラ | S3・CloudFront・ACM・Cognito・API Gateway・Lambda×3・ECR を Terraform で | `infra/` |
@@ -72,16 +72,9 @@ drive-logger/
 | 画面用 JSON の形 | `pipeline/`（`export.py`） | `web/`（`types.ts`）・`api/` | [web/docs/data_contract.md](web/docs/data_contract.md) |
 | AWS の名前・場所 | `infra/` | 各フォルダーのスクリプト（Terraform の出力を読む） | `infra/outputs.tf` |
 
-## 自宅の位置を守る仕組み
-
-- 自宅など登録した地点の半径 300m の窓は、座標を書き出さない（`null`）。登録地点そのものはどこにも書き出さない
-- 書き出した後に、半径 300m 以内の座標が無いかを検査し、あれば公開しない（ローカルでも AWS でも）
-- 地点の座標は `pipeline/config/local.yaml`（コミットしない）と SSM の SecureString にだけ置く
-- 生データ（自宅周辺を含む）は非公開の S3 `raw/` だけ。公開されるのはマスクと検査を通ったデータだけ
-
 ## コミットしないもの
 
-自宅の座標（`pipeline/config/local.yaml`）、走行データ（`pipeline/data/`・`web/cache/`）、
+PC ごとの設定（`pipeline/config/local.yaml`）、走行データ（`pipeline/data/`・`web/cache/`）、
 `.env.local`、`terraform.tfvars`（ユーザーのパスワードを含む）、機器トークン（`*.token`）。
 Wi-Fi のパスワードと機器トークンは ESP32 の内部フラッシュにだけ置きます。
 Terraform の state はコミットせず、非公開の S3 に置いています（どの PC からも同じ state を使う）。
@@ -96,7 +89,7 @@ Terraform の state はコミットせず、非公開の S3 に置いていま�
 | やりたいこと | コマンド（リポジトリのルートから） |
 |---|---|
 | 画面をローカルで触る | `web/start.bat`（または `cd web; npm run dev`） |
-| 解析をローカルで流す | `cd pipeline; .venv/Scripts/python -m ct125 process --all`（→ `score` → `export`） |
+| 解析をローカルで流す | `cd pipeline; .venv/Scripts/python -m ct125 process --all`（→ `score` → `export`。作り直しの途中） |
 | AWS のリソースを作る・変える | `terraform -chdir=infra apply` |
 | 画面を公開する | `web/scripts/deploy.ps1` |
 | データ API を更新する | `api/scripts/build-lambda.ps1` → `terraform -chdir=infra apply` |

@@ -1,5 +1,5 @@
 // 地図（MapLibre GL ＋ OpenFreeMap）。軌跡を 1 秒窓の線分で描き、log_rms の 5 分位で塗る。
-// - 自宅周辺の窓はデータに座標が入っていないので、線も点もない
+// - GPS のない窓はデータに座標が入っていないので、線も点もない
 // - 線にカーソルを置く → onHover、クリック → onSelect（タイムラインと詳細パネルが追従）
 // - タイムラインのカーソル（hover）と選択（selected）を地図上の点で示す
 // - タイムラインで範囲を選ぶと（range）、その区間に寄る
@@ -33,7 +33,7 @@ function segments(d: RideData): FC {
   const c = d.columns;
   const features: Feature[] = [];
   for (let i = 0; i < d.n - 1; i++) {
-    if (!hasCoord(d, i) || !hasCoord(d, i + 1)) continue; // 欠損・マスクの区間は線をつながない
+    if (!hasCoord(d, i) || !hasCoord(d, i + 1)) continue; // GPS が欠けた区間は線をつながない
     features.push({
       type: "Feature",
       properties: { i, cls: Math.max(c.cls[i], c.cls[i + 1], 0) },
