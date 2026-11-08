@@ -1,0 +1,89 @@
+name: API
+description: データ API（画面用）・デバイス API（ESP32 用）を追加・変更する
+title: "[API] "
+labels:
+  - API
+
+body:
+  - type: dropdown
+    id: which
+    attributes:
+      label: どの API か
+      options:
+        - データ API（画面用・Cognito のログイン）
+        - デバイス API（ESP32 用・機器トークン）
+    validations:
+      required: true
+
+  - type: input
+    id: endpoint
+    attributes:
+      label: メソッドとパス
+      placeholder: 例）GET /api/data/rides/{ride_id}/windows
+    validations:
+      required: true
+
+  - type: textarea
+    id: purpose
+    attributes:
+      label: 役目と呼び出す側
+      placeholder: 例）1 走行の 1 秒窓の一覧を返す。web の詳細パネルが呼ぶ
+    validations:
+      required: true
+
+  - type: textarea
+    id: request
+    attributes:
+      label: 要求
+      description: 引数とその型・既定値・上限を記載してください。
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: response
+    attributes:
+      label: 応答
+      description: 返す項目を記載してください。座標を返す場合は、自宅付近を除いた後のものだけにしてください。
+      render: json
+    validations:
+      required: true
+
+  - type: textarea
+    id: errors
+    attributes:
+      label: エラー
+      value: |
+        | 状態 | どんなとき | 返す中身 |
+        |---|---|---|
+        | 401 | トークンなし・不正なトークン | 理由を区別しない同じ文言 |
+        | 404 |  |  |
+    validations:
+      required: true
+
+  - type: dropdown
+    id: permission
+    attributes:
+      label: 権限
+      options:
+        - 読み取りだけ
+        - 書き込みあり（理由を補足に書く）
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 完了条件
+      value: |
+        - [ ] 公開ドメイン経由で、期待どおりの応答が返る
+        - [ ] トークンなし・不正なトークンで 401
+        - [ ] 既存の API の応答が変わらない
+        - [ ] api のテストが通る
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: 補足

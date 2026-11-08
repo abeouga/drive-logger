@@ -1,0 +1,52 @@
+name: Improvement
+description: 動きを変えずにコードを整理する（リファクタリング・共通化・軽量化）
+title: "[Improvement] "
+labels:
+  - Improvement
+
+body:
+  - type: textarea
+    id: target
+    attributes:
+      label: 整理する対象
+      placeholder: |
+        例）
+        - Lambda のコンテナから folium・plotly を外す（viz.py への依存を切る）
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: なぜ整理するか
+      placeholder: 例）コンテナが 1.6 GB で初期化に約 10 秒かかり、Lambda の上限に近い
+    validations:
+      required: true
+
+  - type: textarea
+    id: unchanged
+    attributes:
+      label: 変えないもの
+      description: 整理の前後で同じでなければならないもの（書き出す JSON・点数・API の応答など）を記載してください。
+      placeholder: |
+        例）
+        - 公開データ 36 ファイルの中身
+        - モデルの点数
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: 同じであることの確かめ方
+      placeholder: |
+        例）
+        1. 直す前に export の結果を保存する
+        2. 直した後に同じことをして、バイト単位で一致することを確かめる（rides.json は時刻を除く）
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: 関連する設計・Issue

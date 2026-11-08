@@ -1,0 +1,60 @@
+name: Design
+description: 設計の判断を記録する（選択肢と決定理由を残す）
+title: "[Design] "
+labels:
+  - Design
+
+body:
+  - type: textarea
+    id: decision_target
+    attributes:
+      label: 決めること
+      placeholder: 例）走行後の送信を、Wi-Fi から直接 S3 に送るか、スマホを経由するか
+    validations:
+      required: true
+
+  - type: textarea
+    id: background
+    attributes:
+      label: 背景・制約
+      placeholder: |
+        例）
+        - 機器に AWS の鍵を持たせない
+        - 記録と送信を同時にしない（core 0 の取り合いとメモリ）
+        - AWS のリソースは選んだリージョンだけに作る（CloudFront 用の証明書などは us-east-1）
+    validations:
+      required: true
+
+  - type: textarea
+    id: options
+    attributes:
+      label: 選択肢
+      value: |
+        | 案 | 長所 | 短所 | 費用 |
+        |---|---|---|---|
+        | A |  |  |  |
+        | B |  |  |  |
+    validations:
+      required: true
+
+  - type: textarea
+    id: decision
+    attributes:
+      label: 決定
+      description: 決めた案と理由。まだ決まっていなければ「未定」と書いてください。
+      placeholder: 例）未定
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: 影響を受けるもの
+      description: 影響するフォルダー、約束（CSV・送信の手順・画面用 JSON）、AWS のリソースなど。
+
+  - type: checkboxes
+    id: records
+    attributes:
+      label: 書き残す先
+      options:
+        - label: docs/ の設計書（architecture.md など）に追記する
+        - label: CLAUDE.md の更新が必要か確認した
+        - label: docs/PROGRESS.md に記録する
