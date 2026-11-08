@@ -1,0 +1,36 @@
+{
+  "schema": "ledger/1",
+  "updated_at": "2026-11-09T03:15:20Z",
+  "rides": {
+    "ride_20261108_011304": {
+      "ride_id": "ride_20261108_011304",
+      "original_name": null,
+      "device_id": "d01",
+      "local_session": "ride_013",
+      "source": "device",
+      "received_at": "2026-11-08T01:13:37Z",
+      "kind": "desk",
+      "kind_metrics": { "vib_median_g": 0.014, "gps_windows": 280, "max_dist_m": 6.0, "moving_windows": 0 },
+      "deleted": false,
+      "deleted_at": null,
+      "deleted_by": null,
+      "published_run": "20261109T031500Z-3f9a1c",
+      "runs": ["20261109T031500Z-3f9a1c"]
+    },
+    "ride_20261109_020000": {
+      "ride_id": "ride_20261109_020000",
+      "original_name": "ride_004",
+      "device_id": "pc01",
+      "local_session": "ride_004",
+      "source": "pc",
+      "received_at": "2026-11-09T02:00:00Z",
+      "kind": "ride",
+      "kind_metrics": { "vib_median_g": 0.43, "gps_windows": 768, "max_dist_m": 2315.0, "moving_windows": 468 },
+      "deleted": true,
+      "deleted_at": "2026-11-09T05:00:00Z",
+      "deleted_by": "admin",
+      "published_run": "20261109T031500Z-3f9a1c",
+      "runs": ["20261109T031500Z-3f9a1c", "20261109T020100Z-0b11aa"]
+    }
+  }
+}

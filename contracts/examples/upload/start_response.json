@@ -1,0 +1,8 @@
+{
+  "ride_id": "ride_20261108_011304",
+  "expires_in": 900,
+  "uploads": [
+    { "name": "accel.csv", "url": "https://ct125-logger-raw-000000000000.s3.ap-northeast-1.amazonaws.com/ride_20261108_011304/accel.csv?X-Amz-Expires=900" },
+    { "name": "meta.json", "url": "https://ct125-logger-raw-000000000000.s3.ap-northeast-1.amazonaws.com/ride_20261108_011304/meta.json?X-Amz-Expires=900" }
+  ]
+}

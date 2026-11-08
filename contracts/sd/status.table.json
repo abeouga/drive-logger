@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "name": "status",
+  "description": "10 秒ごとの記録の状態。1 行目は列名",
+  "dialect": { "delimiter": ",", "header": true },
+  "fields": [
+    { "name": "t_us", "type": "integer", "unit": "us", "description": "時刻（ESP32 の時計）" },
+    { "name": "samples", "type": "integer", "description": "ここまでの加速度のサンプル数" },
+    { "name": "rate_hz", "type": "number", "unit": "Hz", "description": "この 10 秒の実測の周波数" },
+    { "name": "ring_drops", "type": "integer", "description": "リングバッファの取りこぼし（累計）" },
+    { "name": "fifo_overruns", "type": "integer", "description": "ADXL345 の FIFO のあふれ（累計）" },
+    { "name": "i2c_errors", "type": "integer", "description": "I2C のエラー（累計）" },
+    { "name": "sd_write_errors", "type": "integer", "description": "SD の書き込みエラー（累計）" },
+    { "name": "bytes", "type": "integer", "description": "書いたバイト数（累計）" },
+    { "name": "gps_status", "type": "string", "description": "GPS の状態（A／V）" },
+    { "name": "gps_sats", "type": "integer", "description": "衛星数" },
+    { "name": "period_us", "type": "number", "unit": "us", "description": "PLL が求めた今のサンプリング周期" },
+    { "name": "dt_min_us", "type": "integer", "unit": "us", "description": "この 10 秒の t_us の間隔の最小" },
+    { "name": "dt_max_us", "type": "integer", "unit": "us", "description": "この 10 秒の t_us の間隔の最大" },
+    { "name": "pll_err_max_us", "type": "integer", "unit": "us", "description": "この 10 秒の、読んだ時刻とのずれの最大" },
+    { "name": "time_resyncs", "type": "integer", "description": "時刻の合わせ直しの回数（累計）" }
+  ]
+}

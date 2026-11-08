@@ -15,8 +15,12 @@ import numpy as np
 import pandas as pd
 
 JST = "Asia/Tokyo"
+# SD の 1 回の記録の約束（contracts/sd/）。合っているかは tests/test_contracts.py で確かめる
 ACCEL_COLS = ["n", "t_us", "ax_g", "ay_g", "az_g"]
 GPS_COLS = ["t_rx_us", "utc", "date", "status", "fix", "sats", "hdop", "lat", "lon", "speed_kmh", "course_deg"]
+EVENT_COLS = ["t_us", "type", "detail"]
+REQUIRED_FILES = ("accel.csv", "gps.csv", "meta.json")
+MEMO_FILES = ("notes.md", "memo.txt", "readme.txt")  # 走行メモ。notes.md が今の名前、残りは古い名前
 
 
 @dataclass
@@ -75,11 +79,14 @@ def load_ride(ride_id: str, raw_dir: Path | str) -> Ride:
     d = Path(raw_dir) / ride_id
     if not d.is_dir():
         raise FileNotFoundError(f"{d} がありません")
+    missing = [name for name in REQUIRED_FILES if not (d / name).exists()]
+    if missing:
+        raise FileNotFoundError(f"{ride_id} に必要なファイルがありません：{', '.join(missing)}")
     acc = pd.read_csv(d / "accel.csv", usecols=ACCEL_COLS)
     gps = pd.read_csv(d / "gps.csv", dtype={"utc": str, "date": str, "status": str})
-    events = pd.read_csv(d / "events.csv") if (d / "events.csv").exists() else pd.DataFrame(columns=["t_us", "type", "detail"])
+    events = pd.read_csv(d / "events.csv") if (d / "events.csv").exists() else pd.DataFrame(columns=EVENT_COLS)
     status = pd.read_csv(d / "status.csv") if (d / "status.csv").exists() else None
-    meta = json.loads((d / "meta.json").read_text(encoding="utf-8")) if (d / "meta.json").exists() else {}
+    meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     memo = read_memo(d)
 
     acc = acc.sort_values("t_us", kind="stable").reset_index(drop=True)
@@ -91,8 +98,9 @@ def load_ride(ride_id: str, raw_dir: Path | str) -> Ride:
 
 
 def read_memo(ride_dir: Path | str) -> str:
-    """走行フォルダーの *.txt（memo.txt・readme.txt）をつないだ本人のメモ。無ければ空文字。"""
-    return " ".join(p.read_text(encoding="utf-8").strip() for p in sorted(Path(ride_dir).glob("*.txt")))
+    """走行メモ（notes.md、古い名前の memo.txt・readme.txt）をこの順につないだもの。無ければ空文字。"""
+    paths = [Path(ride_dir) / name for name in MEMO_FILES]
+    return " ".join(p.read_text(encoding="utf-8").strip() for p in paths if p.exists())
 
 
 def list_rides(raw_dir: Path | str) -> list[str]:

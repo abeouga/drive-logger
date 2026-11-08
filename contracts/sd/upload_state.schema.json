@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/sd/upload_state.schema.json",
+  "version": 1,
+  "title": "upload_state.json（送信の途中。切れたら、この走行 ID で受け付けを出し直してもらう）",
+  "type": "object",
+  "required": ["ride_id"],
+  "properties": {
+    "ride_id": { "type": "string" }
+  }
+}

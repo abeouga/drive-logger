@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "name": "events",
+  "description": "起動・あふれ・合わせ直しなどの出来事。1 行目は列名",
+  "dialect": { "delimiter": ",", "header": true },
+  "fields": [
+    { "name": "t_us", "type": "integer", "unit": "us", "description": "出来事の時刻（ESP32 の時計）" },
+    {
+      "name": "type",
+      "type": "string",
+      "constraints": { "enum": ["boot", "sd_retry", "adxl_retry", "fifo_overrun", "gps_valid", "gps_lost", "time_resync", "session_end"] },
+      "description": "boot＝起動（detail は版）、sd_retry・adxl_retry＝初期化のやり直し、fifo_overrun＝ADXL345 の FIFO のあふれ、gps_valid・gps_lost＝GPS の有効・無効の切り替わり、time_resync＝時刻の合わせ直し（ずれが 20 ms 超）、session_end＝記録を閉じた（detail は理由）"
+    },
+    { "name": "detail", "type": "string", "description": "補足（回数・版・理由など）" }
+  ],
+  "note": "リングバッファの取りこぼしと SD の書き込みエラーは、出来事ではなく status.csv の ring_drops・sd_write_errors に数える"
+}

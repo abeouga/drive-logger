@@ -152,3 +152,11 @@
 - 確かめたこと：本番の S3 の生データ 9 走行で、直す前と後の書き出し 37 ファイルを比べた。違いは自宅周辺の 436 窓に座標が入ったことと、それに伴う地図の色の段階（cls。ride_004・005 では色を塗る窓が増えて 5 分位が変わる）だけ。ほかの列・一覧の要約・スペクトログラム・生波形は一致。pipeline のテスト 46 件・api 51 件・web の型チェックとビルドが通る。
 - 残したもの：Terraform の SSM を読む権限と環境変数（今のコンテナがまだ読むので、新しいコンテナに入れ替えるときに外す）、SSM のパラメーター `/ct125/private-points` そのもの、S3 の古い場所（`site/`・`app/v1/` の直下の写し）。消すのは本人の了承の後。
 - 文書：README・architecture・各フォルダーの README・データの約束・テンプレートを直した。DEV_PLAN・WEB_PLAN・QUESTIONS・aws_setup は当時の記録として残し、冒頭に注記を入れた。
+
+## フォルダーをまたぐ約束を JSON で定義した（2026-11-09 実施、#4・#5 のコード側）
+
+- `contracts/` を作った：共通の決まり（走行 ID・機器 ID・止まっているとみなす速さ）、SD の 1 回の記録のファイルと CSV の列（Table Schema）と meta.json、送信の手順と要求・応答・完了の印（JSON Schema）、画面用 JSON、走行の台帳・処理の記録・モデルの記録（設計の形を先に定義）。どれも版の番号を持つ。
+- 突き合わせのテスト：`contracts/tests/`（定義・見本・firmware のソースの定数）、`pipeline/tests/test_contracts.py`（io・export・送るファイル・走行 ID。画面用 JSON の見本を本物の書き出しの関数から作り直して一致を確かめる）、`api/tests/test_contracts.py`（受け付けるファイル・決まり・要求と応答）、`web/src/lib/contract.check.ts`（見本を型に当てる。わざと型をずらすと落ちることを確かめた）。CI に contracts のジョブを足した。
+- 直したずれ：必須のファイルを accel・gps・meta にそろえた（pipeline も確かめる）、走行 ID の決まりを 1 つにした（pipeline の処理も ride_<日時> と古い ride_NNN だけを受け付ける）、events の一覧を firmware に合わせた（ring_drop・sd_write_error は status.csv の数で、session_end を足した）、止まっているとみなす速さを 5 km/h にそろえた（firmware は 3 km/h だった）、data_spec_v2 に V3 のファイル（upload_state.json・uploaded.json・/upload_log.csv）を足した。
+- 走行メモ（#5）：notes.md を、firmware は送る・デバイス API は受け付ける・pipeline は読む（古い memo.txt・readme.txt も同じに読む）。firmware は V3.2（コンパイル 1,128,732 バイト、86%）。**実機への書き込みと、notes.md を置いた走行の送信はまだ**（本人の確認待ち）。
+- 確認：pipeline 72 件、api 57 件、contracts 77 件、web の型チェックとビルド。

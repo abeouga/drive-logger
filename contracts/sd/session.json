@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "description": "SD の 1 回の記録（電源を入れるたびに firmware が /sessions/ride_NNN/ を作る）に入るファイル",
+  "folder": "/sessions/<local_session>/",
+  "files": [
+    { "name": "meta.json", "required": true, "written_by": "firmware", "definition": "meta.schema.json", "send": true },
+    { "name": "accel.csv", "required": true, "written_by": "firmware", "definition": "accel.table.json", "send": true },
+    { "name": "gps.csv", "required": true, "written_by": "firmware", "definition": "gps.table.json", "send": true },
+    { "name": "events.csv", "required": false, "written_by": "firmware", "definition": "events.table.json", "send": true },
+    { "name": "status.csv", "required": false, "written_by": "firmware", "definition": "status.table.json", "send": true },
+    { "name": "notes.md", "required": false, "written_by": "person", "format": "Markdown", "send": true, "description": "走行メモ（区間・路面・天気・取り付け）。PC で後から入れる" },
+    { "name": "memo.txt", "required": false, "written_by": "person", "format": "text", "send": true, "legacy": true, "description": "走行メモの古い名前。notes.md と同じに読む" },
+    { "name": "readme.txt", "required": false, "written_by": "person", "format": "text", "send": true, "legacy": true, "description": "走行メモの古い名前（ride_001〜003）。notes.md と同じに読む" },
+    { "name": "upload_state.json", "required": false, "written_by": "firmware", "definition": "upload_state.schema.json", "send": false, "description": "送信の途中（切れたら続きから）" },
+    { "name": "uploaded.json", "required": false, "written_by": "firmware", "definition": "uploaded.schema.json", "send": false, "description": "送り終えた印。あればもう送らない" }
+  ],
+  "memo_files": ["notes.md", "memo.txt", "readme.txt"],
+  "root_files": [
+    { "name": "/upload_log.csv", "written_by": "firmware", "definition": "upload_log.table.json", "description": "送信の記録（SD の最上位）。シリアルの LOG で読める" }
+  ]
+}

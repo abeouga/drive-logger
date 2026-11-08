@@ -13,8 +13,9 @@
 
 namespace {
 
-// 送るファイル（サーバーが受け付けるもの。無いファイルは飛ばす）
-const char *SEND_FILES[] = {"accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "memo.txt"};
+// 送るファイル（contracts/upload/upload.json の files.allowed のうち、SD にありうるもの。無いファイルは飛ばす）
+// notes.md が走行メモ。memo.txt は古い名前
+const char *SEND_FILES[] = {"accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt"};
 // この版以降のファームウェアが書いた走行だけを送る（それより前の走行は PC から上げ済み・机上の試験）
 const char *UPLOADABLE_FIRMWARE = "\"firmware\": \"CT125_LOGGER_V3";
 // 短すぎる走行（電源を入れてすぐ切った・設定のための再起動）は送らない。約 30 秒分

@@ -36,7 +36,7 @@
 #include "config_store.h"
 #include "uploader.h"
 
-#define FW_VERSION "CT125_LOGGER_V3.1"
+#define FW_VERSION "CT125_LOGGER_V3.2"
 
 const int PIN_SDA = 21, PIN_SCL = 22;
 const int PIN_GPS_RX = 32, PIN_GPS_TX = 33;
@@ -55,7 +55,7 @@ const uint32_t STATUS_MS = 10000;
 // 送信のきっかけ（設計書 3.1）
 const float QUIET_STD_G = 0.02f;        // 1 秒間の合成加速度のばらつきがこれ未満なら「静か」（エンジン停止。静止時の雑音は約 0.008g）
 const float MOVING_STD_G = 0.05f;       // これを超えたら「動いている」（アイドリングや走行）
-const float STOP_SPEED_KMH = 3.0f;      // GPS 速度がこれ未満なら止まっている
+const float STOP_SPEED_KMH = 5.0f;      // GPS 速度がこれ未満なら止まっている（contracts/common.json。止まっていても 0〜4 km/h 出る）
 const uint32_t QUIET_SECONDS = 120;     // 静かな状態がこれだけ続いたら記録を閉じて送る
 const uint32_t BUTTON_HOLD_MS = 2000;   // BOOT ボタンをこれだけ押し続けたら、今すぐ送る
 const uint32_t MOVING_SECONDS_TO_WAKE = 3;  // 待機中、これだけ続けて動いたら再起動して記録を始める
