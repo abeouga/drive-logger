@@ -82,8 +82,14 @@ drive-logger/
 ## コミットしないもの
 
 自宅の座標（`pipeline/config/local.yaml`）、走行データ（`pipeline/data/`・`web/cache/`）、
-`.env.local`、Terraform の state と `*.tfvars`（ユーザーのパスワードを含む）、機器トークン（`*.token`）。
+`.env.local`、`terraform.tfvars`（ユーザーのパスワードを含む）、機器トークン（`*.token`）。
 Wi-Fi のパスワードと機器トークンは ESP32 の内部フラッシュにだけ置きます。
+Terraform の state はコミットせず、非公開の S3 に置いています（どの PC からも同じ state を使う）。
+
+## 別の PC で開発する
+
+クローンして、秘密の情報（AWS のログインと `infra/terraform.tfvars`）といくつかの設定ファイルを置けば動きます。
+手順は [docs/setup_another_pc.md](docs/setup_another_pc.md)。
 
 ## 動かし方（概要）
 

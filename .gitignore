@@ -7,6 +7,8 @@
 .env.*.local
 *.tfvars
 !infra/example.tfvars
+# Lambda のイメージの digest だけで秘密はない。どの PC でも同じ値で plan できるようにコミットする
+!infra/pipeline_image.auto.tfvars
 *.tfstate
 *.tfstate.*
 
