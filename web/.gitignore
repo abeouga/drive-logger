@@ -2,13 +2,10 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# 設定の実値（バケット名・プロファイル）
+# 設定の実値（Terraform の出力から作るログインの設定など）
 .env.local
 .env.*.local
 
-# S3 から取ったデータの写し（走行の座標が入っている）
-cache/*
-!cache/.gitkeep
 
 .DS_Store
 Thumbs.db

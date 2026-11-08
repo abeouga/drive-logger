@@ -4,14 +4,57 @@
     {
       "name": "web-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "web", "run", "dev"],
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "dev"
+      ],
       "port": 5173
     },
     {
       "name": "web-preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "web", "run", "preview"],
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "preview"
+      ],
       "port": 4173
+    },
+    {
+      "name": "web-dev-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "web",
+        "run",
+        "dev:local"
+      ],
+      "port": 5173
+    },
+    {
+      "name": "api-local",
+      "runtimeExecutable": "api/.venv/Scripts/python.exe",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "ct125_api.main:app",
+        "--port",
+        "8000",
+        "--app-dir",
+        "api/src"
+      ],
+      "port": 8000,
+      "env": {
+        "AWS_PROFILE": "ct125-logger",
+        "DATA_BUCKET": "ct125-logger-public-535562976288",
+        "DATA_PREFIX": "datasets/",
+        "WORK_BUCKET": "ct125-logger-work-535562976288",
+        "PIPELINE_FUNCTION": "ct125-ride-pipeline",
+        "ALLOW_LOCAL_USER": "true"
+      }
     }
   ]
 }

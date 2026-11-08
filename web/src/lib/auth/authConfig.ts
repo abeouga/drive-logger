@@ -1,4 +1,4 @@
-// ログインの設定。値はビルド時に .env.production.local から入る（scripts/deploy.ps1 が Terraform の出力から作る）。
+// ログインの設定。値は .env.production.local（公開版。scripts/deploy.ps1 が作る）か .env.development.local（dev。scripts/start-dev.ps1 が作る）から入る。どちらも Terraform の出力から。
 // どれも秘密ではない（ブラウザに見えてよい値）。
 export interface AuthConfig {
   /** OIDC の発行元：https://cognito-idp.<region>.amazonaws.com/<ユーザープール ID> */
@@ -21,6 +21,6 @@ export function readAuthConfig(): AuthConfig {
 }
 
 function required(name: string, value: string | undefined): string {
-  if (!value) throw new Error(`${name} が設定されていません（scripts/deploy.ps1 でビルドしてください）`);
+  if (!value) throw new Error(`${name} が設定されていません（公開版は scripts/deploy.ps1、dev は scripts/start-dev.ps1 で起動してください）`);
   return value;
 }

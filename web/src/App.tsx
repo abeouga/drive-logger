@@ -1,12 +1,14 @@
-import { useRoute, listHref, aboutHref } from "./lib/route";
+import { useRoute, listHref, aboutHref, trashHref } from "./lib/route";
 import { useAuth } from "./lib/auth/AuthGate";
+import { LOCAL_API } from "./lib/dataSource";
 import RideList from "./pages/RideList";
 import Ride from "./pages/Ride";
 import About from "./pages/About";
+import Trash from "./pages/Trash";
 
 export default function App() {
   const route = useRoute();
-  const { user, signOut } = useAuth();
+  const { user, isAdmin, signOut } = useAuth();
   return (
     <div className="min-h-screen bg-page text-ink">
       <header className="border-b border-line bg-surface">
@@ -21,7 +23,12 @@ export default function App() {
             <a href={aboutHref} className={route.page === "about" ? "text-ink" : "hover:text-ink"}>
               この分析について
             </a>
-            {user && (
+            {isAdmin && (
+              <a href={trashHref} className={route.page === "trash" ? "text-ink" : "hover:text-ink"}>
+                ゴミ箱
+              </a>
+            )}
+            {user && !LOCAL_API && (
               <button type="button" onClick={() => void signOut()} className="hover:text-ink" title={`${user.username} でログイン中`}>
                 ログアウト
               </button>
@@ -33,6 +40,7 @@ export default function App() {
         {route.page === "list" && <RideList />}
         {route.page === "ride" && <Ride id={route.id} />}
         {route.page === "about" && <About />}
+        {route.page === "trash" && <Trash />}
       </main>
       <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs leading-relaxed text-muted">
         健康な車両の走行データから作った「速度で補正した正常時のベースライン」からの逸脱を表示しています。故障データは含まれていません。

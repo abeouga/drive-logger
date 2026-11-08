@@ -1,57 +1,66 @@
 # ローカルで動かす
 
+画面はどの起動のしかたでも、データ API（`/api/*`）からだけデータを読む。S3 を直接読むコードは無い。
+
+| 起動 | `/api/*` の中継先 | ログイン | 使う場面 |
+|---|---|---|---|
+| `npm run dev`（`start.bat`） | 公開ドメイン（https://drive.herdio-system.com） | 要る（公開版と同じ Cognito） | ふだん。公開版と同じデータ・同じ権限で見る |
+| `npm run dev:local` | 手元で動かしたデータ API（http://localhost:8000） | 要らない（手元の開発者＝admin） | API と画面を一緒に直すとき |
+
 ## いちばん簡単な起動（ダブルクリック）
 
-デスクトップの `start.bat`（またはこのフォルダーの `start.bat`）をダブルクリックする。中身は `scripts/start-dev.ps1` で、
+このフォルダーの `start.bat` をダブルクリックする。中身は `scripts/start-dev.ps1` で、
 
 1. すでに起動していれば、ブラウザで http://localhost:5173 を開くだけ
 2. 初回は `npm install`
-3. `.env.local` がなければ案内を出して止まる
-4. `DATA_SOURCE=s3` なら AWS の認証を確かめる（取れなければ cache/ の写しを使う旨を表示）
-5. dev サーバーを起動し、準備ができたらブラウザを開く
+3. ログインの設定（`.env.development.local`）を Terraform の出力から作る（公開版の `deploy.ps1` と同じ値。秘密ではない）
+4. dev サーバーを起動し、準備ができたらブラウザを開く
 
 止めるときは黒い画面で Ctrl+C（「バッチ ジョブを終了しますか」には Y）。ブラウザを開かずに起動するときは `start.bat -NoBrowser`。
-デスクトップの `ct125-app` はこのフォルダーへのショートカット。
 
-## 初回
-
-```bash
-npm install
-```
-
-`.env.example` を `.env.local` にコピーして値を入れる（`S3_BUCKET` は infra の `terraform output bucket_name`）。
-
-## ふだん（S3 から読む）
-
-`.env.local` を `DATA_SOURCE=s3` にして：
+## ふだん（公開ドメインのデータ API を使う）
 
 ```bash
 npm run dev
 ```
 
-http://localhost:5173 を開く。起動時のログに `データの出どころ: s3://…/datasets/shared/（プロファイル ct125-logger）` と出る。
+http://localhost:5173 を開き、公開版と同じユーザーでログインする。
 
-- ブラウザは `/data/<ファイル名>` を取りにいき、dev サーバー（`server/s3-data.ts`）が `~/.aws` のプロファイルで S3 から取って返す。取ったものは `cache/` にも保存する
-- AWS の認証情報・バケット名はブラウザに渡らない（`.env.local` の変数に `VITE_` を付けないこと）
-- dev サーバーは localhost だけで待ち受ける。`--host` は付けない（同じ Wi-Fi の端末から S3 の中身が見えてしまう）
+- Cognito のログインの戻り先に `http://localhost:5173/` を入れてある（`infra/cognito.tf`）。ポートを変えるとログインから戻れない
+- 認可コードは PKCE で守っているので、ほかの人が localhost を開いてもコードだけでは使えない
+- admin でログインすると「この走行を消す」「ゴミ箱」「この結果に戻す」「このモデルに切り替える」が出る。**本番のデータが変わる**ので、確かめるときは戻せる操作（消す → 戻す など）だけにする
 
-### データを新しくする
+## 手元のデータ API につなぐ（ログインなし）
 
-S3 の画面用データを書くのは、AWS の自動処理（Lambda）だけ。走行を足すときは機器（または `pipeline/tools/device_upload_simulator.py`）から送る。
+API と画面を一緒に直すときは、データ API を手元で動かす。`ALLOW_LOCAL_USER=true` で、ログインなしの「手元の開発者」（admin）として扱われる。
+
+```powershell
+cd api
+$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:WORK_BUCKET="ct125-logger-work-<アカウントID>"; $env:PIPELINE_FUNCTION="ct125-ride-pipeline"; $env:ALLOW_LOCAL_USER="true"
+uv run uvicorn ct125_api.main:app --port 8000 --app-dir src
+```
+
+別の画面で：
+
+```bash
+npm run dev:local
+```
+
+- 手元のデータ API も本番のバケットを読み書きする（台帳を書き換え、処理の Lambda に公開を頼む）。admin の操作は本番に効く
+- `ALLOW_LOCAL_USER` は手元だけで使う。Lambda では必ず付けない（Terraform は設定しない）
+
+## データを新しくする
+
+画面用のデータを書くのは、AWS の処理の Lambda だけ。走行を足すときは機器（または `pipeline/tools/device_upload_simulator.py`）から送る。
 全走行を作り直すときは、Lambda に `{"action": "retrain"}` を渡す（`pipeline/README.md`）。終わったらブラウザを再読み込みする。
-
-## 回線なし・S3 を使わない（cache モード）
-
-`.env.local` を `DATA_SOURCE=cache` にして `npm run dev`。`cache/` だけを読む。
-
-`cache/` は S3 から写す：`scripts/pull-data.ps1`（S3 に `rides.json` がないときは何もしない）。
 
 ## 困ったとき
 
 | 症状 | 原因と対処 |
 |---|---|
-| 「走行一覧を読み込めませんでした（HTTP 502）」 | AWS の認証切れ。プロファイル `ct125-logger` の鍵を確認（`aws sts get-caller-identity --profile ct125-logger`）。`cache/` に前のデータがあれば、それを返して画面は出る（レスポンスヘッダー `X-Data-Source: cache-fallback`） |
-| 「…がありません（HTTP 404）」 | 公開用のバケットの `datasets/shared/` にまだ無い。AWS の自動処理が終わったか確かめる（Lambda `ct125-ride-pipeline` のログ） |
-| dev サーバーが起動時に止まる「S3_BUCKET が未設定」 | `.env.local` を作っていない／`<アカウントID>` のまま |
+| ログイン画面から戻ると「redirect_mismatch」 | Cognito の戻り先に `http://localhost:5173/` が無い（`terraform -chdir=infra apply`）か、ポートが 5173 でない |
+| 起動時に「VITE_AUTH_AUTHORITY が設定されていません」 | `start.bat`（`scripts/start-dev.ps1`）で起動する。Terraform の出力からログインの設定を作る |
+| `npm run dev:local` で「走行一覧を読み込めませんでした」 | 手元のデータ API（http://localhost:8000）が動いているか、その AWS の認証が切れていないか（`aws sts get-caller-identity --profile ct125-logger`） |
+| 「…がありません（HTTP 404）」 | 公開用のバケットの `datasets/shared/` にまだ無い。処理の Lambda（`ct125-ride-pipeline`）のログを確かめる |
 | 地図が出ない | 回線（OpenFreeMap のタイル）を確認。地図の枠の上にエラーの内容が出る |
 | 地図をホイールで拡大できない | Ctrl（Mac は ⌘）を押しながらホイール。ページのスクロールを妨げないため |
