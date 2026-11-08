@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <vector>
 
+#include "json_lite.h"
 #include "root_ca.h"
 
 namespace {
@@ -16,8 +17,9 @@ namespace {
 // 送るファイル（contracts/upload/upload.json の files.allowed のうち、SD にありうるもの。無いファイルは飛ばす）
 // notes.md が走行メモ。memo.txt は古い名前
 const char *SEND_FILES[] = {"accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt"};
-// この版以降のファームウェアが書いた走行だけを送る（それより前の走行は PC から上げ済み・机上の試験）
-const char *UPLOADABLE_FIRMWARE = "\"firmware\": \"CT125_LOGGER_V3";
+// この版以降のファームウェアが書いた走行だけを送る（それより前の走行は PC から上げ済み・机上の試験）。
+// meta.json の "firmware" の値（例 CT125_LOGGER_V3.2）を JSON として読み、V の後の数（版の上の数）で比べる
+// （判定は json_lite.h の isUploadableFirmware。名前と版の数も json_lite.h にある）
 // 短すぎる走行（電源を入れてすぐ切った・設定のための再起動）は送らない。約 30 秒分
 const size_t MIN_ACCEL_BYTES = 500 * 1024;
 const char *UPLOADED_FILE = "uploaded.json";
@@ -105,7 +107,7 @@ size_t fileSize(const String &path) {
 
 bool isUploadable(const String &session) {
   if (SD.exists(sessionPath(session, UPLOADED_FILE))) return false;
-  if (readSmallFile(sessionPath(session, "meta.json")).indexOf(UPLOADABLE_FIRMWARE) < 0) return false;
+  if (!jsonlite::isUploadableFirmware(readSmallFile(sessionPath(session, "meta.json")))) return false;
   return fileSize(sessionPath(session, "accel.csv")) >= MIN_ACCEL_BYTES;
 }
 
@@ -133,28 +135,16 @@ std::vector<String> filesToSend(const String &session) {
 }
 
 // ---------------------------------------------------------------- JSON（形が決まっているので、必要な値だけ取り出す）
-String jsonString(const String &json, const char *key, int from = 0, int *end = nullptr) {
-  String marker = String("\"") + key + "\":\"";
-  int start = json.indexOf(marker, from);
-  if (start < 0) return "";
-  start += marker.length();
-  int stop = json.indexOf('"', start);
-  if (stop < 0) return "";
-  if (end) *end = stop;
-  String value = json.substring(start, stop);
-  value.replace("\\/", "/");
-  return value;
-}
 
 bool parseTicket(const String &json, Ticket &ticket) {
-  ticket.rideId = jsonString(json, "ride_id");
+  ticket.rideId = jsonlite::jsonString(json, "ride_id");
   ticket.targets.clear();
   int pos = json.indexOf("\"uploads\"");
   while (pos >= 0) {
     int end = 0;
-    String name = jsonString(json, "name", pos, &end);
+    String name = jsonlite::jsonString(json, "name", pos, &end);
     if (name.isEmpty()) break;
-    String url = jsonString(json, "url", end, &end);
+    String url = jsonlite::jsonString(json, "url", end, &end);
     if (url.isEmpty()) return false;
     ticket.targets.push_back({name, url});
     pos = end;
@@ -256,7 +246,7 @@ bool sendFiles(const DeviceConfig &cfg, const String &session, Ticket &ticket, b
 }
 
 SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool (*shouldAbort)()) {
-  String resumeRideId = jsonString(readSmallFile(sessionPath(session, STATE_FILE)), "ride_id");
+  String resumeRideId = jsonlite::jsonString(readSmallFile(sessionPath(session, STATE_FILE)), "ride_id");
   Ticket ticket;
   int code = requestTicket(cfg, session, resumeRideId, ticket);
   if (code == 409 && resumeRideId.length()) {  // 前回、完了まで届いていた

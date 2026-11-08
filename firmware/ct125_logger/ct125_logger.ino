@@ -36,7 +36,7 @@
 #include "config_store.h"
 #include "uploader.h"
 
-#define FW_VERSION "CT125_LOGGER_V3.2"
+#define FW_VERSION "CT125_LOGGER_V3.3"
 
 const int PIN_SDA = 21, PIN_SCL = 22;
 const int PIN_GPS_RX = 32, PIN_GPS_TX = 33;
