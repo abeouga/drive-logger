@@ -17,9 +17,10 @@ function Tile({ label, value, unit, note }: { label: string; value: string; unit
 }
 
 export default function RideList() {
-  const { rides, error } = useRides();
+  const { rides, ledger, error } = useRides();
+  const originalName = new Map((ledger ?? []).map((r) => [r.id, r.original_name]));
   if (!rides) return <LoadState error={error} label="走行一覧" />;
-  // 記録の番号（ride_NNN）は電源を入れた順。新しい順に並べる（GPS なしの走行は日時が分からないため番号で並べる）
+  // 走行 ID（ride_<届いた日時>）の新しい順に並べる（GPS なしの走行は記録の日時が分からないため、走行 ID で並べる）
   const sorted = [...rides].sort((a, b) => b.id.localeCompare(a.id));
   const totalS = rides.reduce((s, r) => s + r.duration_s, 0);
   const totalKm = rides.reduce((s, r) => s + (r.gps === "none" ? 0 : r.distance_km), 0);
@@ -50,10 +51,10 @@ export default function RideList() {
       </section>
 
       <section>
-        <div className="mb-2 text-xs text-muted">新しい順（記録番号順）</div>
+        <div className="mb-2 text-xs text-muted">新しい順（走行 ID の順。走行 ID は届いた日時）</div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((r) => (
-            <RideCard key={r.id} ride={r} />
+            <RideCard key={r.id} ride={r} originalName={originalName.get(r.id) ?? null} />
           ))}
         </div>
       </section>
