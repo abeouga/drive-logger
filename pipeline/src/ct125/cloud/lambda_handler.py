@@ -12,7 +12,6 @@ import boto3
 from ..config import load_config
 from .commands import ProcessRides, RetrainAll, parse_command
 from .model_registry import ModelRegistry
-from .private_points import load_private_settings
 from .ride_pipeline import RidePipeline
 from .s3_store import S3Store
 from .settings import CloudSettings
@@ -38,6 +37,5 @@ def run(command, pipeline: RidePipeline) -> dict:
 def build_pipeline(settings: CloudSettings) -> RidePipeline:
     store = S3Store(boto3.client("s3"), settings.bucket)
     cfg = load_config()
-    cfg["local"] = load_private_settings(boto3.client("ssm"), settings.private_points_parameter)
     models = ModelRegistry(store, settings.models_prefix)
     return RidePipeline(cfg, settings, store, models)

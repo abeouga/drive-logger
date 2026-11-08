@@ -1,15 +1,13 @@
-# ct125-app（CT125 走行データ Web アプリ）
+# web：走行データの画面（React＋Vite）
 
-ハンターカブ CT125 の走行データ（GPS＋振動）を、地図とタイムラインで見る Web アプリです。
-フロント（React＋Vite）と、ログインした人にだけデータを返すデータ API（`api/`、FastAPI）が入っています。
+ハンターカブ CT125 の走行データ（GPS＋振動）を、地図とタイムラインで見る画面です。
 
 - 公開先：**https://drive.herdio-system.com/**（ログインが必要。ユーザーは `infra` の `terraform.tfvars` で管理）
-- データを作る側（解析パイプライン、Python）は `pipeline`。生データを S3 の `raw/` に上げると、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして `app/v1/datasets/shared/` に書き出す（ローカルから `python -m ct125 export --upload` で上げることもできる）
-- AWS のリソース（CloudFront・Cognito・API Gateway・Lambda・S3）は `infra` の Terraform
-- 表現上の制約（「故障予測」と言わない等）と「ECU / K-Line に触れない」は ct125-logger の `docs/DEV_PLAN.md` 4. のとおり
+- データを作る側は `pipeline/`。生データが S3 の `raw/` に届くと、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして `app/v1/datasets/shared/` に書き出す
+- ログインした人にだけデータを返すデータ API は `api/`（FastAPI）。AWS のリソースは `infra/` の Terraform
+- 表現上の制約（「故障予測」と言わない等）と「ECU / K-Line に触れない」は `docs/DEV_PLAN.md` 4. のとおり
 
-> 状態（2026-11-07）：CloudFront＋Cognito＋データ API で公開。ローカル開発（dev）と 1 ファイル版も動く。
-> 手順は [docs/local_dev.md](docs/local_dev.md)、データの形は [docs/data_contract.md](docs/data_contract.md)。
+手順は [docs/local_dev.md](docs/local_dev.md)、データの形は [docs/data_contract.md](docs/data_contract.md)。
 
 ---
 
@@ -27,16 +25,15 @@
 
 ---
 
-## 起動のしかたと、データの取り方（3 つ）
+## 起動のしかたと、データの取り方（2 つ）
 
 | 起動 | 使う場面 | データの取り方 | ログイン |
 |---|---|---|---|
 | `npm run dev` | ふだんの開発 | ブラウザ → Vite の dev サーバー（`/data/…`）→ ローカルの AWS プロファイルで S3 から取る（`cache/` にも保存） | なし |
 | `npm run build`（`scripts/deploy.ps1`） | 公開版 | ブラウザ → CloudFront → データ API（`/api/data/…`） | **要** |
-| `npm run build:single`（`scripts/build-single.ps1`） | オフラインで見せる 1 ファイル | `cache/` の JSON を HTML に埋め込む | なし |
 
 切り替えは `src/lib/dataSource.ts` の 1 か所（どれになるかは `vite.config.ts` が起動のしかたから決める）。
-画面のコードは、どの場合も同じ `loadRides()`・`loadRide()` などを呼ぶだけ。
+画面のコードは、どちらの場合も同じ `loadRides()`・`loadRide()` などを呼ぶだけ。
 
 ---
 
@@ -56,12 +53,10 @@ web\
 │   ├── components/        MapView・Timeline・Spectrogram・DetailPanel・RideCard・LoginScreen など
 │   └── lib/
 │       ├── data.ts        何を読むか（走行一覧・1 走行・スペクトログラム・生波形）
-│       ├── dataSource.ts  どこから読むか（dev / hosted / embedded の切り替え）
+│       ├── dataSource.ts  どこから読むか（dev / hosted の切り替え）
 │       ├── auth/          ログイン（authConfig・authClient・AuthGate）。公開版だけで働く
 │       ├── types.ts       データの型（docs/data_contract.md と同じ形）
 │       └── colors.ts  format.ts  route.ts  など
-│
-├── api/                   データ API（FastAPI → Lambda）。構成は api/README.md
 │
 ├── server/                Vite の dev サーバー（Node）の中だけで動くコード。ブラウザには出ない
 │   └── s3-data.ts         /data/<ファイル名> → S3 の app/v1/datasets/shared/<ファイル名>。cache/ にも保存
@@ -69,31 +64,30 @@ web\
 ├── scripts/
 │   ├── start-dev.ps1      start.bat の中身
 │   ├── deploy.ps1         公開：ログイン設定を作る → build → S3 webapp/ → CloudFront のキャッシュ削除
-│   ├── pull-data.ps1      S3 のデータを cache/ に丸ごと落とす（オフラインで触るとき）
-│   └── build-single.ps1   pull-data → npm run build:single → 自宅周辺の座標がないか検査
+│   └── pull-data.ps1      S3 のデータを cache/ に丸ごと落とす（オフラインで触るとき）
 │
 ├── cache/                 S3 から取ったデータの写し（コミットしない）
 ├── dist/                  ビルド結果（コミットしない）
 └── docs/
     ├── local_dev.md       ローカルで動かす手順・困ったとき
-    └── data_contract.md   S3 に置く JSON の形（ct125-logger の export と合わせる）
+    └── data_contract.md   画面用 JSON の形（pipeline の export と合わせる）
 ```
 
 ### S3 側の置き場所
 
 ```
 s3://ct125-logger-<アカウントID>/          （非公開のまま。リージョンは ap-northeast-1）
-├── raw/  processed/  models/  site/      ct125-logger が使う（公開しない）
-├── app/v1/datasets/shared/               このアプリが読むデータ（全ユーザー共通）
+├── raw/  processed/  models/            pipeline が使う（公開しない）
+├── app/v1/datasets/shared/               この画面が読むデータ（全ユーザー共通）
 │   ├── rides.json                        走行一覧
-│   ├── ride_<id>.json                    1 秒窓の列（自宅周辺は lat/lon が null）
+│   ├── ride_<id>.json                    1 秒窓の列（GPS なしの窓は lat/lon が null）
 │   ├── spec_<id>.png ／ spec_<id>.json   スペクトログラム
 │   └── wave_<id>.json                    見どころの生波形
-├── app/v1/*.json …                       移動前の置き場所（2026-11-07 にコピー済み。確認後に消してよい）
 └── webapp/                               React のビルド結果（CloudFront だけが読める）
 ```
 
-`v1` はデータの形の版。形を変えるときは `v2/` を作り、古いアプリが壊れないようにする。
+`v1` はデータの形の版。形を変えるときは `v2/` を作り、古い画面が壊れないようにする。
+置き場所は役割ごとのバケットに分ける予定（`docs/data_flow_design.md`）。
 
 ---
 
@@ -131,7 +125,7 @@ npm run dev
 http://localhost:5173 を開く。ログインはない。
 
 - dev サーバーは **localhost だけで待ち受ける**（`--host` を付けない）。付けると同じ Wi-Fi の端末から S3 の中身が見えてしまう
-- データを新しくしたいとき：ct125-logger で `python -m ct125 upload --ride <走行> --parts raw`（AWS が処理して S3 に書き出す）→ ブラウザを再読み込み
+- データを新しくしたいとき：機器から走行を送る（AWS が処理して S3 に書き出す）→ ブラウザを再読み込み
 
 ### 公開版を更新する
 

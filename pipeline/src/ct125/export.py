@@ -1,24 +1,20 @@
 # -*- coding: utf-8 -*-
-"""Web アプリ版（web、S3 の app/v1/）用のデータ書き出し（docs/WEB_PLAN.md 4.、web/docs/data_contract.md）。
+"""画面（web）用のデータ書き出し（web/docs/data_contract.md）。
 
 - rides.json：走行一覧（カード用の要約とスパークライン）
-- ride_<id>.json：1 秒窓の列を列ごとの配列で
-- 自宅周辺（is_private）の窓は lat/lon を null にして書き出す（隠すのではなく、データに入れない）。
-- 自宅座標そのものはどこにも書き出さない。
-- 書き出したファイル（とビルド後の dist/index.html）に、登録地点から半径 R 以内の座標が無いことを検査する関数も置く。
+- ride_<id>.json：1 秒窓の列を列ごとの配列で。GPS のない窓は lat/lon を null にする
+- spec_<id>.png・spec_<id>.json：スペクトログラム、wave_<id>.json：見どころの生波形
 """
 from __future__ import annotations
 
 import json
 import math
-import re
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 from .gps import haversine_m
-from .viz import map_mode, quintile_classes, ride_distance_km
 
 SPARK_POINTS = 60
 HIGHLIGHT_TOP_N = 10
@@ -41,7 +37,6 @@ WINDOW_COLUMNS: dict[str, tuple[str, int | None]] = {
     "has_gps": ("has_gps", None),
     "is_stopped": ("is_stopped", None),
     "is_edge": ("is_edge", None),
-    "is_private": ("is_private", None),
     "is_clipped": ("is_clipped", None),
     "is_anomaly_z": ("is_anomaly_z", None),
     "is_anomaly_if": ("is_anomaly_if", None),
@@ -61,17 +56,40 @@ def _bool_list(s: pd.Series) -> list[bool]:
     return [bool(v) for v in s.fillna(False).to_numpy()]
 
 
-def mask_coordinates(df: pd.DataFrame) -> pd.DataFrame:
-    """is_private または has_gps=False の窓の lat/lon を NaN にした複製を返す。"""
+def without_gps_coordinates(df: pd.DataFrame) -> pd.DataFrame:
+    """has_gps=False の窓の lat/lon を NaN にした複製を返す（補間できなかった窓に座標を出さない）。"""
     out = df.copy()
-    hide = out["is_private"].fillna(False).astype(bool) | ~out["has_gps"].fillna(False).astype(bool)
-    out.loc[hide, ["lat", "lon"]] = np.nan
+    out.loc[~out["has_gps"].fillna(False).astype(bool), ["lat", "lon"]] = np.nan
     return out
 
 
-def gps_kind(fix_ratio: float) -> str:
-    """カードのバッジ：full（GPS あり）／partial（一部）／none（なし）。地図の判定と同じしきい値。"""
-    return map_mode(fix_ratio)
+def gps_kind(fix_ratio: float, min_ratio: float = 0.10, full_ratio: float = 0.95) -> str:
+    """カードのバッジ：none（GPS なし。地図を描かない）／partial（一部）／full（GPS あり）。"""
+    if fix_ratio < min_ratio:
+        return "none"
+    return "full" if fix_ratio >= full_ratio else "partial"
+
+
+def quintile_classes(values: pd.Series) -> np.ndarray:
+    """地図の色の段階：5 分位で 0〜4。NaN は -1。値が少なく分位が重なるときは rank で割る。"""
+    v = values.to_numpy(float)
+    cls = np.full(len(v), -1)
+    ok = np.isfinite(v)
+    if ok.sum() == 0:
+        return cls
+    ranks = pd.Series(v[ok]).rank(method="first")
+    cls[ok] = pd.qcut(ranks, 5, labels=False).to_numpy().astype(int) if ok.sum() >= 5 else np.clip(np.floor((ranks - 1) / max(ok.sum(), 1) * 5), 0, 4).astype(int)
+    return cls
+
+
+def ride_distance_km(df: pd.DataFrame) -> float:
+    """has_gps の連続する窓の間の距離の合計 [km]（1 秒窓なので窓番号が連続しているときだけ足す）。"""
+    g = df[df["has_gps"]].sort_values("win")
+    if len(g) < 2:
+        return 0.0
+    consecutive = np.diff(g["win"].to_numpy()) == 1
+    d = haversine_m(g["lat"].to_numpy()[:-1], g["lon"].to_numpy()[:-1], g["lat"].to_numpy()[1:], g["lon"].to_numpy()[1:])
+    return float(np.nansum(d[consecutive]) / 1000)
 
 
 def highlights(df: pd.DataFrame, top_n: int = HIGHLIGHT_TOP_N) -> tuple[np.ndarray, str]:
@@ -115,12 +133,12 @@ def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
     """1 走行分の (一覧用の要約, 窓の列データ) を作る。df は scored.parquet。"""
     df = df.sort_values("win").reset_index(drop=True)
     rid = str(df["ride_id"].iloc[0])
-    masked = mask_coordinates(df)
+    located = without_gps_coordinates(df)
     hl, basis = highlights(df)
-    drawable = masked["lat"].notna()
+    drawable = located["lat"].notna()
     cls = np.full(len(df), -1)
     if drawable.any():
-        cls[drawable.to_numpy()] = quintile_classes(masked.loc[drawable, "log_rms"])
+        cls[drawable.to_numpy()] = quintile_classes(located.loc[drawable, "log_rms"])
 
     t_abs = df["t_abs"]
     has_abs = t_abs.notna().any()
@@ -128,7 +146,7 @@ def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
 
     cols: dict[str, list] = {}
     for key, (col, digits) in WINDOW_COLUMNS.items():
-        s = masked[col]
+        s = located[col]
         cols[key] = _bool_list(s) if digits is None else _round_list(s, digits)
     cols["t_abs_ms"] = t_abs_ms
     cols["cls"] = cls.tolist()
@@ -150,7 +168,6 @@ def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
         "highlight_basis": basis,
         "n_anomaly_z": int(df["is_anomaly_z"].fillna(False).sum()),
         "n_anomaly_if": int(df["is_anomaly_if"].fillna(False).sum()),
-        "n_private": int(df["is_private"].fillna(False).sum()),
         "n_clipped": int(df["is_clipped"].fillna(False).sum()),
         "rms_median": round(float(df["rms"].median()), 3),
         "spark": sparkline(df["rms"]),
@@ -239,78 +256,3 @@ def export_all(processed_dir: Path, out_dir: Path, memos: dict[str, str] | None 
     if verbose:
         print(f"rides.json: {len(summaries)} 走行, {total / 1024:.1f} KB → {out_dir}")
     return summaries
-
-
-# ------------------------------------------------------------------ 検査（自宅周辺の座標が無いこと）
-# 緯度・経度らしい 10 進数の組（JSON の "lat":..,"lon":.. と、[lat, lon] / [lon, lat] の配列の両方を拾う）
-_NUM = r"-?\d{1,3}\.\d+"  # 漏れを避けるため小数 1 桁から拾う（日本の範囲外は捨てる）
-_PAIR = re.compile(rf"({_NUM})\s*,\s*({_NUM})")
-
-
-def coordinate_pairs(text: str, lat_range=(20.0, 46.0), lon_range=(122.0, 154.0)) -> np.ndarray:
-    """テキスト中の「緯度,経度」「経度,緯度」の組を日本の範囲で拾い、(lat, lon) の配列で返す。"""
-    pts = []
-    for a, b in _PAIR.findall(text):
-        x, y = float(a), float(b)
-        if lat_range[0] <= x <= lat_range[1] and lon_range[0] <= y <= lon_range[1]:
-            pts.append((x, y))
-        elif lat_range[0] <= y <= lat_range[1] and lon_range[0] <= x <= lon_range[1]:
-            pts.append((y, x))
-    return np.array(pts, dtype=float).reshape(-1, 2)
-
-
-_ARRAY = {k: re.compile(rf'["\']?{k}["\']?\s*:\s*\[([^\]]*)\]') for k in ("lat", "lon")}
-
-
-def column_array_points(text: str) -> np.ndarray:
-    """JSON や JS に埋め込まれた `lat:[...]` と `lon:[...]` の列を出現順に対にして (lat, lon) を返す。
-
-    ビルド後の 1 ファイル HTML ではデータが列ごとの配列で入るので、「緯度,経度」の組の検索では拾えない。
-    """
-    def arrays(key):
-        out = []
-        for m in _ARRAY[key].finditer(text):
-            vals = []
-            for tok in m.group(1).split(","):
-                tok = tok.strip()
-                try:
-                    vals.append(float(tok))
-                except ValueError:
-                    vals.append(None)  # null など
-            out.append(vals)
-        return out
-
-    pts = []
-    for lat_arr, lon_arr in zip(arrays("lat"), arrays("lon")):
-        for a, b in zip(lat_arr, lon_arr):
-            if a is not None and b is not None and -90 <= a <= 90 and -180 <= b <= 180:
-                pts.append((a, b))
-    return np.array(pts, dtype=float).reshape(-1, 2)
-
-
-def json_points(payload: dict) -> np.ndarray:
-    """ride_<id>.json の lat/lon 列から (lat, lon) の配列（null は除く）。"""
-    lat = payload["columns"]["lat"]
-    lon = payload["columns"]["lon"]
-    return np.array([(a, b) for a, b in zip(lat, lon) if a is not None and b is not None], dtype=float).reshape(-1, 2)
-
-
-def min_distance_m(points: np.ndarray, places: list[tuple[float, float]]) -> float:
-    """points のうち、登録地点のどれかに最も近い点までの距離 [m]。点が無ければ inf。"""
-    if len(points) == 0 or not places:
-        return math.inf
-    return float(min(np.min(haversine_m(points[:, 0], points[:, 1], plat, plon)) for plat, plon in places))
-
-
-def check_files(paths: list[Path], places: list[tuple[float, float]], radius_m: float) -> list[dict]:
-    """各ファイルの座標を調べ、登録地点から radius_m 以内の点の数を返す。"""
-    results = []
-    for p in paths:
-        text = p.read_text(encoding="utf-8", errors="ignore")
-        pts = np.vstack([coordinate_pairs(text), column_array_points(text)])
-        n_near = 0
-        for plat, plon in places:
-            if len(pts):
-                n_near += int((haversine_m(pts[:, 0], pts[:, 1], plat, plon) <= radius_m).sum())
-        results.append({"file": str(p), "points": int(len(pts)), "min_m": min_distance_m(pts, places), "within_radius": n_near})
-    return results

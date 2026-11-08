@@ -71,7 +71,7 @@ variable "pipeline_image_uri" {
 }
 
 variable "private_points_parameter" {
-  description = "マスクする地点（自宅など）を入れた SSM パラメーター名。値は pipeline/ の `python -m ct125 sync-private-points` が入れる（Terraform は値を持たない）"
+  description = "自宅周辺のマスクに使っていた SSM パラメーター名。マスクはやめた（#13）。今のコンテナがまだ読むので、新しいコンテナに入れ替えるときに、この変数と権限を外す"
   type        = string
   default     = "/ct125/private-points"
 }

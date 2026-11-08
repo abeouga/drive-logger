@@ -15,7 +15,6 @@ class CloudSettings:
     processed_prefix: str        # 中間データ：processed/<走行>/windows.parquet・scored.parquet
     models_prefix: str           # モデル：models/<版>/、models/current.json
     app_prefix: str              # 画面用データ：app/v1/datasets/shared/
-    private_points_parameter: str  # マスクする地点を入れた SSM パラメーター（SecureString）
     work_dir: str                # 作業フォルダー（Lambda では /tmp の下）
 
     @classmethod
@@ -26,7 +25,6 @@ class CloudSettings:
             processed_prefix=os.environ.get("PROCESSED_PREFIX", "processed/"),
             models_prefix=os.environ.get("MODELS_PREFIX", "models/"),
             app_prefix=os.environ.get("APP_PREFIX", "app/v1/datasets/shared/"),
-            private_points_parameter=os.environ.get("PRIVATE_POINTS_PARAMETER", "/ct125/private-points"),
             work_dir=os.environ.get("WORK_DIR", "/tmp/ct125"),
         )
 

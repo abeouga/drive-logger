@@ -118,7 +118,6 @@
 | `gps.max_gap_sec` | 5 | 計画書フェーズ 1（補間しない fix 間隔） |
 | `stop_speed_kmh` | 5 | 停止中の見かけの速度 0〜4 km/h |
 | `edge_sec` | 60 | 計画書フェーズ 1 |
-| `private_radius_m` | 300 | 計画書フェーズ 1（自宅マスク） |
 
 ## 7. フェーズ 1 の出力 `data/processed/<ride_id>/windows.parquet`（1 行 = 1 秒窓）
 
@@ -129,7 +128,6 @@
 | `t_abs` | JST（tz 付き）。GPS なし走行は NaT |
 | `lat`, `lon`, `speed_kmh`, `has_gps` | 有効 fix を窓中心に線形補間（fix 間隔が 5 秒超なら `has_gps=False`、座標・速度は NaN）。速度は RMC の値を 3 点移動中央値で平滑化 |
 | `is_edge` | 先頭・末尾 60 秒 |
-| `is_private` | `config/local.yaml` の地点から 300 m 以内（local.yaml がなければ全行 False） |
 | `is_clipped`, `n_clipped` | 窓内に 15.9 g 以上のサンプルがあるか・その数 |
 | `n_samples` | 窓内サンプル数（約 398） |
 | `rms`, `log_rms`, `p2p`, `std`, `crest`, `jerk_rms` | 計画書 9.2。重力除去後の合成加速度で計算 |

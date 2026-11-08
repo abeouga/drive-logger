@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Web アプリ用の書き出し：自宅マスク・列・null・検査関数。"""
+"""画面用の書き出し：列・null・見どころ・地図の判定。"""
 import json
 
 import numpy as np
@@ -8,19 +8,19 @@ import pytest
 
 from ct125 import export
 
-HOME = (35.0, 135.0)
+START = (35.0, 135.0)
 
 
-def _scored(n=30, private_first=5, gps=True):
-    """自宅（HOME）から東へ 1 秒に約 9 m ずつ離れていく走行。先頭 private_first 窓を is_private にする。"""
-    lat = np.full(n, HOME[0])
-    lon = HOME[1] + np.arange(n) * 0.0001
+def _scored(n=30, gps=True, gps_from=0):
+    """START から東へ 1 秒に約 9 m ずつ離れていく走行。gps_from より前の窓は GPS なし（has_gps=False）。"""
+    lat = np.full(n, START[0])
+    lon = START[1] + np.arange(n) * 0.0001
     df = pd.DataFrame({
         "ride_id": "ride_t", "win": np.arange(n), "t_rel": np.arange(n) + 0.5,
         "t_abs": pd.date_range("2026-11-02 14:00", periods=n, freq="s", tz="Asia/Tokyo") if gps else pd.Series(pd.NaT, index=range(n), dtype="datetime64[ns, Asia/Tokyo]"),
-        "lat": lat if gps else np.nan, "lon": lon if gps else np.nan, "has_gps": gps,
+        "lat": lat if gps else np.nan, "lon": lon if gps else np.nan, "has_gps": (np.arange(n) >= gps_from) if gps else False,
         "speed_kmh": np.linspace(0, 40, n) if gps else np.nan,
-        "is_edge": False, "is_private": np.arange(n) < private_first if gps else False, "is_clipped": False,
+        "is_edge": False, "is_clipped": False,
         "rms": np.linspace(0.1, 2.0, n), "p2p": 1.0, "crest": 2.5, "score_if": np.linspace(-0.2, 0.1, n),
         "band_1_5": 0.1, "band_5_15": 0.3, "band_15_40": 0.6,
         "is_stopped": (np.linspace(0, 40, n) < 5) if gps else False,
@@ -31,14 +31,13 @@ def _scored(n=30, private_first=5, gps=True):
     return df
 
 
-def test_private_windows_have_null_coordinates():
-    summary, payload = export.ride_payload(_scored(private_first=5))
+def test_windows_without_gps_have_null_coordinates():
+    summary, payload = export.ride_payload(_scored(gps_from=5))
     c = payload["columns"]
-    assert c["lat"][:5] == [None] * 5 and c["lon"][:5] == [None] * 5
+    assert c["lat"][:5] == [None] * 5 and c["lon"][:5] == [None] * 5   # 補間できなかった窓は座標を出さない
     assert all(v is not None for v in c["lat"][5:])
-    assert c["is_private"][:5] == [True] * 5
     assert c["cls"][:5] == [-1] * 5            # 色のクラスも付けない
-    assert summary["n_private"] == 5
+    assert "is_private" not in c and "n_private" not in summary
 
 
 def test_json_is_strict_and_rounded(tmp_path):
@@ -50,7 +49,6 @@ def test_json_is_strict_and_rounded(tmp_path):
     assert {"t_abs_ms", "cls", "highlight"} <= set(payload["columns"])
     assert len(payload["columns"]["t_rel"]) == payload["n"] == 30
     assert len(summary["spark"]) == 30 and summary["gps"] in ("full", "partial", "none")
-    assert "home" not in text
 
 
 def test_no_gps_ride():
@@ -70,22 +68,30 @@ def test_highlights_fall_back_to_top_z():
     assert basis == "z_speed>3" and flag.tolist().count(True) == 1
 
 
-def test_check_files_detects_points_near_home(tmp_path):
-    _, payload = export.ride_payload(_scored(private_first=5))
-    ok = tmp_path / "ride_t.json"
-    ok.write_text(json.dumps(payload), encoding="utf-8")
-    # 先頭 5 窓（0〜36 m）は null。残りは 45 m〜。半径 40 m なら 0 点、半径 100 m なら近い点がある
-    assert export.check_files([ok], [HOME], 40)[0]["within_radius"] == 0
-    assert export.check_files([ok], [HOME], 100)[0]["within_radius"] > 0
-    # ビルド後の JS の形（キーに引用符なし）でも拾える
-    js = tmp_path / "index.html"
-    js.write_text('const d={lat:[null,35.0,35.0],lon:[null,135.0001,135.01]};', encoding="utf-8")
-    r = export.check_files([js], [HOME], 50)[0]
-    assert r["points"] == 2 and r["within_radius"] == 1
-    # 「緯度,経度」の組の形でも拾える
-    pair = tmp_path / "pair.html"
-    pair.write_text("L.polyline([[35.0, 135.0002],[35.0,135.02]])", encoding="utf-8")
-    assert export.check_files([pair], [HOME], 50)[0]["within_radius"] == 1
+def test_gps_kind_thresholds():
+    assert export.gps_kind(0.0) == "none"
+    assert export.gps_kind(0.09) == "none"
+    assert export.gps_kind(0.10) == "partial"
+    assert export.gps_kind(0.90) == "partial"
+    assert export.gps_kind(0.95) == "full"
+    assert export.gps_kind(0.5, min_ratio=0.6) == "none"
+
+
+def test_quintile_classes():
+    cls = export.quintile_classes(pd.Series([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, np.nan]))
+    assert cls.tolist()[:10] == [0, 0, 1, 1, 2, 2, 3, 3, 4, 4]
+    assert cls[-1] == -1
+
+
+def test_ride_distance_only_consecutive_windows():
+    df = pd.DataFrame({
+        "win": [0, 1, 2, 5],
+        "has_gps": [True, True, True, True],
+        "lat": [35.0, 35.0, 35.0, 35.1],
+        "lon": [135.0, 135.001, 135.002, 135.1],
+    })
+    d = export.ride_distance_km(df)
+    assert 0.17 < d < 0.19          # 0.001 度 ≈ 91 m × 2。win 2→5 の飛びは足さない
 
 
 def test_sparkline_length_and_values():

@@ -145,3 +145,10 @@
 - 走行の分類のしきい値を、手元の処理済みの 9 走行で確かめた：ride_006 は机上、ride_001〜003 は停車、ride_004・005 は実走、ride_007〜009 は実走（GPS なし）。#3 の表のとおり。
 - 未決：ローカルで出した結果を公開する決まり（案は `data_flow_design.md` 13.、本人と相談）。
 - 次：CI（#22）、古い機能と自宅の位置を隠す仕組みを外す（#12・#13）、約束の JSON（#4）。
+
+## 使っていない古い機能と、自宅の位置を隠す仕組みを外した（2026-11-09 実施、#12・#13）
+
+- 外したもの：静的 HTML（`viz.py`・`render`・`share`・`site/`）、`bucket`・`export --upload`・`upload --site-app`、web の 1 ファイル版（`build:single`・`build-single.ps1`・`vite-plugin-singlefile`）、自宅周辺のマスク（`is_private`・`private_radius_m`・`n_private`）、座標の検査（`check_files`・`check-privacy`）、SSM の地点の読み込み（`cloud/private_points.py`・`sync-private-points`）。Lambda のコンテナの依存から folium・plotly を外した。
+- 確かめたこと：本番の S3 の生データ 9 走行で、直す前と後の書き出し 37 ファイルを比べた。違いは自宅周辺の 436 窓に座標が入ったことと、それに伴う地図の色の段階（cls。ride_004・005 では色を塗る窓が増えて 5 分位が変わる）だけ。ほかの列・一覧の要約・スペクトログラム・生波形は一致。pipeline のテスト 46 件・api 51 件・web の型チェックとビルドが通る。
+- 残したもの：Terraform の SSM を読む権限と環境変数（今のコンテナがまだ読むので、新しいコンテナに入れ替えるときに外す）、SSM のパラメーター `/ct125/private-points` そのもの、S3 の古い場所（`site/`・`app/v1/` の直下の写し）。消すのは本人の了承の後。
+- 文書：README・architecture・各フォルダーの README・データの約束・テンプレートを直した。DEV_PLAN・WEB_PLAN・QUESTIONS・aws_setup は当時の記録として残し、冒頭に注記を入れた。
