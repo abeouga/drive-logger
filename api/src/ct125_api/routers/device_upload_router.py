@@ -24,7 +24,7 @@ def start_upload(
     files = [(file.name, file.size) for file in body.files]
     ticket = service.start(device, body.local_session, files, body.ride_id)
     uploads = [UploadTarget(name=name, url=url) for name, url in ticket.urls.items()]
-    return StartUploadResponse(ride_id=ticket.ride_id, expires_in=ticket.expires_in, uploads=uploads)
+    return StartUploadResponse(ride_id=ticket.ride_id, expires_in=ticket.expires_in, uploads=uploads, status=ticket.status)
 
 
 @router.post("/uploads/{ride_id}/complete", response_model=CompleteUploadResponse)

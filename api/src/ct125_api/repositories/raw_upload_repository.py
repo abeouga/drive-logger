@@ -27,3 +27,11 @@ class RawUploadRepository(Protocol):
     def mark_complete(self, session: UploadSession) -> None:
         """完了の合図を置く（これで AWS 側の自動処理が始まる）。"""
         ...
+
+    def find_fingerprint(self, fingerprint: str) -> str | None:
+        """同じ SD の走行を前に送り終えていれば、その走行名。"""
+        ...
+
+    def save_fingerprint(self, fingerprint: str, session: UploadSession) -> None:
+        """送り終えた走行の印を残す（次に同じ走行が来たら、新しく作らない）。"""
+        ...

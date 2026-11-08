@@ -107,22 +107,30 @@ aws lambda invoke --function-name ct125-ride-pipeline --cli-binary-format raw-in
 terraform -chdir=infra apply
 ```
 
-## 機器の登録
+## 機器の登録と、PC から SD の走行を送る
 
-ESP32 の機器トークンを作り、ハッシュだけを SSM に登録する（トークンはファイルに書き、ESP32 に入れたら消す。設計は [../docs/device_upload_design.md](../docs/device_upload_design.md)）：
+機器（ESP32・PC）のトークンを作り、ハッシュだけを SSM に登録する（ESP32 のトークンは ESP32 に入れたら消す。設計は [../docs/device_upload_design.md](../docs/device_upload_design.md)）：
 
 ```bash
 .venv/Scripts/python.exe -m ct125 register-device --id d01 --token-file d01.token
 ```
 
-ESP32 のふりをして 1 走行分を送る（ファームウェアと同じ手順のお手本）：
+PC から SD の走行を送る（ESP32 と同じデバイス API を通す。走行 ID はサーバーが付ける）。PC の機器 ID とトークンは `config/default.yaml` の `upload`（既定は `pc01` と `config/pc01.token`。トークンはコミットしない）：
 
 ```bash
-.venv/Scripts/python.exe tools/device_upload_simulator.py <走行のフォルダー> --device-id d01 --token-file d01.token
+.venv/Scripts/python.exe -m ct125 register-device --id pc01 --token-file config/pc01.token
 ```
+
+```bash
+.venv/Scripts/python.exe -m ct125 upload-sd E:/sessions
+```
+
+- 走行のフォルダー 1 つでも、`/sessions` のような親フォルダーでもよい（`accel.csv` のあるフォルダーを送る）
+- **同じ SD の走行は 2 回受け付けない**（#14）：SD のセッション名と、必須のファイル（accel・gps・meta）の大きさが同じなら同じ走行とみなす。ESP32 が送った走行を PC から送り直しても、走行は増えない（「送り終えている走行です」と出る）
+- 途中で切れたら、出た走行 ID を `--resume <走行 ID>` に付けて送り直す
 
 ## 構成
 
-`src/ct125/` にパイプライン、`tools/` は SD の点検（`check_session.py`・`analyze_timing.py`・`ride.py`）と機器のお手本（`device_upload_simulator.py`）。
+`src/ct125/` にパイプライン（PC から送る道具は `device_upload.py`）、`tools/` は SD の点検（`check_session.py`・`analyze_timing.py`・`ride.py`）。
 `notebooks/` は最初の解析の記録（作り直しの前の手元の `data/` で流したもの。今は流さない）。
 AWS 上で動かす部分は `src/ct125/cloud/` と `deploy/lambda/`。`config/local.yaml` はコミットしない。

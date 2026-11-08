@@ -3,6 +3,7 @@
 raw/<走行>/upload_session.json   受け付けの記録（どの機器・どのファイル）
 raw/<走行>/<ファイル>             機器が PUT 用 URL で直接置く
 raw/<走行>/upload_complete.json  完了の合図（AWS 側の自動処理 ct125-ride-pipeline が動く）
+_uploads/<印>.json               送り終えた走行の印（同じ SD の走行を 2 回受け付けないため。#14）
 """
 
 import json
@@ -16,6 +17,7 @@ from ..domain.raw_upload import UploadSession
 
 SESSION_FILE = "upload_session.json"
 COMPLETE_MARKER = "upload_complete.json"
+FINGERPRINT_FOLDER = "_uploads"  # 走行 ID の形でないので、処理（pipeline）は走行として数えない
 NOT_FOUND_CODES = {"NoSuchKey", "404", "NotFound"}
 ALREADY_EXISTS_CODES = {"PreconditionFailed", "ConditionalRequestConflict"}
 
@@ -75,6 +77,19 @@ class S3RawUploadRepository:
             "local_session": session.local_session,
         }
         self._put_json(self._key(session.ride_id, COMPLETE_MARKER), marker)
+
+    def find_fingerprint(self, fingerprint: str) -> str | None:
+        data = self._get_json(self._key(FINGERPRINT_FOLDER, f"{fingerprint}.json"))
+        return data["ride_id"] if data else None
+
+    def save_fingerprint(self, fingerprint: str, session: UploadSession) -> None:
+        record = {
+            "ride_id": session.ride_id,
+            "device_id": session.device_id,
+            "local_session": session.local_session,
+            "saved_at": datetime.now(timezone.utc).isoformat(),
+        }
+        self._put_json(self._key(FINGERPRINT_FOLDER, f"{fingerprint}.json"), record)
 
     # ---------------------------------------------------------------- 内部
     def _key(self, ride_id: str, file_name: str) -> str:

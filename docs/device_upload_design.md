@@ -7,7 +7,8 @@
 
 - サーバー側：`api` のデバイス API（`device_main.py`・`routers/device_upload_router.py` など）、`infra\device_api.tf`
 - 機器の登録：`python -m ct125 register-device --id d01 --token-file d01.token`（ハッシュだけを SSM に置く）
-- お手本：`tools/device_upload_simulator.py`（ファームウェアと同じ手順を PC から行う）
+- PC から送る道具：`python -m ct125 upload-sd`（`pipeline/src/ct125/device_upload.py`。ファームウェアと同じ手順を PC から行う）
+- 同じ SD の走行は 2 回受け付けない（#14）：セッション名と必須のファイルの大きさが同じなら、送り終えた走行の ID を `status: already_uploaded` で返す（送るファイルは無い）。ESP32 はそのまま完了を報告し、「前に完了済み」を受け取って送り終えた印を付ける（firmware は変えていない）
 - 確認：PC から機器のふりをして ride_001 を送り、受け付け → PUT → 完了 → 自動処理 → 公開一覧に載るまでを確認（その後、テストの走行と機器の登録は消した）
 
 ## 1. 目的と今の手作業
