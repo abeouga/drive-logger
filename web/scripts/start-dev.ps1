@@ -32,38 +32,33 @@ if (Test-Port $port) {
 
 if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw "npm が見つかりません。Node.js を入れてください" }
 
-if (-not (Test-Path (Join-Path $root ".env.local"))) {
-    Write-Host ".env.local がありません。.env.example をコピーして値を入れてください（docs/local_dev.md）。" -ForegroundColor Yellow
-    exit 1
-}
-
-# 設定を読む（表示と認証の確認だけに使う）
-$cfg = @{}
-Get-Content (Join-Path $root ".env.local") -Encoding UTF8 | ForEach-Object {
-    if ($_ -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$') { $cfg[$matches[1]] = $matches[2] }
-}
-$source = if ($cfg["DATA_SOURCE"]) { $cfg["DATA_SOURCE"] } else { "s3" }
-$profileName = if ($cfg["AWS_PROFILE"]) { $cfg["AWS_PROFILE"] } else { "ct125-logger" }
-
 if (-not (Test-Path (Join-Path $root "node_modules"))) {
     Write-Host "初回なので依存パッケージを入れます（npm install）..."
     npm install --no-fund --no-audit
     if ($LASTEXITCODE -ne 0) { throw "npm install に失敗しました" }
 }
 
-if ($source -eq "s3") {
-    # PowerShell 5.1 では Stop のままだと aws のエラー出力が止まるエラーになるので、確認の間だけ Continue にする
-    $ErrorActionPreference = "Continue"
-    aws sts get-caller-identity --profile $profileName 2>$null | Out-Null
-    $ok = ($LASTEXITCODE -eq 0)
-    $ErrorActionPreference = "Stop"
-    if ($ok) {
-        Write-Host "データ：S3（プロファイル $profileName）"
-    } else {
-        Write-Host "AWS の認証を確認できませんでした（プロファイル $profileName）。S3 から取れないファイルは cache/ の写しを使います。" -ForegroundColor Yellow
-    }
+# ログインの設定（.env.development.local）を Terraform の出力から作る（公開版の deploy.ps1 と同じ値。秘密ではない）
+$envFile = Join-Path $root ".env.development.local"
+$terraformDir = Join-Path (Split-Path -Parent $root) "infra"
+$ErrorActionPreference = "Continue"
+$json = terraform "-chdir=$terraformDir" output -json 2>$null
+$ok = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = "Stop"
+if ($ok) {
+    $outputs = $json | ConvertFrom-Json
+    $lines = @(
+        "# scripts/start-dev.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない）",
+        "VITE_AUTH_AUTHORITY=$($outputs.auth_authority.value)",
+        "VITE_AUTH_CLIENT_ID=$($outputs.auth_client_id.value)",
+        "VITE_AUTH_DOMAIN=$($outputs.auth_domain.value)"
+    )
+    [IO.File]::WriteAllLines($envFile, $lines, [Text.UTF8Encoding]::new($false))
+    Write-Host "ログインの設定を作りました（$envFile）。データは公開ドメインのデータ API から読みます（ログインが要ります）"
+} elseif (Test-Path $envFile) {
+    Write-Host "Terraform の出力を読めなかったので、前に作った $envFile を使います" -ForegroundColor Yellow
 } else {
-    Write-Host "データ：cache/（DATA_SOURCE=$source）"
+    throw "Terraform の出力を読めません（terraform -chdir=infra init と AWS のログインを確認）。.env.example を見て .env.development.local を手で作ってもよい"
 }
 
 # 起動を待ってブラウザを開く（裏で待つ）

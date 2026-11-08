@@ -69,3 +69,9 @@ variable "noncurrent_version_days" {
   type        = number
   default     = 30
 }
+
+variable "dev_login_url" {
+  description = "手元の dev サーバーの URL（web の npm run dev。Cognito のログインの戻り先に足す）"
+  type        = string
+  default     = "http://localhost:5173/"
+}

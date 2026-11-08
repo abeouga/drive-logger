@@ -53,8 +53,10 @@ resource "aws_cognito_user_pool_client" "web" {
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["openid"]
   supported_identity_providers         = ["COGNITO"]
-  callback_urls                        = ["https://${var.app_domain}/"]
-  logout_urls                          = ["https://${var.app_domain}/"]
+  # 手元の dev サーバー（web の npm run dev）からもログインできるように localhost を足す（#18）。
+  # 認可コードは PKCE で守るので、ほかの人が localhost を開いてもコードだけでは使えない
+  callback_urls = ["https://${var.app_domain}/", var.dev_login_url]
+  logout_urls   = ["https://${var.app_domain}/", var.dev_login_url]
 
   explicit_auth_flows           = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
   prevent_user_existence_errors = "ENABLED"
