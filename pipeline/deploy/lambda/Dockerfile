@@ -11,4 +11,8 @@ COPY config/default.yaml ${LAMBDA_TASK_ROOT}/config/default.yaml
 COPY src/ct125 ${LAMBDA_TASK_ROOT}/src/ct125
 ENV PYTHONPATH=${LAMBDA_TASK_ROOT}/src
 
+# 処理の記録（run.json）とモデルの記録（model.json）に残すコードのコミット。scripts/build-pipeline-image.ps1 が渡す
+ARG GIT_COMMIT=unknown
+ENV CT125_COMMIT=${GIT_COMMIT}
+
 CMD ["ct125.cloud.lambda_handler.handler"]

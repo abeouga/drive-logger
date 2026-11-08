@@ -1,5 +1,6 @@
 # Lambda のコンテナに入れるライブラリ。学習済みモデル（pickle）を読めるよう、
-# 学習した環境（ローカルの .venv）と同じ版に固定する。版を上げたら学習し直す（{"action": "retrain"}）。
+# 学習した環境（ローカルの .venv）と同じ版に固定する（pyproject.toml の dependencies と同じ。tests/test_dependencies.py で突き合わせる）。
+# 版を上げたら学習し直す（{"action": "retrain"}）。
 numpy==2.5.4
 pandas==3.1.1
 scipy==1.18.1

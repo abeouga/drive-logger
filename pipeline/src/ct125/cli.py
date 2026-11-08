@@ -1,82 +1,59 @@
 # -*- coding: utf-8 -*-
 """コマンドライン：`python -m ct125 <命令>`。
 
-process：CSV → クリーニング（data/interim）→ 1 秒窓の特徴量＋GPS 結合（data/processed/<ride>/windows.parquet）
-score  ：全走行の windows.parquet で学習し、scored.parquet とモデル（data/models/<版>/）
-export ：画面用のデータ（rides.json・ride_/spec_/wave_）を書き出す
-upload ：raw/ processed/ models/ を S3 へ（raw/ を上げると AWS の自動処理が動く）
+ローカルでも、AWS の Lambda と同じ処理の流れ（flow.py）を使い、S3 から読み、S3 に書く。手元にデータのフォルダーは置かない。
+ローカルの処理は作業用の場所に結果を置くだけで、画面（公開用）は変えない。公開するときは Lambda に頼む（publish）。
+
+process        ：走行を処理する（生データ → 作業用に結果と記録）
+retrain        ：全走行で学習し直す（新しいモデルの版を作業用に置く。今使うモデルは変えない）
+publish        ：処理の結果を公開するよう、処理の Lambda に頼む
+rides          ：走行の台帳を表で見る
 register-device / revoke-device：ESP32 の機器トークンの登録と取り消し
-処理の本体は processing.py（AWS の Lambda からも使う）。ここは引数を読んで呼ぶだけ。
 """
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
-from . import io
 from .config import load_config
-from .processing import process_ride, score_all
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="ct125", description="CT125 走行データの解析パイプライン")
+    p.add_argument("--root", default=None, help=argparse.SUPPRESS)
     sub = p.add_subparsers(dest="cmd", required=True)
-    sp = sub.add_parser("process", help="CSV → 1 秒窓の特徴量（windows.parquet）")
-    sp.add_argument("--ride", action="append", default=[], help="ride_id（複数指定可）")
-    sp.add_argument("--all", action="store_true", help="data/raw の全走行")
-    sp.add_argument("--raw", default=None, help="生データのフォルダー（既定 <root>/data/raw）")
-    sp.add_argument("--root", default=None, help="リポジトリのルート（既定は自動）")
-    sc = sub.add_parser("score", help="全走行の windows.parquet から異常スコア（scored.parquet）")
-    sc.add_argument("--ride", action="append", default=[], help="学習・スコア対象を絞る（既定は全走行）")
-    sc.add_argument("--root", default=None)
-    sc.add_argument("--raw", default=None, help=argparse.SUPPRESS)
-    up = sub.add_parser("upload", help="raw/ processed/ models/ を S3 へ")
-    up.add_argument("--ride", action="append", default=[], help="走行（既定は全走行）")
-    up.add_argument("--parts", default="raw,processed", help="上げる種類（カンマ区切り：raw,processed,models）")
-    up.add_argument("--root", default=None)
-    up.add_argument("--raw", default=None, help=argparse.SUPPRESS)
-    ex = sub.add_parser("export", help="画面用のデータ（rides.json・ride_/spec_/wave_）を書き出す")
-    ex.add_argument("--out", default=None, help="出力先（既定 <root>/data/app/v1）")
-    ex.add_argument("--root", default=None)
-    ex.add_argument("--raw", default=None, help=argparse.SUPPRESS)
+    sp = sub.add_parser("process", help="走行を処理する（S3 の生データ → 作業用に結果と記録。公開はしない）")
+    sp.add_argument("--ride", action="append", required=True, help="走行 ID（複数指定可）")
+    sub.add_parser("retrain", help="全走行で学習し直す（新しいモデルを作業用に置く。公開・切り替えはしない）")
+    pb = sub.add_parser("publish", help="処理の結果を公開するよう、処理の Lambda に頼む")
+    pb.add_argument("--run", default=None, help="公開する処理の ID（省くと台帳のとおりに作り直すだけ）")
+    sub.add_parser("rides", help="走行の台帳を表で見る")
     rg = sub.add_parser("register-device", help="ESP32 の機器トークンを作り、ハッシュだけを SSM に登録する")
     rg.add_argument("--id", required=True, help="機器 ID（英小文字・数字・-。例 d01）")
     rg.add_argument("--token-file", default=None, help="トークンをこのファイルに書く（画面には出さない）。省略すると画面に 1 回だけ出す")
     rg.add_argument("--rotate", action="store_true", help="登録済みの機器のトークンを作り直す（古いトークンは使えなくなる）")
-    rg.add_argument("--root", default=None)
-    rg.add_argument("--raw", default=None, help=argparse.SUPPRESS)
     rv = sub.add_parser("revoke-device", help="機器の登録を消す（その機器はもう送れない）")
     rv.add_argument("--id", required=True)
-    rv.add_argument("--root", default=None)
-    rv.add_argument("--raw", default=None, help=argparse.SUPPRESS)
     args = p.parse_args(argv)
 
     cfg = load_config(args.root) if args.root else load_config()
-    root = Path(cfg["_root"])
-    raw_dir = Path(args.raw) if args.raw else root / "data" / "raw"
-    interim_dir = root / "data" / "interim"
-    processed_dir = root / "data" / "processed"
+    acfg = aws_settings(cfg)
 
-    if args.cmd == "process":
-        rides = io.list_rides(raw_dir) if args.all else args.ride
-        if not rides:
-            print("--ride か --all を指定してください", file=sys.stderr)
-            return 2
-        for r in rides:
-            process_ride(r, cfg, raw_dir, interim_dir, processed_dir)
-    elif args.cmd == "score":
-        score_all(cfg, processed_dir, root / "data" / "models", args.ride or None)
-    elif args.cmd == "export":
-        from . import export as exportmod
-
-        memos = {rid: io.read_memo(raw_dir / rid) for rid in io.list_rides(raw_dir)}
-        out = Path(args.out) if args.out else root / "data" / "app" / "v1"
-        exportmod.export_all(processed_dir, out, memos, interim_dir=interim_dir)
-    elif args.cmd in ("register-device", "revoke-device"):
+    if args.cmd in ("process", "retrain"):
+        pipeline = local_pipeline(cfg, acfg)
+        result = pipeline.process(args.ride, publish=False) if args.cmd == "process" else pipeline.retrain(publish=False)
+        _print_result(result)
+        return 0 if result["status"] == "succeeded" else 1
+    if args.cmd == "publish":
+        return _invoke_publish(acfg, args.run)
+    if args.cmd == "rides":
+        return _print_ledger(cfg, acfg)
+    if args.cmd in ("register-device", "revoke-device"):
         from . import devices
 
-        ssm = _ssm(cfg)
+        ssm = make_session(acfg, admin=True).client("ssm")
         if args.cmd == "revoke-device":
             devices.revoke(ssm, args.id)
             print(f"{args.id} の登録を消しました（もう送れません）")
@@ -87,40 +64,74 @@ def main(argv: list[str] | None = None) -> int:
             print(f"{args.id} を登録しました。トークンは {args.token_file} に書きました（画面には出していません）")
         else:
             print(f"{args.id} を登録しました。トークン（この 1 回だけ表示。ESP32 に書き込んだら、どこにも残さない）：\n{token}")
-    elif args.cmd == "upload":
-        from . import aws as awsmod
-
-        s3, bucket = _s3(cfg)
-        if s3 is None:
-            return 2
-        parts = tuple(x.strip() for x in args.parts.split(",") if x.strip())
-        rides = args.ride or [p.name for p in sorted(processed_dir.glob("ride_*"))]
-        ride_parts = tuple(x for x in parts if x != "models")
-        for r in rides if ride_parts else []:
-            awsmod.upload_ride(s3, bucket, root, r, ride_parts)
-        if "models" in parts:
-            print("models/ →")
-            awsmod.upload_files(s3, bucket, awsmod.model_pairs(root))
     return 0
 
 
-def _aws_settings(cfg: dict) -> dict:
+# ------------------------------------------------------------------ AWS の設定
+def aws_settings(cfg: dict) -> dict:
+    """config/default.yaml の aws に、config/local.yaml の aws を重ねたもの。"""
     return {**cfg.get("aws", {}), **((cfg.get("local") or {}).get("aws") or {})}
 
 
-def _ssm(cfg: dict):
-    from . import aws as awsmod
+def make_session(acfg: dict, admin: bool = False):
+    """admin=False ならローカルの処理用のプロファイル（公開用に書けないロール）。設定が無ければ管理者のプロファイル。"""
+    import boto3
 
-    return awsmod.make_session(_aws_settings(cfg)).client("ssm")
+    profile = acfg.get("profile") if admin else (acfg.get("pipeline_profile") or acfg.get("profile"))
+    return boto3.Session(profile_name=profile or None, region_name=acfg.get("region") or None)
 
 
-def _s3(cfg: dict):
-    """(s3 クライアント, バケット名)。バケットが未設定なら (None, None)。"""
-    from . import aws as awsmod
+def bucket_names(acfg: dict, session) -> dict[str, str]:
+    """raw・work・public のバケット名。local.yaml に raw_bucket などがあればそれ、無ければ決まり（infra と同じ）から作る。"""
+    names = {role: acfg.get(f"{role}_bucket") for role in ("raw", "work", "public")}
+    if all(names.values()):
+        return names
+    account = session.client("sts").get_caller_identity()["Account"]
+    return {role: names[role] or acfg["bucket_name"].format(role=role, account_id=account) for role in names}
 
-    acfg = _aws_settings(cfg)
-    bucket = acfg.get("bucket")
-    if not bucket:
-        print("aws.bucket が設定されていません（config/default.yaml または config/local.yaml）", file=sys.stderr)
-        return None, None
-    return awsmod.make_s3(awsmod.make_session(acfg)), bucket
+
+def local_pipeline(cfg: dict, acfg: dict):
+    from .flow import Pipeline, Places
+    from .records import code_commit
+    from .storage import Area, S3Store
+
+    session = make_session(acfg)
+    s3 = session.client("s3")
+    names = bucket_names(acfg, session)
+    places = Places(
+        raw=Area(S3Store(s3, names["raw"]), acfg.get("raw_prefix", ""), "raw"),
+        work=Area(S3Store(s3, names["work"]), acfg.get("work_prefix", ""), "work"),
+        public=None,  # ローカルの処理は公開用に書かない
+    )
+    return Pipeline(cfg, places, where="local", commit=code_commit())
+
+
+# ------------------------------------------------------------------ 表示
+def _print_result(result: dict) -> None:
+    print(f"処理 {result['run_id']}（{result['action']}）：{result['status']}、モデル {result['model_version']}")
+    for ride in result["rides"]:
+        detail = ride["error"] or f"{ride['kind']}、窓 {ride['n_windows']}、見どころ {ride['n_highlights']}"
+        print(f"  {ride['ride_id']}: {detail}")
+    if result["status"] == "succeeded":
+        print(f"画面に出すときは：python -m ct125 publish --run {result['run_id']}")
+
+
+def _invoke_publish(acfg: dict, run_id: str | None) -> int:
+    client = make_session(acfg, admin=True).client("lambda")
+    payload = {"action": "publish", **({"run_id": run_id} if run_id else {})}
+    response = client.invoke(FunctionName=acfg["pipeline_function"], Payload=json.dumps(payload).encode("utf-8"))
+    body = json.loads(response["Payload"].read().decode("utf-8") or "{}")
+    if response.get("FunctionError"):
+        print(f"公開に失敗しました：{body.get('errorMessage', body)}", file=sys.stderr)
+        return 1
+    print(f"公開しました：{body.get('n_rides')} 走行（入れ替え {body.get('copied')}、外した {body.get('removed')}）")
+    return 0
+
+
+def _print_ledger(cfg: dict, acfg: dict) -> int:
+    pipeline = local_pipeline(cfg, acfg)
+    ledger = pipeline._read_ledger()  # noqa: SLF001  表示だけ
+    print(f"{'走行':24} {'元の名前':10} {'分類':10} {'消した':6} 公開中の結果")
+    for ride_id, entry in ledger["rides"].items():
+        print(f"{ride_id:24} {entry['original_name'] or '':10} {entry['kind'] or '':10} {'はい' if entry['deleted'] else '':6} {entry['published_run'] or ''}")
+    return 0
