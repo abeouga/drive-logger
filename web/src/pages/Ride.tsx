@@ -1,7 +1,8 @@
 // 走行ページ：地図・グラフ（タイムライン／スペクトログラム）・詳細パネルが、選択中の窓・カーソル・範囲を共有して連動する。
 // PC は地図と詳細を横に並べ、下にグラフ。スマホ（1024px 未満）は 地図／グラフ／詳細 をタブで切り替える。
 import { useEffect, useMemo, useState } from "react";
-import { loadRide, loadSpectrogram, loadWaveforms, useRides, type RideData, type RideSummary, type SpecMeta, type Waveform } from "../lib/data";
+import { deleteRide, loadRide, loadSpectrogram, loadWaveforms, useRides, type RideData, type RideSummary, type SpecMeta, type Waveform } from "../lib/data";
+import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { listHref } from "../lib/route";
 import { rankedHighlights, type Selection } from "../lib/series";
@@ -14,6 +15,8 @@ import Spectrogram from "../components/Spectrogram";
 import DetailPanel from "../components/DetailPanel";
 import Tabs from "../components/Tabs";
 import LoadState from "../components/LoadState";
+import ActionButton from "../components/ActionButton";
+import RunHistory from "../components/RunHistory";
 
 type ChartKey = "timeline" | "spectrogram";
 type MobileKey = "map" | "chart" | "detail";
@@ -45,6 +48,7 @@ function SpecNote() {
 
 export default function Ride({ id }: { id: string }) {
   const { rides, error: ridesError } = useRides();
+  const { isAdmin } = useAuth();
   const summary = rides?.find((r) => r.id === id);
   const theme = useTheme();
   const wide = useMediaQuery("(min-width: 1024px)");
@@ -108,8 +112,20 @@ export default function Ride({ id }: { id: string }) {
           {summary.gps !== "none" && <span><span className="text-ink-2">距離 </span>{fmtKm(summary.distance_km)} km</span>}
           {summary.max_speed_kmh !== null && <span><span className="text-ink-2">最高 </span>{summary.max_speed_kmh.toFixed(0)} km/h</span>}
           <span><span className="text-ink-2">GPS 有効 </span>{Math.round(summary.fix_ratio * 100)}%</span>
+          {isAdmin && (
+            <ActionButton
+              label="この走行を消す"
+              tone="danger"
+              confirmText={`${summary.id} を画面と学習から外します。生データは残り、ゴミ箱から戻せます。よろしいですか？`}
+              onRun={async () => {
+                await deleteRide(summary.id);
+                window.location.hash = listHref;
+              }}
+            />
+          )}
         </div>
       </div>
+      <RunHistory rideId={summary.id} />
     </>
   );
 

@@ -1,4 +1,6 @@
-import type { RideSummary } from "../lib/data";
+import { deleteRide, type RideSummary } from "../lib/data";
+import { useAuth } from "../lib/auth/AuthGate";
+import ActionButton from "./ActionButton";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { rideHref } from "../lib/route";
 import Sparkline from "./Sparkline";
@@ -29,12 +31,14 @@ function Stat({ label, value, unit }: { label: string; value: string; unit?: str
 }
 
 export default function RideCard({ ride }: { ride: RideSummary }) {
+  const { isAdmin } = useAuth();
   const short = ride.duration_s < SHORT_S;
   const when = ride.start_ms !== null ? `${fmtDate(ride.start_ms)} ${fmtTime(ride.start_ms)}` : "日時不明（GPS なし）";
   return (
+    <div className="flex flex-col rounded-lg border border-line bg-surface transition hover:border-accent">
     <a
       href={rideHref(ride.id)}
-      className="group flex flex-col gap-3 rounded-lg border border-line bg-surface p-4 transition hover:border-accent focus-visible:outline-2 focus-visible:outline-accent"
+      className="group flex flex-1 flex-col gap-3 rounded-lg p-4 focus-visible:outline-2 focus-visible:outline-accent"
     >
       <div className="flex items-start justify-between gap-2">
         <div>
@@ -70,5 +74,16 @@ export default function RideCard({ ride }: { ride: RideSummary }) {
         <span className="text-accent opacity-0 transition group-hover:opacity-100">開く →</span>
       </div>
     </a>
+    {isAdmin && (
+      <div className="flex justify-end border-t border-line px-4 py-2">
+        <ActionButton
+          label="この走行を消す"
+          tone="danger"
+          confirmText={`${ride.id} を画面と学習から外します。生データは残り、ゴミ箱から戻せます。よろしいですか？`}
+          onRun={() => deleteRide(ride.id)}
+        />
+      </div>
+    )}
+    </div>
   );
 }

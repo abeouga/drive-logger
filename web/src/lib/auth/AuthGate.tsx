@@ -1,34 +1,28 @@
-// ログインの門番。hosted（CloudFront で配る版）のときだけ、ログインするまで中身を見せない。
-// dev（npm run dev）はログインなしで中身を見せる。
+// ログインの門番。ログインするまで中身を見せない（公開版も dev も同じ。dev はデータ API を公開ドメインに中継する）。
+// ログインしたら /api/me でグループを読み、admin なら書き換えのボタン（消す・戻す・切り替え）を出す。最終的な判断は API がする。
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { DATA_MODE } from "../dataSource";
 import LoginScreen from "../../components/LoginScreen";
+import { LOCAL_API, apiJson } from "../dataSource";
+import type { Me } from "../types";
 import { completeSignInIfReturning, currentUser, signIn, signOut, type SignedInUser } from "./authClient";
 
+const ADMIN_GROUP = "admin"; // contracts/common.json の admin_group
+
 interface AuthState {
-  /** ログイン中のユーザー。ログインのない版（dev）では null */
   user: SignedInUser | null;
+  isAdmin: boolean;
   signOut: () => Promise<void>;
 }
 
-const NO_AUTH: AuthState = { user: null, signOut: async () => {} };
-
-const AuthContext = createContext<AuthState>(NO_AUTH);
+const AuthContext = createContext<AuthState>({ user: null, isAdmin: false, signOut: async () => {} });
 
 export function useAuth(): AuthState {
   return useContext(AuthContext);
 }
 
+type GateState = { status: "checking" } | { status: "signedOut"; error?: string } | { status: "signedIn"; user: SignedInUser; isAdmin: boolean };
+
 export default function AuthGate({ children }: { children: ReactNode }) {
-  if (DATA_MODE !== "hosted") {
-    return <AuthContext.Provider value={NO_AUTH}>{children}</AuthContext.Provider>;
-  }
-  return <HostedAuthGate>{children}</HostedAuthGate>;
-}
-
-type GateState = { status: "checking" } | { status: "signedOut"; error?: string } | { status: "signedIn"; user: SignedInUser };
-
-function HostedAuthGate({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GateState>({ status: "checking" });
 
   useEffect(() => {
@@ -37,14 +31,21 @@ function HostedAuthGate({ children }: { children: ReactNode }) {
 
   if (state.status === "checking") return null;
   if (state.status === "signedOut") return <LoginScreen error={state.error} onSignIn={signIn} />;
-  return <AuthContext.Provider value={{ user: state.user, signOut }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user: state.user, isAdmin: state.isAdmin, signOut }}>{children}</AuthContext.Provider>;
 }
 
 async function checkSignIn(): Promise<GateState> {
   try {
+    if (LOCAL_API) {
+      // npm run dev:local：ログインしない。手元のデータ API が「手元の開発者」として扱う
+      const me = await apiJson<Me>("me");
+      return { status: "signedIn", user: { username: me.username }, isAdmin: me.groups.includes(ADMIN_GROUP) };
+    }
     await completeSignInIfReturning();
     const user = await currentUser();
-    return user ? { status: "signedIn", user } : { status: "signedOut" };
+    if (!user) return { status: "signedOut" };
+    const me = await apiJson<Me>("me");
+    return { status: "signedIn", user, isAdmin: me.groups.includes(ADMIN_GROUP) };
   } catch (e) {
     return { status: "signedOut", error: `ログインに失敗しました：${(e as Error).message}` };
   }

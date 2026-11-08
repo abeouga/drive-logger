@@ -1,40 +1,58 @@
-// データファイルの取り出し口。起動のしかた（DATA_MODE）によって「どこから・どう取るか」だけが変わる。
-//   dev      : /data/<名前>      … Vite の dev サーバー（server/s3-data.ts）が S3 から返す。ログインなし
-//   hosted   : /api/data/<名前>  … データ API（ログインが必要）。アクセストークンを付ける
+// データ API の呼び出し口。どの画面も、ここを通してだけ API を呼ぶ（ログインのトークンを付ける）。
+//   公開版：CloudFront の /api/* → データ API
+//   dev    ：Vite の dev サーバーが /api/* を公開ドメインへ中継する（vite.config.ts）。ログインは公開版と同じ
 import { accessToken, signIn } from "./auth/authClient";
 
-declare const __DATA_MODE__: "dev" | "hosted"; // vite.config.ts の define
+declare const __LOCAL_API__: boolean; // vite.config.ts の define。npm run dev:local のときだけ true（ログインしない）
 
-export const DATA_MODE = __DATA_MODE__;
+export const LOCAL_API = __LOCAL_API__;
 
-export class DataError extends Error {}
+export class DataError extends Error {
+  constructor(
+    message: string,
+    readonly status: number | null = null,
+  ) {
+    super(message);
+  }
+}
 
-/** データファイルを取ってくる。失敗したら DataError。 */
-export async function fetchDataFile(name: string): Promise<Response> {
-  const response = DATA_MODE === "hosted" ? await fetchFromApi(name) : await fetchFromDevServer(name);
-  if (!response.ok) throw await errorFrom(name, response);
+/** /api/<path> を呼ぶ。失敗したら DataError（ステータス付き）。 */
+export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (!LOCAL_API) {
+    const token = await accessToken();
+    if (!token) return redirectToLogin();
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+  if (init.body && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const response = await fetch(`/api/${path}`, { ...init, headers, cache: "no-store" });
+  if (response.status === 401 && !LOCAL_API) return redirectToLogin();
+  if (!response.ok) throw await errorFrom(path, response);
   return response;
 }
 
-async function fetchFromDevServer(name: string): Promise<Response> {
-  return fetch(`/data/${name}`, { cache: "no-store" });
+export async function apiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  return (await (await apiFetch(path, init)).json()) as T;
 }
 
-async function fetchFromApi(name: string): Promise<Response> {
-  const token = await accessToken();
-  if (!token) return redirectToLogin();
-  const response = await fetch(`/api/data/${name}`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
-  if (response.status === 401) return redirectToLogin();
-  return response;
+/** 画面用のデータファイル（rides.json・ride_<id>.json・spec_<id>.png など）。 */
+export function fetchDataFile(name: string): Promise<Response> {
+  return apiFetch(`data/${name}`);
 }
 
 /** ログインが切れていたら、ログイン画面へ移る（この後の処理は続かない）。 */
 async function redirectToLogin(): Promise<never> {
   await signIn();
-  throw new DataError("ログインし直しています");
+  throw new DataError("ログインし直しています", 401);
 }
 
-async function errorFrom(name: string, response: Response): Promise<DataError> {
-  const detail = (await response.text()).slice(0, 300);
-  return new DataError(`${name} を取得できませんでした（HTTP ${response.status}）${detail ? `：${detail}` : ""}`);
+async function errorFrom(path: string, response: Response): Promise<DataError> {
+  const text = (await response.text()).slice(0, 300);
+  let detail = text;
+  try {
+    detail = (JSON.parse(text) as { detail?: string }).detail ?? text;
+  } catch {
+    // JSON でなければそのまま
+  }
+  return new DataError(`${path} に失敗しました（HTTP ${response.status}）${detail ? `：${detail}` : ""}`, response.status);
 }

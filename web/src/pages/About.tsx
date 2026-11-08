@@ -1,6 +1,7 @@
 // この分析について：何を作ったか・処理の流れ・構成・見どころの決め方・できたこと／できていないこと・表現の決まり
 import { useRides } from "../lib/data";
 import { fmtDuration } from "../lib/format";
+import ModelInfo from "../components/ModelInfo";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -40,23 +41,21 @@ export default function About() {
         <h1 className="text-xl font-semibold">この分析について</h1>
         <p className="mt-2 text-sm leading-relaxed text-ink-2">
           ハンターカブ CT125 に、ESP32（マイコン）・GPS・加速度センサー・microSD で作ったロガーを載せ、走行中の振動を位置と時刻に結びつけて可視化しました。
-          {rides && ` 2026 年 11 月 2 日に ${rides.length} 本（合計 ${fmtDuration(total)}、うち GPS あり ${nGps} 本）を記録しています。`}
+          {rides && ` 画面に出している走行は ${rides.length} 本（合計 ${fmtDuration(total)}、うち GPS あり ${nGps} 本）です。`}
         </p>
       </div>
 
       <Section title="構成">
         <div className="flex flex-col gap-2 md:flex-row md:items-stretch">
-          <Box title="記録（ESP32）" body="加速度 約 400 Hz・GPS 1 Hz を microSD に CSV で保存" />
+          <Box title="記録と送信（ESP32）" body="加速度 約 400 Hz・GPS 1 Hz を microSD に記録し、走行後に家の Wi-Fi で S3 の生データの場所へ送る" />
           <Arrow />
-          <Box title="解析（Python）" body="時刻をそろえ、1 秒ごとの振動の量と速度補正ベースラインからの逸脱を計算" />
+          <Box title="処理（AWS Lambda）" body="届いたら前処理・走行の分類・点数付け。処理ごとの記録と走行の台帳を残し、台帳が指す結果だけを公開する" />
           <Arrow />
-          <Box title="保管（Amazon S3）" body="非公開のバケット。処理済みのデータとこのページを置く" />
-          <Arrow />
-          <Box title="表示（このページ）" body="地図・タイムライン・スペクトログラムが連動。署名付き URL で配る" />
+          <Box title="表示（このページ）" body="地図・タイムライン・スペクトログラムが連動。ログインした人だけがデータ API から読む" />
         </div>
         <div className="flex flex-col gap-2 md:flex-row">
-          <Box future title="将来：自動送信" body="走行後にスマホのテザリング経由で S3 へ（今は SD を PC にコピー）" />
-          <Box future title="将来：クラウドで処理" body="S3 に届いたら Lambda で前処理、データが増えたら SageMaker で再学習" />
+          <Box future title="将来：SageMaker で学習" body="今は Lambda の学習し直しで足りる量。走行が増えたら移す" />
+          <Box future title="将来：ECU の情報" body="端子・電圧・通信方式を安全に確かめてから" />
         </div>
         <p className="text-[11px] text-muted">実線の枠は今回作ったもの、点線の枠は設計だけで、まだ作っていないものです。</p>
       </Section>
@@ -71,6 +70,18 @@ export default function About() {
         </ol>
       </Section>
 
+      <Section title="走行の分類と、学習に使う走行">
+        <p>
+          処理のたびに、振動と GPS から走行を自動で分類しています。机上（振動の中央値が 0.05 g 未満でエンジンの振動が無い）の走行は画面に出さず、
+          停車（始点から 200 m 以上動いていない）と実走（200 m 以上動き、5 km/h 以上の 1 秒が 60 以上）だけを学習に使います。
+          GPS が取れなかった走行（動いたか分からない）は画面には出しますが、学習には使いません。画面から消した走行も学習に使いません。
+        </p>
+      </Section>
+
+      <Section title="今使っているモデル">
+        <ModelInfo />
+      </Section>
+
       <Section title="見どころの決め方">
         <p>
           z_speed が 3 を超える 1 秒（速度で補正したベースラインから大きく離れた振動）を見どころとしています。今回の走行には 3 を超える 1 秒がなかったため、
@@ -83,7 +94,7 @@ export default function About() {
 
       <Section title="できたこと・確かめたこと">
         <ul className="list-disc space-y-1 pl-5">
-          <li>9 本の記録すべてで、サンプルの欠け・時刻の重複・書き込みエラーがないことを確認した。</li>
+          <li>最初の 9 本の記録すべてで、サンプルの欠け・時刻の重複・書き込みエラーがないことを確認した。</li>
           <li>速度が上がるほど振動が大きくなる傾向がはっきり出た（往路・復路とも）。</li>
           <li>停車中のアイドリングで 20〜26 Hz 付近に鋭い山が出る（スペクトログラムの横の帯）。</li>
           <li>GPS が取れなかった走行でも、時間軸のタイムラインとスペクトログラムで振動を見られるようにした。</li>

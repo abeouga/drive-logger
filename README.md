@@ -91,7 +91,7 @@ Terraform の state はコミットせず、非公開の S3 に置いていま�
 
 | やりたいこと | コマンド（リポジトリのルートから） |
 |---|---|
-| 画面をローカルで触る | `web/start.bat`（または `cd web; npm run dev`） |
+| 画面をローカルで触る | `web/start.bat`（または `cd web; npm run dev`。公開版と同じログイン。`web/docs/local_dev.md`） |
 | 解析をローカルで流す | `cd pipeline; .venv/Scripts/python -m ct125 process --ride <走行>`（S3 から読み、作業用に結果を置く。画面に出すのは `publish`） |
 | AWS のリソースを作る・変える | `terraform -chdir=infra apply` |
 | 画面を公開する | `web/scripts/deploy.ps1` |

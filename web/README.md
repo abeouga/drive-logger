@@ -25,15 +25,18 @@
 
 ---
 
-## 起動のしかたと、データの取り方（2 つ）
+## 起動のしかたと、データの取り方
 
-| 起動 | 使う場面 | データの取り方 | ログイン |
+どの起動のしかたでも、画面はデータ API（`/api/*`）からだけ読む。S3 を直接読むコードは無い。
+
+| 起動 | 使う場面 | `/api/*` の行き先 | ログイン |
 |---|---|---|---|
-| `npm run dev` | ふだんの開発 | ブラウザ → Vite の dev サーバー（`/data/…`）→ ローカルの AWS プロファイルで S3 から取る（`cache/` にも保存） | なし |
-| `npm run build`（`scripts/deploy.ps1`） | 公開版 | ブラウザ → CloudFront → データ API（`/api/data/…`） | **要** |
+| `npm run build`（`scripts/deploy.ps1`） | 公開版 | CloudFront → データ API | **要** |
+| `npm run dev`（`start.bat`） | ふだんの開発 | Vite の dev サーバーが公開ドメインへ中継 | **要**（公開版と同じ） |
+| `npm run dev:local` | API と画面を一緒に直すとき | 手元で動かしたデータ API（http://localhost:8000） | なし（手元の開発者＝admin） |
 
-切り替えは `src/lib/dataSource.ts` の 1 か所（どれになるかは `vite.config.ts` が起動のしかたから決める）。
-画面のコードは、どちらの場合も同じ `loadRides()`・`loadRide()` などを呼ぶだけ。
+API の呼び出しは `src/lib/dataSource.ts` の 1 か所。走行の一覧は `GET /api/rides`（走行の台帳）、1 走行のデータは `GET /api/data/<ファイル名>`。
+admin でログインすると、走行を消す・ゴミ箱から戻す（#19）、前の処理の結果に戻す・モデルを切り替える（#20）ボタンが出る（最終的な判断はデータ API がする）。
 
 ---
 
@@ -42,31 +45,27 @@
 ```
 web\
 ├── README.md  package.json  vite.config.ts  tsconfig.json  index.html
-├── .env.example           ローカル開発の設定の見本（コミットする）
-├── .env.local             実際の値（コミットしない）
-├── .env.production.local  公開版のログイン設定。deploy.ps1 が Terraform の出力から作る（コミットしない）
-├── start.bat              ダブルクリックで npm run dev
+├── .env.example                  dev の設定の見本（コミットする）
+├── .env.development.local        dev のログイン設定。start-dev.ps1 が Terraform の出力から作る（コミットしない）
+├── .env.production.local         公開版のログイン設定。deploy.ps1 が Terraform の出力から作る（コミットしない）
+├── start.bat                     ダブルクリックで npm run dev
 │
 ├── src/                   ブラウザで動くコード（React）
 │   ├── main.tsx  App.tsx  index.css
-│   ├── pages/             RideList（一覧）・Ride（走行ページ）・About
-│   ├── components/        MapView・Timeline・Spectrogram・DetailPanel・RideCard・LoginScreen など
+│   ├── pages/             RideList（一覧）・Ride（走行ページ）・About・Trash（ゴミ箱。admin）
+│   ├── components/        MapView・Timeline・Spectrogram・DetailPanel・RideCard・RunHistory（処理の記録）・ModelInfo（モデルの記録）など
 │   └── lib/
-│       ├── data.ts        何を読むか（走行一覧・1 走行・スペクトログラム・生波形）
-│       ├── dataSource.ts  どこから読むか（dev / hosted の切り替え）
-│       ├── auth/          ログイン（authConfig・authClient・AuthGate）。公開版だけで働く
-│       ├── types.ts       データの型（docs/data_contract.md と同じ形）
+│       ├── data.ts        何を読むか・書き換えるか（走行の一覧・1 走行・消す・戻す・処理の記録・モデル）
+│       ├── dataSource.ts  データ API の呼び出し口（ログインのトークンを付ける）
+│       ├── contract.check.ts  contracts/ の見本を型に当てる（型チェックだけ。ビルドには入らない）
+│       ├── auth/          ログイン（authConfig・authClient・AuthGate）
+│       ├── types.ts       データの型（contracts/app/・contracts/api/ と同じ形）
 │       └── colors.ts  format.ts  route.ts  など
 │
-├── server/                Vite の dev サーバー（Node）の中だけで動くコード。ブラウザには出ない
-│   └── s3-data.ts         /data/<ファイル名> → 公開用のバケットの datasets/shared/<ファイル名>。cache/ にも保存
-│
 ├── scripts/
-│   ├── start-dev.ps1      start.bat の中身
-│   ├── deploy.ps1         公開：ログイン設定を作る → build → S3 webapp/ → CloudFront のキャッシュ削除
-│   └── pull-data.ps1      S3 のデータを cache/ に丸ごと落とす（オフラインで触るとき）
+│   ├── start-dev.ps1      start.bat の中身（ログインの設定を作ってから npm run dev）
+│   └── deploy.ps1         公開：ログイン設定を作る → build → S3 webapp/ → CloudFront のキャッシュ削除
 │
-├── cache/                 S3 から取ったデータの写し（コミットしない）
 ├── dist/                  ビルド結果（コミットしない）
 └── docs/
     ├── local_dev.md       ローカルで動かす手順・困ったとき
@@ -89,20 +88,12 @@ s3://ct125-logger-<アカウントID>/webapp/   React のビルド結果（Cloud
 
 ---
 
-## ローカル開発の設定（`.env.local`）
+## 設定
 
-`.env.example` をコピーして値を入れる。
+dev のログインの設定（`.env.development.local`）は `scripts/start-dev.ps1` が Terraform の出力から作る。手で書くときは `.env.example` を見る。
 
-| 変数 | 例 | 意味 |
-|---|---|---|
-| `DATA_SOURCE` | `s3` | `s3` か `cache` |
-| `AWS_PROFILE` | `ct125-logger` | `~/.aws` のプロファイル |
-| `AWS_REGION` | `ap-northeast-1` | バケットのリージョン |
-| `S3_BUCKET` | `ct125-logger-public-<アカウントID>` | 公開用のバケット名 |
-| `S3_PREFIX` | `datasets/shared/` | データの置き場所 |
-
-**注意：`VITE_` で始まる変数はブラウザに埋め込まれる。** AWS の認証に関わる変数には `VITE_` を付けない。
-（`.env.production.local` の `VITE_AUTH_*` はログイン画面の場所とクライアント ID で、ブラウザに見えてよい値）
+**注意：`VITE_` で始まる変数はブラウザに埋め込まれる。** `VITE_AUTH_*` はログイン画面の場所とクライアント ID で、ブラウザに見えてよい値。
+画面には AWS の鍵もバケット名も入らない（データは必ずデータ API を通す）。
 
 ---
 
@@ -120,10 +111,9 @@ npm install
 npm run dev
 ```
 
-http://localhost:5173 を開く。ログインはない。
+http://localhost:5173 を開き、公開版と同じユーザーでログインする。手順と、ログインなしで手元のデータ API につなぐ方法は [docs/local_dev.md](docs/local_dev.md)。
 
-- dev サーバーは **localhost だけで待ち受ける**（`--host` を付けない）。付けると同じ Wi-Fi の端末から S3 の中身が見えてしまう
-- データを新しくしたいとき：機器から走行を送る（AWS が処理して S3 に書き出す）→ ブラウザを再読み込み
+- データを新しくしたいとき：機器から走行を送る（AWS が処理して公開する）→ ブラウザを再読み込み
 
 ### 公開版を更新する
 

@@ -91,3 +91,78 @@ export interface WaveFile {
   unit: "mg";
   windows: Waveform[];
 }
+
+// ------------------------------------------------------------------ データ API の応答（contracts/api/）
+
+export type RideKind = "desk" | "idle" | "ride" | "ride_nogps";
+
+/** GET /api/rides の rides[] の 1 件（走行の台帳から作る） */
+export interface LedgerRide {
+  id: string;
+  original_name: string | null;
+  kind: RideKind | null;
+  deleted: boolean;
+  deleted_at: string | null;
+  published_run: string | null;
+  summary: RideSummary | null;
+}
+
+export interface RidesResponse {
+  rides: LedgerRide[];
+}
+
+/** GET /api/rides/{id}/runs の runs[] の 1 件（その走行を処理した記録） */
+export interface RunInfo {
+  run_id: string;
+  action: "process" | "retrain";
+  created_at: string;
+  finished_at: string | null;
+  where: "local" | "lambda";
+  commit: string | null;
+  model_version: string | null;
+  status: "running" | "succeeded" | "failed";
+  error: string | null;
+  published: boolean;
+}
+
+export interface RunsResponse {
+  ride_id: string;
+  runs: RunInfo[];
+}
+
+/** GET /api/models の models[] の 1 件 */
+export interface ModelItem {
+  version: string;
+  created_at: string | null;
+  where: "local" | "lambda" | null;
+  commit: string | null;
+  n_rides: number | null;
+  n_windows: number | null;
+  has_record: boolean;
+}
+
+export interface ModelsResponse {
+  current: string | null;
+  models: ModelItem[];
+}
+
+/** GET /api/models/{version}（model.json。contracts/records/model.schema.json）のうち画面で使うところ */
+export interface ModelRecord {
+  version: string;
+  created_at: string;
+  where: "local" | "lambda";
+  commit: string | null;
+  run_id: string | null;
+  libraries: Record<string, string>;
+  config: Record<string, unknown>;
+  train: { rides: { ride_id: string; kind: "idle" | "ride"; n_windows: number }[]; n_windows: number };
+  excluded: { ride_id: string; reason: "desk" | "ride_nogps" | "deleted" | "failed" | "unclassified" }[];
+  summary: { baseline_bins: number; baseline_n_train: number; n_anomaly_z: number; n_anomaly_if: number };
+}
+
+/** GET /api/me */
+export interface Me {
+  username: string;
+  groups: string[];
+  dataset: string;
+}

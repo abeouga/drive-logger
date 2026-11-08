@@ -104,7 +104,7 @@ uv run pytest
 S3 の本物のデータでデータ API を動かすとき（ログインなしで「ローカルの開発者」として扱う）：
 
 ```powershell
-$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --app-dir src
+$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:WORK_BUCKET="ct125-logger-work-<アカウントID>"; $env:PIPELINE_FUNCTION="ct125-ride-pipeline"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --port 8000 --app-dir src
 ```
 
 http://localhost:8000/api/docs で説明書が開きます。`ALLOW_LOCAL_USER` は Lambda では設定しません。
