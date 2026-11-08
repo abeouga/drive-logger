@@ -1,7 +1,7 @@
-# 走行データの処理：S3 の raw/<走行>/upload_complete.json が置かれたら、Lambda（コンテナ）が
-#   前処理 → 学習済みモデルで点数付け → 画面用データの書き出し → app/v1/datasets/shared/ へ
-# を行う。手動で {"action": "retrain"} を渡すと、全走行で学習し直す。
-# コードは pipeline/src/ct125/cloud/、イメージは pipeline/scripts/build-pipeline-image.ps1 で作る。
+# 走行データの処理：生データのバケットに <走行>/upload_complete.json が置かれたら、Lambda（コンテナ）が
+#   前処理 → 分類 → 学習済みモデルで点数付け → 画面用データの書き出し → 作業用に保存 → 台帳 → 公開用へ
+# を行う。手動で {"action": "retrain"}（全走行で学習し直す）・{"action": "publish", "run_id": ...}（公開）を渡せる。
+# コードは pipeline/src/ct125/（flow.py と cloud/）、イメージは pipeline/scripts/build-pipeline-image.ps1 で作る。
 #
 # 初回だけ：ECR を先に作る → イメージを上げる → 全体を apply
 #   terraform apply -target=aws_ecr_repository.pipeline
@@ -60,9 +60,12 @@ resource "aws_iam_role" "pipeline" {
 }
 
 locals {
-  bucket_arn = aws_s3_bucket.data.arn
+  raw_arn    = aws_s3_bucket.role["raw"].arn
+  work_arn   = aws_s3_bucket.role["work"].arn
+  public_arn = aws_s3_bucket.role["public"].arn
 }
 
+# 処理の Lambda：生データを読み、作業用に読み書きし、公開用に書く（公開の仕組みはこの Lambda の中だけ）
 data "aws_iam_policy_document" "pipeline" {
   statement {
     sid       = "WriteOwnLogs"
@@ -70,48 +73,25 @@ data "aws_iam_policy_document" "pipeline" {
     resources = ["${aws_cloudwatch_log_group.pipeline.arn}:*"]
   }
   statement {
-    sid     = "ReadInputs"
-    actions = ["s3:GetObject"]
-    resources = [
-      "${local.bucket_arn}/raw/*",
-      "${local.bucket_arn}/models/*",
-      "${local.bucket_arn}/${var.data_prefix}*",
-    ]
+    sid       = "ReadRaw"
+    actions   = ["s3:GetObject"]
+    resources = ["${local.raw_arn}/*"]
   }
   statement {
-    sid     = "WriteOutputs"
-    actions = ["s3:PutObject"]
-    resources = [
-      "${local.bucket_arn}/processed/*",
-      "${local.bucket_arn}/models/*",
-      "${local.bucket_arn}/${var.data_prefix}*",
-    ]
+    sid       = "ReadWriteWork"
+    actions   = ["s3:GetObject", "s3:PutObject"]
+    resources = ["${local.work_arn}/*"]
   }
-  # 一覧を取る（raw/ の走行一覧）。無いファイルを読んだとき 403 ではなく 404 になるよう、読む場所にも付ける
   statement {
-    sid       = "ListInputFolders"
+    sid       = "PublishPublic"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["${local.public_arn}/*"]
+  }
+  # 一覧を取る（走行の一覧・モデルの版・処理の結果）。無いファイルを読んだとき 403 ではなく 404 になるようにも要る
+  statement {
+    sid       = "ListBuckets"
     actions   = ["s3:ListBucket"]
-    resources = [local.bucket_arn]
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["raw/*", "models/*", "${var.data_prefix}*"]
-    }
-  }
-  statement {
-    sid       = "ReadPrivatePoints"
-    actions   = ["ssm:GetParameter"]
-    resources = ["arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.private_points_parameter}"]
-  }
-  statement {
-    sid       = "DecryptPrivatePoints"
-    actions   = ["kms:Decrypt"]
-    resources = ["*"]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${var.aws_region}.amazonaws.com"]
-    }
+    resources = [local.raw_arn, local.work_arn, local.public_arn]
   }
 }
 
@@ -143,13 +123,12 @@ resource "aws_lambda_function" "pipeline" {
 
   environment {
     variables = {
-      DATA_BUCKET              = aws_s3_bucket.data.bucket
-      RAW_PREFIX               = "raw/"
-      PROCESSED_PREFIX         = "processed/"
-      MODELS_PREFIX            = "models/"
-      APP_PREFIX               = "${var.data_prefix}shared/"
-      PRIVATE_POINTS_PARAMETER = var.private_points_parameter
-      WORK_DIR                 = "/tmp/ct125"
+      RAW_BUCKET    = aws_s3_bucket.role["raw"].bucket
+      RAW_PREFIX    = ""
+      WORK_BUCKET   = aws_s3_bucket.role["work"].bucket
+      WORK_PREFIX   = ""
+      PUBLIC_BUCKET = aws_s3_bucket.role["public"].bucket
+      PUBLIC_PREFIX = "${local.public_dataset_prefix}shared/"
     }
   }
 
@@ -182,18 +161,17 @@ resource "aws_lambda_permission" "s3_invoke_pipeline" {
   action         = "lambda:InvokeFunction"
   function_name  = aws_lambda_function.pipeline.function_name
   principal      = "s3.amazonaws.com"
-  source_arn     = aws_s3_bucket.data.arn
+  source_arn     = aws_s3_bucket.role["raw"].arn
   source_account = data.aws_caller_identity.current.account_id
 }
 
 # 注意：このバケットの通知設定はこのリソースだけで管理する（ほかで足すと上書きし合う）
 resource "aws_s3_bucket_notification" "raw_upload_complete" {
-  bucket = aws_s3_bucket.data.id
+  bucket = aws_s3_bucket.role["raw"].id
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.pipeline.arn
     events              = ["s3:ObjectCreated:*"]
-    filter_prefix       = "raw/"
     filter_suffix       = "/upload_complete.json"
   }
 

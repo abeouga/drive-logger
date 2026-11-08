@@ -4,21 +4,21 @@ FastAPI で書き、AWS Lambda（Python 3.13・arm64）で動かします。同�
 
 | アプリ | Lambda | 使う人 | できること | 認証 |
 |---|---|---|---|---|
-| データ API（`main.py`） | `ct125-data-api` | ブラウザ（ログインした人） | 走行データ（S3 の `app/v1/datasets/<データセット>/`）を**読む**だけ | Cognito の JWT（API Gateway が検証） |
-| デバイス API（`device_main.py`） | `ct125-device-api` | ESP32（機器） | 生データを S3 の `raw/<走行>/` に**置く**だけ（署名付き URL を出す） | 機器トークン（このアプリが検証） |
+| データ API（`main.py`） | `ct125-data-api` | ブラウザ（ログインした人） | 走行データ（公開用のバケットの `datasets/<データセット>/`）を**読む**だけ | Cognito の JWT（API Gateway が検証） |
+| デバイス API（`device_main.py`） | `ct125-device-api` | ESP32（機器） | 生データを生データのバケットの `<走行>/` に**置く**だけ（署名付き URL を出す） | 機器トークン（このアプリが検証） |
 
-権限を分けるために、アプリも Lambda も分けています（画面用は raw/ に書けない、機器用は公開データを読めない）。
+権限を分けるために、アプリも Lambda も分けています（画面用は生データに書けない、機器用は公開データを読めない）。
 
 ```
-ブラウザ ─https→ CloudFront ─/api/*→ API Gateway ─GET（JWT 検証済み）→ データ API ─→ S3 app/v1/datasets/
+ブラウザ ─https→ CloudFront ─/api/*→ API Gateway ─GET（JWT 検証済み）→ データ API ─→ S3 公開用 datasets/
 ESP32    ─https→ CloudFront ─/api/device/*→ API Gateway ─POST→ デバイス API ─→ 署名付き URL
-ESP32    ─https（署名付き URL）→ S3 raw/<走行>/ → 完了の合図 → 自動処理（ct125-ride-pipeline）
+ESP32    ─https（署名付き URL）→ S3 生データ <走行>/ → 完了の合図 → 自動処理（ct125-ride-pipeline）
 ```
 
 - **ログインの検証は API Gateway がする。** Cognito のアクセストークンの署名・期限・発行元を確かめ、
   通ったものだけを Lambda に渡す。データ API は、API Gateway が渡す中身（claims）からユーザーを読むだけ
 - **ユーザーごとにデータを分ける入口だけ作ってある。** 今は全員が `shared` を見る（`services/dataset_resolver.py`）
-- **機器は AWS の鍵を持たない。** 持つのは取り消せる機器トークンだけ。トークンでできるのは「raw/ に新しい走行を置く」ことだけ
+- **機器は AWS の鍵を持たない。** 持つのは取り消せる機器トークンだけ。トークンでできるのは「生データのバケットに新しい走行を置く」ことだけ
 
 ## エンドポイント
 
@@ -94,7 +94,7 @@ uv run pytest
 S3 の本物のデータでデータ API を動かすとき（ログインなしで「ローカルの開発者」として扱う）：
 
 ```powershell
-$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-<アカウントID>"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --app-dir src
+$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --app-dir src
 ```
 
 http://localhost:8000/api/docs で説明書が開きます。`ALLOW_LOCAL_USER` は Lambda では設定しません。

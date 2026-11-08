@@ -47,7 +47,7 @@ CSV の形・送信の手順・画面用 JSON の形を変えた場合は、作�
 
 例：
 
-- `app/v1/datasets/shared/rides.json`
+- `datasets/shared/rides.json`（公開用のバケット）
 - Lambda `ct125-ride-pipeline`
 - `POST /api/device/uploads`
 

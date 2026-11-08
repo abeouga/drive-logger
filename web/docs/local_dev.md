@@ -29,7 +29,7 @@ npm install
 npm run dev
 ```
 
-http://localhost:5173 を開く。起動時のログに `データの出どころ: s3://…/app/v1/datasets/shared/（プロファイル ct125-logger）` と出る。
+http://localhost:5173 を開く。起動時のログに `データの出どころ: s3://…/datasets/shared/（プロファイル ct125-logger）` と出る。
 
 - ブラウザは `/data/<ファイル名>` を取りにいき、dev サーバー（`server/s3-data.ts`）が `~/.aws` のプロファイルで S3 から取って返す。取ったものは `cache/` にも保存する
 - AWS の認証情報・バケット名はブラウザに渡らない（`.env.local` の変数に `VITE_` を付けないこと）
@@ -51,7 +51,7 @@ S3 の画面用データを書くのは、AWS の自動処理（Lambda）だけ�
 | 症状 | 原因と対処 |
 |---|---|
 | 「走行一覧を読み込めませんでした（HTTP 502）」 | AWS の認証切れ。プロファイル `ct125-logger` の鍵を確認（`aws sts get-caller-identity --profile ct125-logger`）。`cache/` に前のデータがあれば、それを返して画面は出る（レスポンスヘッダー `X-Data-Source: cache-fallback`） |
-| 「…がありません（HTTP 404）」 | S3 の `app/v1/datasets/shared/` にまだ無い。AWS の自動処理が終わったか確かめる（Lambda `ct125-ride-pipeline` のログ） |
+| 「…がありません（HTTP 404）」 | 公開用のバケットの `datasets/shared/` にまだ無い。AWS の自動処理が終わったか確かめる（Lambda `ct125-ride-pipeline` のログ） |
 | dev サーバーが起動時に止まる「S3_BUCKET が未設定」 | `.env.local` を作っていない／`<アカウントID>` のまま |
 | 地図が出ない | 回線（OpenFreeMap のタイル）を確認。地図の枠の上にエラーの内容が出る |
 | 地図をホイールで拡大できない | Ctrl（Mac は ⌘）を押しながらホイール。ページのスクロールを妨げないため |

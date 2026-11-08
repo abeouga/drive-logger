@@ -1,4 +1,4 @@
-﻿# S3 の app/v1/ を cache/ に写す（回線なしで触るとき・1 ファイルビルドの前）。
+﻿# S3 の画面用のデータ（公開用のバケットの datasets/shared/）を cache/ に写す（回線なしで触るとき）。
 # 設定は .env.local（AWS_PROFILE・AWS_REGION・S3_BUCKET・S3_PREFIX）。
 # S3 に rides.json が無いときは何もしない（空の S3 と同期して cache/ を消してしまわないように）。
 $ErrorActionPreference = "Stop"
@@ -13,7 +13,7 @@ Get-Content $envFile -Encoding UTF8 | ForEach-Object {
 $profileName = if ($cfg["AWS_PROFILE"]) { $cfg["AWS_PROFILE"] } else { "ct125-logger" }
 $region = if ($cfg["AWS_REGION"]) { $cfg["AWS_REGION"] } else { "ap-northeast-1" }
 $bucket = $cfg["S3_BUCKET"]
-$prefix = if ($cfg["S3_PREFIX"]) { $cfg["S3_PREFIX"] } else { "app/v1/datasets/shared/" }
+$prefix = if ($cfg["S3_PREFIX"]) { $cfg["S3_PREFIX"] } else { "datasets/shared/" }
 if (-not $bucket -or $bucket.Contains("<")) { throw ".env.local の S3_BUCKET が未設定です" }
 
 $cache = Join-Path $root "cache"

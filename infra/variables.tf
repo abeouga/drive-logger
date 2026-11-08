@@ -58,22 +58,10 @@ variable "webapp_prefix" {
   default     = "webapp"
 }
 
-variable "data_prefix" {
-  description = "データセットを置く S3 のフォルダー（その下に shared/ など）。データ API はここだけを読める"
-  type        = string
-  default     = "app/v1/datasets/"
-}
-
 variable "pipeline_image_uri" {
   description = "走行データ処理の Lambda のコンテナイメージ（ECR の digest 付き URI）。pipeline/ の scripts/build-pipeline-image.ps1 が pipeline_image.auto.tfvars に書く"
   type        = string
   default     = null
-}
-
-variable "private_points_parameter" {
-  description = "自宅周辺のマスクに使っていた SSM パラメーター名。マスクはやめた（#13）。今のコンテナがまだ読むので、新しいコンテナに入れ替えるときに、この変数と権限を外す"
-  type        = string
-  default     = "/ct125/private-points"
 }
 
 variable "noncurrent_version_days" {
