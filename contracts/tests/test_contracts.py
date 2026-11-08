@@ -134,7 +134,8 @@ def test_ride_columns_have_the_same_length():
 
 # ------------------------------------------------------------------ firmware のソース
 def firmware_source() -> str:
-    return "\n".join(path.read_text(encoding="utf-8") for path in sorted(FIRMWARE.glob("*.ino")) + sorted(FIRMWARE.glob("*.cpp")))
+    paths = sorted(FIRMWARE.glob("*.ino")) + sorted(FIRMWARE.glob("*.cpp")) + sorted(FIRMWARE.glob("*.h"))
+    return "\n".join(path.read_text(encoding="utf-8") for path in paths)
 
 
 def string_array(source: str, name: str) -> list[str]:
@@ -188,13 +189,16 @@ def test_firmware_event_types_match_table():
 def test_firmware_upload_rules_match():
     source = firmware_source()
     rules = load("upload/upload.json")["device_rules"]
-    prefix = re.search(r'UPLOADABLE_FIRMWARE = "\\"firmware\\": \\"([A-Z0-9_]+)";', source)
-    assert prefix and prefix.group(1) == rules["firmware_prefix"]
+    name = re.search(r"FIRMWARE_NAME = \"([A-Z0-9_]+)\";", source)
+    assert name and name.group(1) == rules["firmware_name"]
+    major = re.search(r"MIN_UPLOADABLE_MAJOR = ([0-9]+);", source)
+    assert major and int(major.group(1)) == rules["min_major_version"]
     size = re.search(r"MIN_ACCEL_BYTES = ([0-9]+) \* ([0-9]+);", source)
     assert size and int(size.group(1)) * int(size.group(2)) == rules["min_accel_bytes"]
     version = re.search(r'#define FW_VERSION "([^"]+)"', source)
     assert version and re.fullmatch(load("sd/meta.schema.json")["properties"]["firmware"]["pattern"], version.group(1))
-    assert version.group(1).startswith(rules["firmware_prefix"])
+    assert version.group(1).startswith(rules["firmware_name"])
+    assert int(version.group(1)[len(rules["firmware_name"]):].split(".")[0]) >= rules["min_major_version"]
 
 
 def test_firmware_state_files_match_session():
