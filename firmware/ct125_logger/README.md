@@ -15,7 +15,7 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 | ファイル | 中身 |
 |---|---|
 | `ct125_logger.ino` | 記録（加速度・GPS・SD）、状態の切り替え（記録中 → 送信 → 待機）、BOOT ボタン、シリアルのコマンド |
-| `uploader.cpp/.h` | Wi-Fi・HTTPS・送信の手順（`tools/device_upload_simulator.py` と同じ手順） |
+| `uploader.cpp/.h` | Wi-Fi・HTTPS・送信の手順（PC から送る `python -m ct125 upload-sd` と同じ手順） |
 | `config_store.cpp/.h` | Wi-Fi と機器トークンの保存（NVS）と、シリアルからの設定 |
 | `root_ca.h` | HTTPS で信頼するルート証明書（Amazon Root CA 1 など） |
 

@@ -1,25 +1,56 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/upload/start_response.schema.json",
-  "version": 1,
+  "version": 2,
   "title": "POST /api/device/uploads の応答",
   "type": "object",
-  "required": ["ride_id", "expires_in", "uploads"],
+  "required": [
+    "ride_id",
+    "expires_in",
+    "uploads",
+    "status"
+  ],
   "additionalProperties": false,
   "properties": {
-    "ride_id": { "type": "string", "pattern": "^ride_[0-9]{8}_[0-9]{6}(_[0-9]{1,2})?$", "description": "サーバーが付けた走行 ID。機器は SD に残し、完了の報告とやり直しで使う" },
-    "expires_in": { "type": "integer", "minimum": 1, "description": "URL の有効期間（秒）" },
+    "ride_id": {
+      "type": "string",
+      "pattern": "^ride_[0-9]{8}_[0-9]{6}(_[0-9]{1,2})?$",
+      "description": "サーバーが付けた走行 ID。機器は SD に残し、完了の報告とやり直しで使う"
+    },
+    "expires_in": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "URL の有効期間（秒）"
+    },
     "uploads": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["name", "url"],
+        "required": [
+          "name",
+          "url"
+        ],
         "additionalProperties": false,
         "properties": {
-          "name": { "type": "string" },
-          "url": { "type": "string", "pattern": "^https://", "description": "このファイルを HTTP PUT で送る先（期限付き）" }
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://",
+            "description": "このファイルを HTTP PUT で送る先（期限付き）"
+          }
         }
-      }
+      },
+      "description": "送る先。already_uploaded なら空"
+    },
+    "status": {
+      "enum": [
+        "new",
+        "resumed",
+        "already_uploaded"
+      ],
+      "description": "new＝新しい走行、resumed＝途中から、already_uploaded＝同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えている。uploads は空で、そのまま完了を報告すればよい（#14）"
     }
   }
 }

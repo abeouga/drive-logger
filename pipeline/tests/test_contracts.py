@@ -6,7 +6,6 @@
 """
 from __future__ import annotations
 
-import importlib.util
 import json
 import os
 import re
@@ -76,12 +75,10 @@ def test_marker_name_matches_upload_contract():
     assert flow.UPLOAD_COMPLETE == load("upload/upload.json")["raw_files"]["complete"]["name"]
 
 
-def test_simulator_sends_only_allowed_files():
-    path = Path(__file__).resolve().parents[1] / "tools" / "device_upload_simulator.py"
-    spec = importlib.util.spec_from_file_location("device_upload_simulator", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    assert set(module.SEND_FILES) == set(load("upload/upload.json")["files"]["allowed"])
+def test_pc_upload_sends_only_allowed_files():
+    from ct125 import device_upload
+
+    assert device_upload.SEND_FILES == load("upload/upload.json")["files"]["allowed"]
 
 
 def test_ledger_entry_reads_the_upload_marker():

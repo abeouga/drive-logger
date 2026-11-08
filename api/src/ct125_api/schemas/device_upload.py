@@ -22,7 +22,8 @@ class UploadTarget(BaseModel):
 class StartUploadResponse(BaseModel):
     ride_id: str = Field(description="サーバーが付けた走行名。SD に残し、完了の報告とやり直しで使う")
     expires_in: int = Field(description="URL の有効期間（秒）")
-    uploads: list[UploadTarget]
+    uploads: list[UploadTarget] = Field(description="送る先。同じ走行を送り終えていれば空（そのまま完了を報告すればよい）")
+    status: str = Field(description="new（新しい走行）・resumed（途中から）・already_uploaded（同じ SD の走行を送り終えている）")
 
 
 class CompleteUploadResponse(BaseModel):

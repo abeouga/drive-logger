@@ -4,6 +4,7 @@
 完了したら raw/<走行>/upload_complete.json を置き、それを合図に AWS 側の自動処理が動く。
 """
 
+import hashlib
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -47,6 +48,18 @@ def parse_file_list(files: list[tuple[str, int]]) -> tuple[RawFile, ...]:
     if missing:
         raise InvalidUploadRequestError(f"必要なファイルがありません：{', '.join(missing)}")
     return parsed
+
+
+def fingerprint(local_session: str, files: tuple["RawFile", ...]) -> str:
+    """同じ SD の走行かどうかを見分ける印（#14）。SD のセッション名と、必須のファイルの大きさ（バイト）から作る。
+
+    ESP32 から送っても PC から送っても、同じ SD の走行なら同じになる（送った機器は問わない）。
+    記録の開始時刻は meta.json に無い（ESP32 は時計を持たない）ので、大きさで見分ける。違う記録で 3 つのファイルの
+    大きさがすべて同じになることは、まず無い。走行メモ（notes.md など）は後から足すことがあるので入れない。
+    """
+    sizes = {file.name: file.size for file in files}
+    text = "|".join([local_session] + [f"{name}:{sizes.get(name)}" for name in REQUIRED_FILES])
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def check_ride_id(ride_id: str) -> str:
