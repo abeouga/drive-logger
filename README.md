@@ -77,10 +77,11 @@ drive-logger/
 
 ## コミットしないもの
 
-PC ごとの設定（`pipeline/config/local.yaml`）、走行データ（`pipeline/data/`・`web/cache/`）、
+PC ごとの設定（`pipeline/config/local.yaml`）、
 `.env.local`、`terraform.tfvars`（ユーザーのパスワードを含む）、機器トークン（`*.token`）。
 Wi-Fi のパスワードと機器トークンは ESP32 の内部フラッシュにだけ置きます。
 Terraform の state はコミットせず、非公開の S3 に置いています（どの PC からも同じ state を使う）。
+走行データは S3 にだけ置き、手元にデータのフォルダーは作りません（手元で処理するときも S3 から読み、S3 に書く）。
 
 ## 別の PC で開発する
 

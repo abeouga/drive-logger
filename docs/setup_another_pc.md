@@ -58,7 +58,7 @@ aws sts get-caller-identity --profile ct125-logger
 
 - `web/.env.production.local`：`web/scripts/deploy.ps1` が Terraform の出力から作る
 - `infra/pipeline_image.auto.tfvars`：コミット済み。コンテナを作り直すと `build-pipeline-image.ps1` が書き換えるので、それもコミットする
-- 走行データ（`pipeline/data/`・`web/cache/`）：正本は S3。コピーしない
+- 走行データ：S3 にだけある。手元にデータのフォルダーは無く、処理も画面も S3 とデータ API から読む
 - Wi-Fi のパスワードと機器トークン：ESP32 の中にある。ESP32 にまた書き込むときだけ要る（`firmware/scripts/provision-device.ps1`）
 
 ## 5. 準備する
