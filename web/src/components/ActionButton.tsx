@@ -1,14 +1,18 @@
 // 書き換えのボタン（admin だけに出す）。押す前に確かめ、終わるまで押せないようにし、失敗したら理由を出す。
-import { useState } from "react";
+// icon を渡すと、文字の代わりにアイコンだけを出す（label は読み上げの名前と、指を乗せたときの説明に使う）。
+import { useState, type ReactNode } from "react";
+import { TbLoader2 } from "react-icons/tb";
 
 export default function ActionButton({
   label,
+  icon,
   confirmText,
   onRun,
   tone = "plain",
   className = "",
 }: {
   label: string;
+  icon?: ReactNode;
   confirmText?: string;
   onRun: () => Promise<void>;
   tone?: "plain" | "primary" | "danger";
@@ -17,12 +21,16 @@ export default function ActionButton({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const look = tone === "danger" ? "btn-danger" : tone === "primary" ? "btn-primary" : "btn-secondary";
+  const iconOnly = icon !== undefined;
   return (
-    <span className={`inline-flex flex-col gap-1 ${className}`}>
+    <span className={`relative inline-flex flex-col gap-1 ${className}`}>
       <button
         type="button"
         disabled={busy}
-        className={`btn btn-compact ${look}`}
+        aria-label={iconOnly ? label : undefined}
+        aria-busy={busy || undefined}
+        title={iconOnly ? label : undefined}
+        className={`btn btn-compact ${look} ${iconOnly ? "btn-icon" : ""}`}
         onClick={async (event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -38,9 +46,20 @@ export default function ActionButton({
           }
         }}
       >
-        {busy ? "処理中…" : label}
+        {iconOnly ? busy ? <TbLoader2 aria-hidden className="size-[18px] animate-spin" /> : icon : busy ? "処理中…" : label}
       </button>
-      {error && <span className="max-w-xs text-xs break-all text-critical">{error}</span>}
+      {error && (
+        <span
+          role="alert"
+          className={
+            iconOnly
+              ? "absolute top-full right-0 z-10 mt-1 w-64 rounded-lg border border-line bg-surface p-2 text-xs break-all text-critical shadow-md"
+              : "max-w-xs text-xs break-all text-critical"
+          }
+        >
+          {error}
+        </span>
+      )}
     </span>
   );
 }

@@ -1,7 +1,7 @@
 // 走行ページ：地図・グラフ（タイムライン／スペクトログラム）・詳細パネルが、選択中の窓・カーソル・範囲を共有して連動する。
 // PC は地図と詳細を横に並べ、下にグラフ。スマホ（1024px 未満）は 地図／グラフ／詳細 をタブで切り替える。
 import { useEffect, useMemo, useState } from "react";
-import { deleteRide, loadRide, loadSpectrogram, loadWaveforms, useRides, type RideData, type RideSummary, type SpecMeta, type Waveform } from "../lib/data";
+import { loadRide, loadSpectrogram, loadWaveforms, useRides, type RideData, type RideSummary, type SpecMeta, type Waveform } from "../lib/data";
 import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { listHref } from "../lib/route";
@@ -14,7 +14,7 @@ import Spectrogram from "../components/Spectrogram";
 import DetailPanel from "../components/DetailPanel";
 import Tabs from "../components/Tabs";
 import LoadState from "../components/LoadState";
-import ActionButton from "../components/ActionButton";
+import TrashButton from "../components/TrashButton";
 import RunHistory from "../components/RunHistory";
 import { pageHeaderClass, pageTitleClass } from "../components/PageHeader";
 
@@ -110,18 +110,15 @@ export default function Ride({ id }: { id: string }) {
           </h1>
           {summary.memo && <div className="mt-0.5 text-sm text-ink-2">{summary.memo}</div>}
         </div>
-        <div className="tabular flex flex-wrap gap-x-5 gap-y-1 text-sm">
+        <div className="tabular flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
           <span><span className="text-ink-2">時間 </span>{fmtDuration(summary.duration_s)}</span>
           {summary.gps !== "none" && <span><span className="text-ink-2">距離 </span>{fmtKm(summary.distance_km)} km</span>}
           {summary.max_speed_kmh !== null && <span><span className="text-ink-2">最高 </span>{summary.max_speed_kmh.toFixed(0)} km/h</span>}
           <span><span className="text-ink-2">GPS 有効 </span>{Math.round(summary.fix_ratio * 100)}%</span>
           {isAdmin && (
-            <ActionButton
-              label="この走行を消す"
-              tone="danger"
-              confirmText={`${summary.id} を画面と学習から外します。生データは残り、ゴミ箱から戻せます。よろしいですか？`}
-              onRun={async () => {
-                await deleteRide(summary.id);
+            <TrashButton
+              rideId={summary.id}
+              onDone={() => {
                 window.location.hash = listHref;
               }}
             />
