@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { aboutHref, listHref, trashHref, type Route } from "../lib/route";
 
+// 名前を変えたら scripts/subset-brand-font.py で字体を作り直す（名前の字だけに絞った字体を使っている）
 export const APP_NAME = "ドライブロガー";
 
 type NavItem = { href: string; label: string; mark: string; active: boolean };
@@ -56,10 +57,10 @@ export default function AppShell({
           href={listHref}
           className={
             "flex min-h-[76px] items-center border-b border-line px-[18px] py-[15px] hover:bg-surface-muted " +
-            "max-[980px]:mr-auto max-[980px]:min-h-0 max-[980px]:border-b-0 max-[980px]:px-0 max-[980px]:py-0 max-[980px]:hover:bg-transparent"
+            "max-[980px]:mr-auto max-[980px]:pr-3 max-[980px]:min-h-0 max-[980px]:border-b-0 max-[980px]:pl-0 max-[980px]:py-0 max-[980px]:hover:bg-transparent"
           }
         >
-          <strong className="text-[21px] font-extrabold tracking-[.06em] whitespace-nowrap text-ink max-[980px]:text-base">
+          <strong className="font-brand text-[21px] font-normal tracking-[.06em] whitespace-nowrap text-ink max-[980px]:text-[15px] max-[980px]:tracking-normal">
             {APP_NAME}
           </strong>
         </a>

@@ -39,6 +39,18 @@
   --color-warning: var(--warning);
   --color-success: var(--success);
   --font-sans: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  /* アプリの名前だけに使う（font-brand）。読めるまでは本文の字体で出す */
+  --font-brand: "Dela Gothic One Brand", var(--font-sans);
+}
+
+/* Dela Gothic One（SIL OFL 1.1、assets/fonts/dela-gothic-one-OFL.txt）を、アプリの名前の字だけに絞った版。
+   名前を変えたら scripts/subset-brand-font.py で作り直す */
+@font-face {
+  font-family: "Dela Gothic One Brand";
+  src: url("./assets/fonts/dela-gothic-one-brand.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
 html,
