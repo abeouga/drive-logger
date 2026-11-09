@@ -1,8 +1,45 @@
+import { useState } from "react";
 import { useRides } from "../lib/data";
 import { fmtDuration, fmtKm } from "../lib/format";
 import RideCard from "../components/RideCard";
 import LoadState from "../components/LoadState";
 import PageHeader from "../components/PageHeader";
+import SortSelect from "../components/SortSelect";
+import {
+  DEFAULT_RIDE_SORT,
+  RIDE_SORT_OPTIONS,
+  isRideSortKey,
+  listHashWithSort,
+  sortFromHash,
+  sortRides,
+  type RideSortKey,
+} from "../lib/rideSort";
+
+// 選んだ並べ方は URL のハッシュ（#/?sort=…）に持つ。メニューや「← 走行一覧」から ?sort= なしで戻ったときのために、
+// 同じタブの中では sessionStorage にも残す（使えない環境では残さない）
+const SORT_STORAGE_KEY = "rideList.sort";
+
+function initialSort(): RideSortKey {
+  const fromHash = sortFromHash(window.location.hash);
+  if (fromHash) return fromHash;
+  try {
+    const stored = sessionStorage.getItem(SORT_STORAGE_KEY);
+    if (isRideSortKey(stored)) return stored;
+  } catch {
+    // 保存先が使えなくても既定の並べ方で出す
+  }
+  return DEFAULT_RIDE_SORT;
+}
+
+function saveSort(key: RideSortKey) {
+  // ハッシュの書き換えで hashchange を起こさない（画面の先頭へ戻らないように）
+  window.history.replaceState(null, "", listHashWithSort(key));
+  try {
+    sessionStorage.setItem(SORT_STORAGE_KEY, key);
+  } catch {
+    // 保存できなくても、今の画面とハッシュには効いている
+  }
+}
 
 function Tile({ label, value, unit, note }: { label: string; value: string; unit?: string; note?: string }) {
   return (
@@ -19,10 +56,10 @@ function Tile({ label, value, unit, note }: { label: string; value: string; unit
 
 export default function RideList() {
   const { rides, ledger, error } = useRides();
+  const [sort, setSort] = useState<RideSortKey>(initialSort);
   const originalName = new Map((ledger ?? []).map((r) => [r.id, r.original_name]));
   if (!rides) return <LoadState error={error} label="走行一覧" />;
-  // 走行 ID（ride_<届いた日時>）の新しい順に並べる（GPS なしの走行は記録の日時が分からないため、走行 ID で並べる）
-  const sorted = [...rides].sort((a, b) => b.id.localeCompare(a.id));
+  const sorted = sortRides(rides, sort);
   const totalS = rides.reduce((s, r) => s + r.duration_s, 0);
   const totalKm = rides.reduce((s, r) => s + (r.gps === "none" ? 0 : r.distance_km), 0);
   const nGps = rides.filter((r) => r.gps !== "none").length;
@@ -31,10 +68,7 @@ export default function RideList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="走行一覧">
-        ハンターカブ CT125 に載せた ESP32 ロガー（GPS ＋ 加速度センサー）の記録です。1 秒ごとの振動を、地図とタイムラインで見られます。
-        GPS が取れなかった走行は、地図なしのタイムラインだけを表示します。
-      </PageHeader>
+      <PageHeader title="走行一覧" />
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Tile label="走行" value={String(rides.length)} unit="本" note={`GPS あり ${nGps} 本`} />
@@ -49,7 +83,16 @@ export default function RideList() {
       </section>
 
       <section>
-        <div className="mb-2 text-xs text-muted">新しい順（走行 ID の順。走行 ID は届いた日時）</div>
+        <div className="mb-3 flex justify-end">
+          <SortSelect
+            value={sort}
+            options={RIDE_SORT_OPTIONS}
+            onChange={(key) => {
+              setSort(key);
+              saveSort(key);
+            }}
+          />
+        </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((r) => (
             <RideCard key={r.id} ride={r} originalName={originalName.get(r.id) ?? null} />
