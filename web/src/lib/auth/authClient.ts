@@ -1,6 +1,7 @@
 // Cognito とのやりとり（ログイン・ログアウト・トークンの取り出し）。画面の部品はここを通してだけ使う。
 // 方式：アプリの画面で入れたユーザー名・パスワードで、ユーザープールに直接ログインする（USER_SRP_AUTH。パスワードそのものは送らない）。
-//       期限が切れたら更新用のトークンで取り直す（REFRESH_TOKEN_AUTH）。トークンはタブを閉じると消える sessionStorage に置く。
+//       期限が切れたら更新用のトークンで取り直す（REFRESH_TOKEN_AUTH）。トークンは localStorage に置き、タブやブラウザを閉じても
+//       更新用のトークンの期限（30 日、infra/cognito.tf）まではログインし直さずに使えるようにする（#63）。
 import "./nodeGlobal"; // ライブラリより先に読み込む（中身はそのファイル）
 import { AuthenticationDetails, CognitoUser, CognitoUserPool, type CognitoUserSession } from "amazon-cognito-identity-js";
 import { readAuthConfig } from "./authConfig";
@@ -17,19 +18,22 @@ export interface Credentials {
 /** ログインできなかったとき。message はそのまま画面に出せる文。 */
 export class SignInError extends Error {}
 
+/** トークンの置き場所。ここだけで決める。 */
+const TOKEN_STORAGE: Storage = window.localStorage;
+
 let pool: CognitoUserPool | null = null;
 
 function getPool(): CognitoUserPool {
   if (!pool) {
     const c = readAuthConfig();
-    pool = new CognitoUserPool({ UserPoolId: c.userPoolId, ClientId: c.clientId, Storage: window.sessionStorage });
+    pool = new CognitoUserPool({ UserPoolId: c.userPoolId, ClientId: c.clientId, Storage: TOKEN_STORAGE });
   }
   return pool;
 }
 
 /**
  * ユーザー名・パスワードでログインする。失敗したら SignInError（理由の文付き）。
- * 引数なしで呼ぶと「ログインし直してもらう」：このタブのトークンを消し、読み直してログイン画面を出す（開いていた画面の #/ride/... は残る）。
+ * 引数なしで呼ぶと「ログインし直してもらう」：このブラウザのトークンを消し、読み直してログイン画面を出す（開いていた画面の #/ride/... は残る）。
  */
 export async function signIn(credentials?: Credentials): Promise<void> {
   if (!credentials) {
@@ -37,7 +41,7 @@ export async function signIn(credentials?: Credentials): Promise<void> {
     window.location.reload();
     return;
   }
-  const user = new CognitoUser({ Username: credentials.username.trim(), Pool: getPool(), Storage: window.sessionStorage });
+  const user = new CognitoUser({ Username: credentials.username.trim(), Pool: getPool(), Storage: TOKEN_STORAGE });
   const details = new AuthenticationDetails({ Username: credentials.username.trim(), Password: credentials.password });
   await new Promise<void>((resolve, reject) => {
     user.authenticateUser(details, {
@@ -51,7 +55,7 @@ export async function signIn(credentials?: Credentials): Promise<void> {
   });
 }
 
-/** ログアウトする：更新用のトークンを Cognito で無効にし（失敗しても続ける）、このタブのトークンを消す。画面の切り替えは呼んだ側がする。 */
+/** ログアウトする：更新用のトークンを Cognito で無効にし（失敗しても続ける）、このブラウザのトークンを消す。画面の切り替えは呼んだ側がする。 */
 export async function signOut(): Promise<void> {
   const user = getPool().getCurrentUser();
   if (!user) return;
@@ -88,7 +92,7 @@ async function validSession(): Promise<CognitoUserSession | null> {
   });
 }
 
-/** このタブに置いたトークンを消す（Cognito には問い合わせない）。 */
+/** このブラウザに置いたトークンを消す（Cognito には問い合わせない）。 */
 function forgetTokens(): void {
   getPool().getCurrentUser()?.signOut();
 }
