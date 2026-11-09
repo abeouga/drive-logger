@@ -5,6 +5,7 @@ import { fmtDuration } from "../lib/format";
 import { listHref } from "../lib/route";
 import ActionButton from "../components/ActionButton";
 import LoadState from "../components/LoadState";
+import PageHeader from "../components/PageHeader";
 
 const KIND_LABEL: Record<string, string> = { desk: "机上", idle: "停車", ride: "実走", ride_nogps: "実走（GPS なし）" };
 
@@ -47,13 +48,10 @@ export default function Trash() {
   };
   return (
     <div className="flex flex-col gap-6">
-      <section>
-        <h1 className="text-xl font-semibold">ゴミ箱</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-ink-2">
-          画面から消した走行です。消しても生データと処理の結果は残ります。消した走行は画面に出さず、学習にも使いません。
-          「戻す」と一覧に戻ります（画面用のデータは数秒で戻ります）。
-        </p>
-      </section>
+      <PageHeader title="ゴミ箱">
+        画面から消した走行です。消しても生データと処理の結果は残ります。消した走行は画面に出さず、学習にも使いません。
+        「戻す」と一覧に戻ります（画面用のデータは数秒で戻ります）。
+      </PageHeader>
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">消した走行（{deleted.length}）</h2>
         {deleted.length === 0 ? <p className="text-sm text-ink-2">ありません。</p> : (

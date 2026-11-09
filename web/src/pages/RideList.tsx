@@ -2,6 +2,7 @@ import { useRides } from "../lib/data";
 import { fmtDuration, fmtKm } from "../lib/format";
 import RideCard from "../components/RideCard";
 import LoadState from "../components/LoadState";
+import PageHeader from "../components/PageHeader";
 
 function Tile({ label, value, unit, note }: { label: string; value: string; unit?: string; note?: string }) {
   return (
@@ -30,13 +31,10 @@ export default function RideList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section>
-        <h1 className="text-xl font-semibold">走行一覧</h1>
-        <p className="mt-1 max-w-3xl text-sm leading-relaxed text-ink-2">
-          ハンターカブ CT125 に載せた ESP32 ロガー（GPS ＋ 加速度センサー）の記録です。1 秒ごとの振動を、地図とタイムラインで見られます。
-          GPS が取れなかった走行は、地図なしのタイムラインだけを表示します。
-        </p>
-      </section>
+      <PageHeader title="走行一覧">
+        ハンターカブ CT125 に載せた ESP32 ロガー（GPS ＋ 加速度センサー）の記録です。1 秒ごとの振動を、地図とタイムラインで見られます。
+        GPS が取れなかった走行は、地図なしのタイムラインだけを表示します。
+      </PageHeader>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Tile label="走行" value={String(rides.length)} unit="本" note={`GPS あり ${nGps} 本`} />
