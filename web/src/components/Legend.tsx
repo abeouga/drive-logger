@@ -12,7 +12,7 @@ export default function Legend({ data }: { data: RideData }) {
     });
   }, [data]);
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-ink-2">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-2">
       <span className="text-muted">線の色＝その 1 秒の振動 rms（この走行の中での順位）</span>
       {QUINTILE.map((color, k) => (
         <span key={k} className="inline-flex items-center gap-1" title={QUINTILE_LABELS[k]}>
@@ -21,7 +21,7 @@ export default function Legend({ data }: { data: RideData }) {
         </span>
       ))}
       <span className="inline-flex items-center gap-1">
-        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-ink text-[9px] text-surface">1</span>
+        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-surface">1</span>
         見どころ（順位）
       </span>
     </div>

@@ -71,7 +71,7 @@ export default function AppShell({
         {userName && (
           <div className="mt-auto flex items-center justify-between gap-2 border-t border-line bg-surface-muted px-[15px] py-3.5 max-[980px]:mt-0 max-[980px]:ml-2 max-[980px]:border-t-0 max-[980px]:bg-transparent max-[980px]:p-0">
             <div className="min-w-0 max-[980px]:hidden">
-              <small className="block text-[11px] text-muted">ログイン中</small>
+              <small className="block text-xs text-muted">ログイン中</small>
               <strong className="block truncate text-xs text-ink" title={userName}>
                 {userName}
               </strong>

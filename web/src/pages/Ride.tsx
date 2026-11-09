@@ -38,7 +38,7 @@ function NoGpsCard({ summary }: { summary: RideSummary }) {
 
 function SpecNote() {
   return (
-    <p className="px-2 pb-1 text-[11px] leading-relaxed text-ink-2">
+    <p className="px-2 pb-1 text-xs leading-relaxed text-ink-2">
       濃いところほど、その周波数の振動が強いことを示します（この走行の中での相対値）。停車中に 20〜26 Hz 付近に出る横の帯は、
       アイドリング中のエンジンの振動と考えられます（1 回転に 1 回の振動とみなすと約 1,300〜1,500 rpm 相当。公称値とは未照合）。
       ロガーは置いただけの暫定の固定なので、置き方による揺れ（共振）も含みます。
@@ -163,13 +163,13 @@ export default function Ride({ id }: { id: string }) {
           value={chartTab}
           onChange={setChartTab}
         />
-        <span className="text-[11px] text-ink-2">
+        <span className="text-xs text-ink-2">
           横軸：{data.has_abs_time ? "時刻（日本時間）" : "記録開始からの時間（GPS がないため時刻は不明）"}
         </span>
       </div>
       {chartTab === "timeline" || !spec ? (
         <>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-2 pt-2 text-[11px] text-ink-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-2 pt-2 text-xs text-ink-2">
             <span className="inline-flex items-center gap-1">
               <span className="inline-block h-3 w-4 rounded-sm" style={{ background: "rgba(137,135,129,0.18)" }} />
               停止中{hasGps && "／GPS なし（濃い灰）"}
