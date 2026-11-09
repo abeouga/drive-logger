@@ -2,7 +2,6 @@
 import type { RideData, Waveform } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
 import { BASIS_TEXT, type Selection } from "../lib/series";
-import type { Theme } from "../lib/theme";
 import WaveChart from "./WaveChart";
 
 interface Props {
@@ -10,7 +9,6 @@ interface Props {
   selected: Selection;
   ranked: number[];
   waves: Map<number, Waveform>;
-  theme: Theme;
   onSelect: (i: Selection) => void;
 }
 
@@ -56,7 +54,7 @@ function Bands({ data, i }: { data: RideData; i: number }) {
   );
 }
 
-export default function DetailPanel({ data, selected, ranked, waves, theme, onSelect }: Props) {
+export default function DetailPanel({ data, selected, ranked, waves, onSelect }: Props) {
   const c = data.columns;
   if (selected === null) {
     return (
@@ -114,7 +112,7 @@ export default function DetailPanel({ data, selected, ranked, waves, theme, onSe
       <div>
         <div className="text-xs text-ink-2">この 1 秒の生波形（各軸の平均＝重力を引いたもの）</div>
         {waves.get(i) ? (
-          <WaveChart wave={waves.get(i)!} theme={theme} />
+          <WaveChart wave={waves.get(i)!} />
         ) : (
           <p className="mt-1 text-[11px] text-muted">生波形は、ファイルを小さく保つため見どころの窓だけ書き出しています。見どころ一覧から選ぶと表示されます。</p>
         )}

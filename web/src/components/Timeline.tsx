@@ -11,13 +11,12 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { RideData } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
 import { nearestIndex, runs, xValues, type Selection } from "../lib/series";
-import { cssVar, type Theme } from "../lib/theme";
+import { cssVar } from "../lib/theme";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, AxisPointerComponent, CanvasRenderer]);
 
 interface Props {
   data: RideData;
-  theme: Theme;
   hover: Selection;
   selected: Selection;
   ranked: number[];
@@ -36,7 +35,7 @@ interface Panel {
   digits: number;
 }
 
-export default function Timeline({ data, theme, hover, selected, ranked, onHover, onSelect, onRange }: Props) {
+export default function Timeline({ data, hover, selected, ranked, onHover, onSelect, onRange }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const cb = useRef({ onHover, onSelect, onRange });
@@ -193,7 +192,7 @@ export default function Timeline({ data, theme, hover, selected, ranked, onHover
       chart.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, theme, panels, ranked, xs]);
+  }, [data, panels, ranked, xs]);
 
   // 地図側のカーソル → グラフのカーソル
   useEffect(() => {
@@ -224,7 +223,7 @@ export default function Timeline({ data, theme, hover, selected, ranked, onHover
         },
       })),
     });
-  }, [selected, panels, xs, data, theme]);
+  }, [selected, panels, xs, data]);
 
   return <div ref={box} className="h-full w-full" />;
 }

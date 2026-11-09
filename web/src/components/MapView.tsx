@@ -11,14 +11,13 @@ import workerSrc from "maplibre-gl/dist/maplibre-gl-worker.mjs?raw";
 import type { RideData } from "../lib/data";
 import { MAP_STYLE, QUINTILE } from "../lib/colors";
 import { hasCoord, type Selection } from "../lib/series";
-import { cssVar, type Theme } from "../lib/theme";
+import { cssVar } from "../lib/theme";
 
 // 1 ファイル配信ではワーカーの .mjs が別に置けないので、文字列から Blob URL を作って渡す
 setWorkerUrl(URL.createObjectURL(new Blob([workerSrc], { type: "text/javascript" })));
 
 interface Props {
   data: RideData;
-  theme: Theme;
   hover: Selection;
   selected: Selection;
   range: [number, number] | null;
@@ -66,7 +65,7 @@ function bounds(d: RideData, from = 0, to = d.n - 1): LngLatBoundsLike | null {
   return Number.isFinite(w) ? [[w, s], [e, n]] : null;
 }
 
-export default function MapView({ data, theme, hover, selected, range, ranked, onHover, onSelect }: Props) {
+export default function MapView({ data, hover, selected, range, ranked, onHover, onSelect }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MLMap | null>(null);
   const ready = useRef(false);
@@ -85,7 +84,7 @@ export default function MapView({ data, theme, hover, selected, range, ranked, o
     const b = bounds(data);
     const m = new MLMap({
       container: box.current,
-      style: MAP_STYLE[theme],
+      style: MAP_STYLE,
       bounds: b ?? undefined,
       fitBoundsOptions: { padding: 32 },
       attributionControl: { compact: true },
@@ -116,7 +115,6 @@ export default function MapView({ data, theme, hover, selected, range, ranked, o
       const ink = cssVar("--ink");
       const surface = cssVar("--surface");
       const accent = cssVar("--accent");
-      const ramp = QUINTILE[theme];
       m.addSource("segs", { type: "geojson", data: segs });
       m.addSource("marks", { type: "geojson", data: marks });
       m.addSource("cursor", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
@@ -129,7 +127,7 @@ export default function MapView({ data, theme, hover, selected, range, ranked, o
         type: "line",
         source: "segs",
         layout: { "line-cap": "round", "line-join": "round" },
-        paint: { "line-color": ["match", ["get", "cls"], 0, ramp[0], 1, ramp[1], 2, ramp[2], 3, ramp[3], ramp[4]], "line-width": 4 },
+        paint: { "line-color": ["match", ["get", "cls"], 0, QUINTILE[0], 1, QUINTILE[1], 2, QUINTILE[2], 3, QUINTILE[3], QUINTILE[4]], "line-width": 4 },
       });
       // クリックしやすいように、透明の太い線を当たり判定に使う
       m.addLayer({ id: "segs-hit", type: "line", source: "segs", paint: { "line-color": "#000", "line-opacity": 0, "line-width": 16 } });
@@ -174,7 +172,7 @@ export default function MapView({ data, theme, hover, selected, range, ranked, o
       m.remove();
       map.current = null;
     };
-  }, [data, theme, segs, marks]);
+  }, [data, segs, marks]);
 
   // カーソル位置と選択の点（地図の準備前なら、準備完了時に load の中で反映する）
   applyPoints.current = () => {

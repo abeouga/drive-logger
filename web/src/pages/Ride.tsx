@@ -6,7 +6,6 @@ import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { listHref } from "../lib/route";
 import { rankedHighlights, type Selection } from "../lib/series";
-import { useTheme } from "../lib/theme";
 import { useMediaQuery } from "../lib/media";
 import MapView from "../components/MapView";
 import Legend from "../components/Legend";
@@ -51,7 +50,6 @@ export default function Ride({ id }: { id: string }) {
   const { isAdmin } = useAuth();
   const summary = rides?.find((r) => r.id === id);
   const originalName = ledger?.find((r) => r.id === id)?.original_name ?? null;
-  const theme = useTheme();
   const wide = useMediaQuery("(min-width: 1024px)");
   const [data, setData] = useState<RideData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,9 +140,9 @@ export default function Ride({ id }: { id: string }) {
       {hasMap ? (
         <>
           <div className="h-[340px] overflow-hidden rounded-lg border border-line bg-surface sm:h-[420px]">
-            <MapView data={data} theme={theme} range={range} ranked={ranked} {...shared} />
+            <MapView data={data} range={range} ranked={ranked} {...shared} />
           </div>
-          <Legend data={data} theme={theme} />
+          <Legend data={data} />
         </>
       ) : (
         <NoGpsCard summary={summary} />
@@ -154,7 +152,7 @@ export default function Ride({ id }: { id: string }) {
 
   const detailBlock = (
     <div className="rounded-lg border border-line bg-surface p-4 lg:max-h-[460px] lg:overflow-y-auto">
-      <DetailPanel data={data} selected={selected} ranked={ranked} waves={waves} theme={theme} onSelect={setSelected} />
+      <DetailPanel data={data} selected={selected} ranked={ranked} waves={waves} onSelect={setSelected} />
     </div>
   );
 
@@ -181,13 +179,13 @@ export default function Ride({ id }: { id: string }) {
             <span>ホイール・ピンチで拡大、下のバーで範囲を選ぶと地図がその区間に寄ります</span>
           </div>
           <div className={hasGps ? "h-[460px]" : "h-[340px]"}>
-            <Timeline data={data} theme={theme} ranked={ranked} onRange={setRange} {...shared} />
+            <Timeline data={data} ranked={ranked} onRange={setRange} {...shared} />
           </div>
         </>
       ) : (
         <>
           <SpecNote />
-          <Spectrogram data={data} spec={spec} theme={theme} onRange={setRange} {...shared} />
+          <Spectrogram data={data} spec={spec} onRange={setRange} {...shared} />
         </>
       )}
     </div>
