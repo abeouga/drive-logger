@@ -59,3 +59,163 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* 部品の形（文之助の Flat Design 2.0 の .primary・.secondary・.danger-button・.compact・.form-card・入力欄・.status-pill・.notice に合わせる）。
+   各部品はこの名前で使い、余白や並べ方だけを Tailwind で足す */
+@layer components {
+  .card {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 2px 8px #1c35450a;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 10px 17px;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1.2;
+    cursor: pointer;
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      color 0.15s ease,
+      box-shadow 0.15s ease,
+      transform 0.15s ease;
+  }
+  .btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+  .btn-primary {
+    border-color: var(--accent-dark);
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 2px 4px #174c7224;
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--accent-dark);
+    transform: translateY(-1px);
+  }
+  .btn-secondary {
+    border-color: #aebbc6;
+    background: #fff;
+    color: #263846;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: #7e94a5;
+    background: #f3f7fa;
+  }
+  .btn-danger {
+    border-color: #dcaaa6;
+    background: #fff5f4;
+    color: var(--critical);
+  }
+  .btn-danger:hover:not(:disabled) {
+    border-color: #c67872;
+    background: #fce9e7;
+  }
+  .btn-compact {
+    min-height: 34px;
+    padding: 7px 12px;
+    font-size: 12px;
+  }
+
+  .field {
+    min-height: 40px;
+    border: 1px solid var(--border-strong);
+    border-radius: 7px;
+    background: #fff;
+    padding: 9px 11px;
+    color: var(--ink);
+    font-size: 13px;
+  }
+  .field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px #4b9bd329;
+  }
+
+  .tabs {
+    display: inline-flex;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 4px;
+  }
+  .tab {
+    min-height: 34px;
+    border-radius: 7px;
+    padding: 6px 12px;
+    color: var(--ink-2);
+    font-size: 13px;
+    font-weight: 700;
+    transition:
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .tab:hover {
+    background: var(--surface-muted);
+    color: var(--ink);
+  }
+  .tab[aria-selected="true"] {
+    background: var(--accent-wash);
+    color: var(--accent-dark);
+    font-weight: 800;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 3px 9px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: nowrap;
+  }
+  .pill-accent {
+    background: var(--accent-wash);
+    color: var(--accent-dark);
+  }
+  .pill-muted {
+    background: var(--surface-muted);
+    color: var(--ink-2);
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .pill-success {
+    background: #dff1e6;
+    color: var(--success);
+  }
+  .pill-critical {
+    background: #fae5e1;
+    color: var(--critical);
+  }
+
+  .notice {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 9px;
+    background: var(--surface);
+    padding: 12px 15px;
+    color: var(--ink-2);
+    font-size: 13px;
+    line-height: 1.65;
+  }
+  .notice-danger {
+    border-color: #efc9c0;
+    border-left-color: #b85d49;
+    background: #fff2ef;
+    color: #8d4537;
+  }
+}

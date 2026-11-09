@@ -14,9 +14,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Box({ title, body, future = false }: { title: string; body: string; future?: boolean }) {
   return (
-    <div className={`flex-1 rounded-lg border bg-surface px-3 py-2 ${future ? "border-dashed border-line" : "border-ink/30"}`}>
+    <div className={`flex-1 px-3 py-2 ${future ? "rounded-[12px] border border-dashed border-line-strong bg-surface-muted" : "card"}`}>
       <div className={`text-sm font-semibold ${future ? "text-ink-2" : "text-ink"}`}>{title}</div>
-      <div className="text-[11px] leading-snug text-ink-2">{body}</div>
+      <div className="text-xs leading-snug text-ink-2">{body}</div>
     </div>
   );
 }
@@ -57,7 +57,7 @@ export default function About() {
           <Box future title="将来：SageMaker で学習" body="今は Lambda の学習し直しで足りる量。走行が増えたら移す" />
           <Box future title="将来：ECU の情報" body="端子・電圧・通信方式を安全に確かめてから" />
         </div>
-        <p className="text-[11px] text-muted">実線の枠は今回作ったもの、点線の枠は設計だけで、まだ作っていないものです。</p>
+        <p className="text-xs text-muted">実線の枠は今回作ったもの、点線の枠は設計だけで、まだ作っていないものです。</p>
       </Section>
 
       <Section title="処理の流れ">

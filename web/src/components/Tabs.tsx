@@ -16,7 +16,7 @@ export default function Tabs<K extends string>({ items, value, onChange, label, 
     refs.current[next]?.focus();
   };
   return (
-    <div role="tablist" aria-label={label} className={`inline-flex rounded-lg border border-line bg-surface p-0.5 ${className}`}>
+    <div role="tablist" aria-label={label} className={`tabs ${className}`}>
       {items.map((t, k) => (
         <button
           key={t.key}
@@ -28,7 +28,7 @@ export default function Tabs<K extends string>({ items, value, onChange, label, 
           tabIndex={value === t.key ? 0 : -1}
           onClick={() => onChange(t.key)}
           onKeyDown={(e) => onKey(e, k)}
-          className={`rounded-md px-3 py-1 text-sm transition ${value === t.key ? "bg-accent-wash font-semibold text-ink ring-1 ring-accent/40" : "text-ink-2 hover:text-ink"}`}
+          className="tab"
         >
           {t.label}
         </button>
