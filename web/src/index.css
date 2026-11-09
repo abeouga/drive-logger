@@ -127,6 +127,14 @@ body {
     padding: 7px 12px;
     font-size: 12px;
   }
+  /* アイコンだけのボタン（正方形） */
+  .btn-icon {
+    width: 40px;
+    padding: 0;
+  }
+  .btn-icon.btn-compact {
+    width: 34px;
+  }
 
   .field {
     min-height: 40px;

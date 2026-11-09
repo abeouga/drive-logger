@@ -1,9 +1,9 @@
-import { deleteRide, type RideSummary } from "../lib/data";
+import type { RideSummary } from "../lib/data";
 import { useAuth } from "../lib/auth/AuthGate";
-import ActionButton from "./ActionButton";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { rideHref } from "../lib/route";
 import Sparkline from "./Sparkline";
+import TrashButton from "./TrashButton";
 
 const GPS_LABEL = { full: "GPS あり", partial: "GPS 一部", none: "GPS なし" } as const;
 const SHORT_S = 5 * 60;
@@ -30,7 +30,8 @@ export default function RideCard({ ride, originalName = null }: { ride: RideSumm
   const short = ride.duration_s < SHORT_S;
   const when = ride.start_ms !== null ? `${fmtDate(ride.start_ms)} ${fmtTime(ride.start_ms)}` : "日時不明（GPS なし）";
   return (
-    <div className="card flex flex-col transition hover:border-accent">
+    // ゴミ箱のボタンはリンクの外に重ねて置く（リンクの中にボタンを入れない。押しても走行の画面へ移らない）
+    <div className="card relative flex flex-col transition hover:border-accent">
     <a
       href={rideHref(ride.id)}
       className="group flex flex-1 flex-col gap-3 rounded-[12px] p-4"
@@ -63,7 +64,7 @@ export default function RideCard({ ride, originalName = null }: { ride: RideSumm
 
       {ride.memo && <p className="line-clamp-2 text-xs text-ink-2">{ride.memo}</p>}
 
-      <div className="mt-auto flex items-center justify-between text-xs text-ink-2">
+      <div className={`mt-auto flex min-h-[34px] items-center justify-between text-xs text-ink-2 ${isAdmin ? "pr-11" : ""}`}>
         <span>
           見どころ <span className="tabular text-ink">{ride.n_highlights}</span> 窓
         </span>
@@ -71,13 +72,8 @@ export default function RideCard({ ride, originalName = null }: { ride: RideSumm
       </div>
     </a>
     {isAdmin && (
-      <div className="flex justify-end border-t border-line px-4 py-2">
-        <ActionButton
-          label="この走行を消す"
-          tone="danger"
-          confirmText={`${ride.id} を画面と学習から外します。生データは残り、ゴミ箱から戻せます。よろしいですか？`}
-          onRun={() => deleteRide(ride.id)}
-        />
+      <div className="absolute right-4 bottom-4">
+        <TrashButton rideId={ride.id} />
       </div>
     )}
     </div>
