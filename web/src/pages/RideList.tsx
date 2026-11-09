@@ -77,8 +77,8 @@ export default function RideList() {
         <Tile
           label="見どころ"
           value={String(nHl)}
-          unit="窓"
-          note={nZ === 0 ? "z_speed > 3 の窓はなし。各走行のスコア上位を表示" : `うち z_speed > 3 が ${nZ} 窓`}
+          unit="か所"
+          note={nZ === 0 ? "大きな揺れはなし。各走行で目立つ所を表示" : `うち大きな揺れ ${nZ} か所`}
         />
       </section>
 

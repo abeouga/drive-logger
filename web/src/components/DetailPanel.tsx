@@ -62,7 +62,7 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
         <h2 className="text-sm font-semibold">見どころ</h2>
         <p className="text-xs leading-relaxed text-ink-2">{BASIS_TEXT[data.highlight_basis]}。地図の線やグラフをクリックすると、その 1 秒の値をここに表示します。</p>
         {ranked.length === 0 ? (
-          <p className="text-xs text-muted">この走行には対象の窓がありません（記録が短く、先頭・末尾 60 秒を除くと残らないため）。</p>
+          <p className="text-xs text-muted">この走行には見どころがありません（記録が短く、先頭・末尾 60 秒を除くと残らないため）。</p>
         ) : (
           <ol className="flex flex-col">
             {ranked.map((i, k) => (
@@ -114,7 +114,7 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
         {waves.get(i) ? (
           <WaveChart wave={waves.get(i)!} />
         ) : (
-          <p className="mt-1 text-xs text-muted">生波形は、ファイルを小さく保つため見どころの窓だけ書き出しています。見どころ一覧から選ぶと表示されます。</p>
+          <p className="mt-1 text-xs text-muted">生波形は、ファイルを小さく保つため見どころの所だけ書き出しています。見どころ一覧から選ぶと表示されます。</p>
         )}
       </div>
       <div className="flex flex-wrap gap-1">
@@ -123,7 +123,7 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
         {c.is_clipped[i] && <span className="pill pill-muted">±16 g に達したサンプルを含む</span>}
       </div>
       <p className="text-xs leading-relaxed text-muted">
-        値の大きい窓は、路面または車両に起因する振動の変化を示します。ロガーは車体に置いただけの暫定の固定なので、置き方による揺れも含みます。
+        値の大きい所は、路面または車両に起因する振動の変化を示します。ロガーは車体に置いただけの暫定の固定なので、置き方による揺れも含みます。
       </p>
     </div>
   );
