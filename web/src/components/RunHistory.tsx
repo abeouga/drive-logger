@@ -34,7 +34,7 @@ export default function RunHistory({ rideId }: { rideId: string }) {
               <span className="text-xs">
                 {describe(run)}
                 {run.published && <span className="ml-2 rounded bg-accent-wash px-1.5 py-0.5 text-[11px]">公開中</span>}
-                {run.status === "failed" && <span className="ml-2 text-[11px] text-red-600">失敗</span>}
+                {run.status === "failed" && <span className="ml-2 text-[11px] text-critical">失敗</span>}
               </span>
               <span className="text-[11px] text-muted">{run.run_id}</span>
               {run.error && <span className="text-[11px] break-all text-ink-2">{run.error}</span>}
