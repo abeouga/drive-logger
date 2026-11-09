@@ -17,7 +17,7 @@
 ブラウザ ─https→ CloudFront（drive.herdio-system.com）
                    ├─ /*      → S3 webapp/            React のビルド結果。走行データは入っていない
                    └─ /api/*  → API Gateway（JWT を検証）→ Lambda（api/、FastAPI）→ 公開用のバケット datasets/<データセット>/
-ログイン：Cognito（managed login、認可コード＋PKCE）。アクセストークンを /api に付ける
+ログイン：アプリの画面からユーザープールに直接（USER_SRP_AUTH、更新は REFRESH_TOKEN_AUTH）。アクセストークンを /api に付ける
 ```
 
 - バケットは非公開のまま。CloudFront は `webapp/` だけ、データ API の Lambda は公開用のバケットの `datasets/` だけを読める

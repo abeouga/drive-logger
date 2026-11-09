@@ -26,8 +26,8 @@ npm run dev
 
 http://localhost:5173 を開き、公開版と同じユーザーでログインする。
 
-- Cognito のログインの戻り先に `http://localhost:5173/` を入れてある（`infra/cognito.tf`）。ポートを変えるとログインから戻れない
-- 認可コードは PKCE で守っているので、ほかの人が localhost を開いてもコードだけでは使えない
+- ログインはアプリの画面で、ユーザープールに直接する（USER_SRP_AUTH。パスワードそのものは送らない）。Cognito の画面へは移らないので、戻り先の URL には左右されない
+- トークンはタブごとの sessionStorage に置く。タブを閉じるとログインし直し
 - admin でログインすると「この走行を消す」「ゴミ箱」「この結果に戻す」「このモデルに切り替える」が出る。**本番のデータが変わる**ので、確かめるときは戻せる操作（消す → 戻す など）だけにする
 
 ## 手元のデータ API につなぐ（ログインなし）
@@ -58,7 +58,6 @@ npm run dev:local
 
 | 症状 | 原因と対処 |
 |---|---|
-| ログイン画面から戻ると「redirect_mismatch」 | Cognito の戻り先に `http://localhost:5173/` が無い（`terraform -chdir=infra apply`）か、ポートが 5173 でない |
 | 起動時に「VITE_AUTH_AUTHORITY が設定されていません」 | `start.bat`（`scripts/start-dev.ps1`）で起動する。Terraform の出力からログインの設定を作る |
 | `npm run dev:local` で「走行一覧を読み込めませんでした」 | 手元のデータ API（http://localhost:8000）が動いているか、その AWS の認証が切れていないか（`aws sts get-caller-identity --profile ct125-logger`） |
 | 「…がありません（HTTP 404）」 | 公開用のバケットの `datasets/shared/` にまだ無い。処理の Lambda（`ct125-ride-pipeline`）のログを確かめる |

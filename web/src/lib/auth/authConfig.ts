@@ -1,23 +1,25 @@
 // ログインの設定。値は .env.production.local（公開版。scripts/deploy.ps1 が作る）か .env.development.local（dev。scripts/start-dev.ps1 が作る）から入る。どちらも Terraform の出力から。
 // どれも秘密ではない（ブラウザに見えてよい値）。
 export interface AuthConfig {
-  /** OIDC の発行元：https://cognito-idp.<region>.amazonaws.com/<ユーザープール ID> */
-  authority: string;
+  /** ユーザープール ID（<region>_<文字列>） */
+  userPoolId: string;
   /** Cognito のアプリクライアント ID（シークレットなし） */
   clientId: string;
-  /** ログイン画面のドメイン：https://<prefix>.auth.<region>.amazoncognito.com（ログアウトで使う） */
-  loginDomain: string;
-  /** ログイン後・ログアウト後に戻ってくる URL（このサイトのトップ） */
-  returnUrl: string;
 }
 
 export function readAuthConfig(): AuthConfig {
+  const authority = required("VITE_AUTH_AUTHORITY", import.meta.env.VITE_AUTH_AUTHORITY);
   return {
-    authority: required("VITE_AUTH_AUTHORITY", import.meta.env.VITE_AUTH_AUTHORITY),
+    userPoolId: userPoolIdOf(authority),
     clientId: required("VITE_AUTH_CLIENT_ID", import.meta.env.VITE_AUTH_CLIENT_ID),
-    loginDomain: required("VITE_AUTH_DOMAIN", import.meta.env.VITE_AUTH_DOMAIN),
-    returnUrl: `${window.location.origin}/`,
   };
+}
+
+/** 発行元 https://cognito-idp.<region>.amazonaws.com/<ユーザープール ID> から、ユーザープール ID を取り出す。 */
+function userPoolIdOf(authority: string): string {
+  const id = authority.replace(/\/+$/, "").split("/").pop() ?? "";
+  if (!/^[a-z0-9-]+_[A-Za-z0-9]+$/.test(id)) throw new Error(`VITE_AUTH_AUTHORITY からユーザープール ID を読めません：${authority}`);
+  return id;
 }
 
 function required(name: string, value: string | undefined): string {
