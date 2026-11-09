@@ -62,13 +62,15 @@ resource "aws_cognito_user_pool_client" "web" {
   prevent_user_existence_errors = "ENABLED"
   enable_token_revocation       = true
 
+  # API に付けるトークンは短く保ち、期限が切れたら更新用のトークンで取り直す。
+  # 更新用のトークンは 30 日にして、1 か月はログインし直さずに使えるようにする（#63）
   access_token_validity  = 60
   id_token_validity      = 60
-  refresh_token_validity = 12
+  refresh_token_validity = 30
   token_validity_units {
     access_token  = "minutes"
     id_token      = "minutes"
-    refresh_token = "hours"
+    refresh_token = "days"
   }
 }
 
