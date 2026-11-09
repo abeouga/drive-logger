@@ -22,7 +22,7 @@ export default function RunHistory({ rideId }: { rideId: string }) {
   if (!value) return null;
   const published = value.runs.find((r) => r.published);
   return (
-    <details className="rounded-lg border border-line bg-surface px-4 py-3 text-sm">
+    <details className="card px-4 py-3 text-sm">
       <summary className="cursor-pointer text-ink-2">
         処理の記録：{published ? describe(published) : "公開中の結果はありません"}
         {value.runs.length > 1 && `（ほか ${value.runs.length - 1} 回）`}
@@ -33,11 +33,11 @@ export default function RunHistory({ rideId }: { rideId: string }) {
             <div className="flex flex-col">
               <span className="text-xs">
                 {describe(run)}
-                {run.published && <span className="ml-2 rounded bg-accent-wash px-1.5 py-0.5 text-[11px]">公開中</span>}
-                {run.status === "failed" && <span className="ml-2 text-[11px] text-critical">失敗</span>}
+                {run.published && <span className="pill pill-accent ml-2">公開中</span>}
+                {run.status === "failed" && <span className="pill pill-critical ml-2">失敗</span>}
               </span>
-              <span className="text-[11px] text-muted">{run.run_id}</span>
-              {run.error && <span className="text-[11px] break-all text-ink-2">{run.error}</span>}
+              <span className="text-xs text-muted">{run.run_id}</span>
+              {run.error && <span className="text-xs break-all text-ink-2">{run.error}</span>}
             </div>
             {isAdmin && !run.published && run.status === "succeeded" && (
               <ActionButton

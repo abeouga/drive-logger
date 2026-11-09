@@ -44,9 +44,9 @@ function Record({ record }: { record: ModelRecord }) {
         </p>
       )}
       {notes.value && (
-        <details className="rounded border border-line bg-page px-3 py-2">
+        <details className="rounded-lg border border-line bg-surface-muted px-3 py-2">
           <summary className="cursor-pointer text-xs">ナレッジ（notes.md）</summary>
-          <pre className="mt-2 text-[11px] leading-relaxed whitespace-pre-wrap">{notes.value}</pre>
+          <pre className="mt-2 text-xs leading-relaxed whitespace-pre-wrap">{notes.value}</pre>
         </details>
       )}
     </div>
@@ -71,7 +71,7 @@ export default function ModelInfo() {
             <li key={m.version} className="flex flex-wrap items-center justify-between gap-2 border-t border-line pt-1 text-xs">
               <span className="tabular">
                 {m.version}
-                {m.version === current && <span className="ml-2 rounded bg-accent-wash px-1.5 py-0.5 text-[11px]">使用中</span>}
+                {m.version === current && <span className="pill pill-accent ml-2">使用中</span>}
                 <span className="ml-2 text-ink-2">
                   {m.has_record ? `${fmt(m.created_at)}・${m.where === "lambda" ? "Lambda" : "ローカル"}・走行 ${m.n_rides}・1 秒 ${m.n_windows?.toLocaleString()}` : "記録なし（作り直しの前の版）"}
                 </span>

@@ -10,7 +10,7 @@ const KIND_LABEL: Record<string, string> = { desk: "机上", idle: "停車", rid
 
 function Row({ ride, onRestored }: { ride: LedgerRide; onRestored: () => void }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+    <li className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div className="flex flex-col">
         <span className="font-semibold">{ride.id}</span>
         <span className="text-xs text-ink-2">
@@ -65,7 +65,7 @@ export default function Trash() {
         <p className="text-xs text-ink-2">振動の中央値が 0.05 g 未満（エンジンの振動が無い）の走行です。分類は処理のたびに自動で付きます。</p>
         <ul className="flex flex-col gap-2">
           {hidden.map((r) => (
-            <li key={r.id} className="flex items-center justify-between rounded-lg border border-dashed border-line px-4 py-2 text-sm">
+            <li key={r.id} className="flex items-center justify-between rounded-[12px] border border-dashed border-line-strong bg-surface-muted px-4 py-2 text-sm">
               <span>{r.id}</span>
               <span className="text-xs text-ink-2">{r.summary ? `振動 rms 中央値 ${r.summary.rms_median.toFixed(3)} g` : ""}</span>
             </li>

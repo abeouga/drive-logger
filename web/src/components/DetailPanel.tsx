@@ -43,11 +43,11 @@ function Bands({ data, i }: { data: RideData; i: number }) {
       <div className="text-xs text-ink-2">帯域ごとの振動の割合（1〜40 Hz の合計に対する比）</div>
       {items.map(([label, v]) => (
         <div key={label} className="flex items-center gap-2">
-          <span className="w-16 shrink-0 text-[11px] text-ink-2">{label}</span>
+          <span className="w-16 shrink-0 text-xs text-ink-2">{label}</span>
           <div className="h-2 flex-1 rounded-full bg-grid">
             <div className="h-2 rounded-full bg-accent" style={{ width: `${Math.max(0, Math.min(1, v ?? 0)) * 100}%` }} />
           </div>
-          <span className="tabular w-10 text-right text-[11px]">{v === null ? "—" : `${Math.round(v * 100)}%`}</span>
+          <span className="tabular w-10 text-right text-xs">{v === null ? "—" : `${Math.round(v * 100)}%`}</span>
         </div>
       ))}
     </div>
@@ -69,9 +69,9 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
               <li key={i}>
                 <button
                   onClick={() => onSelect(i)}
-                  className="flex w-full items-center gap-3 rounded px-2 py-1.5 text-left hover:bg-accent-wash"
+                  className="flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left hover:bg-accent-wash"
                 >
-                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] text-surface">{k + 1}</span>
+                  <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-xs text-surface">{k + 1}</span>
                   <span className="tabular w-20 shrink-0 text-xs">{when(data, i)}</span>
                   <span className="tabular flex-1 text-xs text-ink-2">
                     {c.speed[i] !== null && `${num(c.speed[i], 0)} km/h ・ `}rms {num(c.rms[i], 2)} g
@@ -97,7 +97,7 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
           <div className="text-xs text-ink-2">選んだ 1 秒{rank >= 0 && `（見どころ ${rank + 1} 位）`}</div>
           <div className="tabular text-lg font-semibold">{when(data, i)}</div>
         </div>
-        <button onClick={() => onSelect(null)} className="rounded border border-line px-2 py-1 text-xs text-ink-2 hover:text-ink">
+        <button onClick={() => onSelect(null)} className="btn btn-secondary btn-compact shrink-0">
           見どころ一覧へ
         </button>
       </div>
@@ -114,15 +114,15 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
         {waves.get(i) ? (
           <WaveChart wave={waves.get(i)!} />
         ) : (
-          <p className="mt-1 text-[11px] text-muted">生波形は、ファイルを小さく保つため見どころの窓だけ書き出しています。見どころ一覧から選ぶと表示されます。</p>
+          <p className="mt-1 text-xs text-muted">生波形は、ファイルを小さく保つため見どころの窓だけ書き出しています。見どころ一覧から選ぶと表示されます。</p>
         )}
       </div>
-      <div className="flex flex-wrap gap-1 text-[11px] text-ink-2">
-        {c.is_stopped[i] && <span className="rounded border border-line px-1.5 py-0.5">停止中（5 km/h 未満）</span>}
-        {c.is_edge[i] && <span className="rounded border border-line px-1.5 py-0.5">記録の先頭・末尾 60 秒</span>}
-        {c.is_clipped[i] && <span className="rounded border border-line px-1.5 py-0.5">±16 g に達したサンプルを含む</span>}
+      <div className="flex flex-wrap gap-1">
+        {c.is_stopped[i] && <span className="pill pill-muted">停止中（5 km/h 未満）</span>}
+        {c.is_edge[i] && <span className="pill pill-muted">記録の先頭・末尾 60 秒</span>}
+        {c.is_clipped[i] && <span className="pill pill-muted">±16 g に達したサンプルを含む</span>}
       </div>
-      <p className="text-[11px] leading-relaxed text-muted">
+      <p className="text-xs leading-relaxed text-muted">
         値の大きい窓は、路面または車両に起因する振動の変化を示します。ロガーは車体に置いただけの暫定の固定なので、置き方による揺れも含みます。
       </p>
     </div>
