@@ -6,17 +6,12 @@ import { LineChart } from "echarts/charts";
 import { GridComponent, TooltipComponent, LegendComponent } from "echarts/components";
 import { CanvasRenderer } from "echarts/renderers";
 import type { Waveform } from "../lib/data";
-import { cssVar, type Theme } from "../lib/theme";
+import { SERIES } from "../lib/colors";
+import { cssVar } from "../lib/theme";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, LegendComponent, CanvasRenderer]);
 
-// 系列の色：データ可視化の参照パレットの 1〜3 番目（3 色まではどの組も色覚の違いで見分けられる）
-const AXIS_COLORS: Record<Theme, string[]> = {
-  light: ["#2a78d6", "#eb6834", "#1baf7a"],
-  dark: ["#3987e5", "#d95926", "#199e70"],
-};
-
-export default function WaveChart({ wave, theme }: { wave: Waveform; theme: Theme }) {
+export default function WaveChart({ wave }: { wave: Waveform }) {
   const box = useRef<HTMLDivElement>(null);
   const series = useMemo(() => {
     const ms = wave.ax.map((_, k) => +((k / wave.fs) * 1000).toFixed(1));
@@ -35,7 +30,6 @@ export default function WaveChart({ wave, theme }: { wave: Waveform; theme: Them
   useEffect(() => {
     if (!box.current) return;
     const ink = cssVar("--ink"), ink2 = cssVar("--ink-2"), muted = cssVar("--muted"), grid = cssVar("--grid"), axis = cssVar("--axis"), surface = cssVar("--surface");
-    const colors = AXIS_COLORS[theme];
     const c = echarts.init(box.current);
     const xAxis = (k: number) => ({
       gridIndex: k,
@@ -87,8 +81,8 @@ export default function WaveChart({ wave, theme }: { wave: Waveform; theme: Them
           yAxisIndex: 1,
           data: s.data,
           showSymbol: false,
-          lineStyle: { width: 1.2, color: colors[k] },
-          itemStyle: { color: colors[k] },
+          lineStyle: { width: 1.2, color: SERIES[k] },
+          itemStyle: { color: SERIES[k] },
           // 線の右端に軸の名前（色だけに頼らない）
           endLabel: { show: true, formatter: s.name.replace(" 軸", ""), color: ink2, fontSize: 10 },
         })),
@@ -100,7 +94,7 @@ export default function WaveChart({ wave, theme }: { wave: Waveform; theme: Them
       ro.disconnect();
       c.dispose();
     };
-  }, [series, theme]);
+  }, [series]);
 
   return <div ref={box} className="h-[220px] w-full" />;
 }

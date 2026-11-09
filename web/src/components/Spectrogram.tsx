@@ -1,5 +1,5 @@
 // スペクトログラム：横＝時刻（1 秒窓）、縦＝周波数 0〜200 Hz、濃さ＝その周波数の振動の強さ（走行の中での相対値）。
-// 画像は Python が書き出した「強さ＝不透明度」の PNG。テーマのアクセント色をその形で塗る（CSS の mask）。
+// 画像は Python が書き出した「強さ＝不透明度」の PNG。主の色（--accent）をその形で塗る（CSS の mask）。
 // 下段は速度（GPS なしの走行は rms）。カーソル・クリック・範囲はタイムラインと同じく地図・詳細と共有する。
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as echarts from "echarts/core";
@@ -9,14 +9,13 @@ import { CanvasRenderer } from "echarts/renderers";
 import type { RideData, SpecMeta } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
 import { nearestIndex, xValues, type Selection } from "../lib/series";
-import { cssVar, type Theme } from "../lib/theme";
+import { cssVar } from "../lib/theme";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, MarkLineComponent, AxisPointerComponent, CanvasRenderer]);
 
 interface Props {
   data: RideData;
   spec: { meta: SpecMeta; url: string };
-  theme: Theme;
   hover: Selection;
   selected: Selection;
   onHover: (i: Selection) => void;
@@ -28,7 +27,7 @@ interface Props {
 const L = 56, R = 16, TOP = 28, H0 = 230, GAP = 34, H1 = 90, BOTTOM = 58;
 export const SPEC_HEIGHT = TOP + H0 + GAP + H1 + BOTTOM;
 
-export default function Spectrogram({ data, spec, theme, hover, selected, onHover, onSelect, onRange }: Props) {
+export default function Spectrogram({ data, spec, hover, selected, onHover, onSelect, onRange }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const chart = useRef<echarts.ECharts | null>(null);
   const cb = useRef({ onHover, onSelect, onRange });
@@ -145,7 +144,7 @@ export default function Spectrogram({ data, spec, theme, hover, selected, onHove
       chart.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, spec, theme, lower, xs]);
+  }, [data, spec, lower, xs]);
 
   useEffect(() => {
     const c = chart.current;
@@ -165,7 +164,7 @@ export default function Spectrogram({ data, spec, theme, hover, selected, onHove
         { id: "lower", markLine: { silent: true, symbol: "none", animation: false, label: { show: false }, lineStyle: { color: ink, width: 1.5, type: "solid" }, data: line } },
       ],
     });
-  }, [selected, xs, spec, theme]);
+  }, [selected, xs, spec]);
 
   // 画像の位置：表示範囲 [x0, x1] が上段の幅 w に広がるように、全体 [full0, full1] の画像を拡大・移動する
   const span = view.x1 - view.x0 || 1;
