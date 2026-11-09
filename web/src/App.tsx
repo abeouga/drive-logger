@@ -42,10 +42,6 @@ export default function App() {
         {route.page === "about" && <About />}
         {route.page === "trash" && <Trash />}
       </main>
-      <footer className="mx-auto max-w-6xl px-4 pb-8 text-xs leading-relaxed text-muted">
-        健康な車両の走行データから作った「速度で補正した正常時のベースライン」からの逸脱を表示しています。故障データは含まれていません。
-        値の大きい区間は、路面または車両に起因する振動の変化を示すもので、車両の異常と断定するものではありません。
-      </footer>
     </div>
   );
 }
