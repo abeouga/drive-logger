@@ -95,7 +95,7 @@ public バケット
   "run_id": "20261109T031500Z-3f9a1c",
   "action": "process",
   "where": "lambda",
-  "commit": "288d04e",
+  "commit": "98d25dd",
   "started_at": "2026-11-09T03:15:00Z",
   "finished_at": "2026-11-09T03:15:19Z",
   "status": "succeeded",
