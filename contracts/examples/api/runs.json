@@ -19,7 +19,7 @@
       "created_at": "2026-11-09T02:01:00Z",
       "finished_at": "2026-11-09T02:03:12Z",
       "where": "local",
-      "commit": "9f9b47c-dirty",
+      "commit": "5d3d31f-dirty",
       "model_version": "20261109-020100",
       "status": "succeeded",
       "error": null,
