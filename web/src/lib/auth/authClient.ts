@@ -1,104 +1,115 @@
 // Cognito とのやりとり（ログイン・ログアウト・トークンの取り出し）。画面の部品はここを通してだけ使う。
-// 方式は認可コード＋PKCE（oidc-client-ts）。トークンはタブを閉じると消える sessionStorage に置く。
-import { UserManager, WebStorageStateStore, type User } from "oidc-client-ts";
-import { readAuthConfig, type AuthConfig } from "./authConfig";
+// 方式：アプリの画面で入れたユーザー名・パスワードで、ユーザープールに直接ログインする（USER_SRP_AUTH。パスワードそのものは送らない）。
+//       期限が切れたら更新用のトークンで取り直す（REFRESH_TOKEN_AUTH）。トークンはタブを閉じると消える sessionStorage に置く。
+import "./nodeGlobal"; // ライブラリより先に読み込む（中身はそのファイル）
+import { AuthenticationDetails, CognitoUser, CognitoUserPool, type CognitoUserSession } from "amazon-cognito-identity-js";
+import { readAuthConfig } from "./authConfig";
 
 export interface SignedInUser {
   username: string;
 }
 
-let config: AuthConfig | null = null;
-let manager: UserManager | null = null;
-
-function getConfig(): AuthConfig {
-  config ??= readAuthConfig();
-  return config;
+export interface Credentials {
+  username: string;
+  password: string;
 }
 
-function getManager(): UserManager {
-  manager ??= createManager(getConfig());
-  return manager;
+/** ログインできなかったとき。message はそのまま画面に出せる文。 */
+export class SignInError extends Error {}
+
+let pool: CognitoUserPool | null = null;
+
+function getPool(): CognitoUserPool {
+  if (!pool) {
+    const c = readAuthConfig();
+    pool = new CognitoUserPool({ UserPoolId: c.userPoolId, ClientId: c.clientId, Storage: window.sessionStorage });
+  }
+  return pool;
 }
 
-function createManager(c: AuthConfig): UserManager {
-  return new UserManager({
-    authority: c.authority,
-    client_id: c.clientId,
-    redirect_uri: c.returnUrl,
-    response_type: "code",
-    scope: "openid",
-    userStore: new WebStorageStateStore({ store: window.sessionStorage }),
-    automaticSilentRenew: true,
-    extraQueryParams: { lang: "ja" }, // ログイン画面を日本語にする
+/**
+ * ユーザー名・パスワードでログインする。失敗したら SignInError（理由の文付き）。
+ * 引数なしで呼ぶと「ログインし直してもらう」：このタブのトークンを消し、読み直してログイン画面を出す（開いていた画面の #/ride/... は残る）。
+ */
+export async function signIn(credentials?: Credentials): Promise<void> {
+  if (!credentials) {
+    forgetTokens();
+    window.location.reload();
+    return;
+  }
+  const user = new CognitoUser({ Username: credentials.username.trim(), Pool: getPool(), Storage: window.sessionStorage });
+  const details = new AuthenticationDetails({ Username: credentials.username.trim(), Password: credentials.password });
+  await new Promise<void>((resolve, reject) => {
+    user.authenticateUser(details, {
+      onSuccess: () => resolve(),
+      onFailure: (err: unknown) => reject(new SignInError(reasonOf(err))),
+      newPasswordRequired: () => reject(new SignInError("パスワードの変更が必要なユーザーです。管理者にパスワードを設定し直してもらってください")),
+      mfaRequired: () => reject(new SignInError("このユーザーには追加の認証（MFA）が要ります。この画面は対応していません")),
+      totpRequired: () => reject(new SignInError("このユーザーには追加の認証（MFA）が要ります。この画面は対応していません")),
+      customChallenge: () => reject(new SignInError("この画面で扱えないログインの手順を求められました")),
+    });
   });
 }
 
-/** Cognito のログイン画面へ移る。戻ってきたら今の画面（#/ride/... など）に戻す。 */
-export async function signIn(): Promise<void> {
-  await getManager().signinRedirect({ state: window.location.hash });
-}
-
-/** このブラウザのトークンを消し、Cognito 側のログインも終わらせる。 */
+/** ログアウトする：更新用のトークンを Cognito で無効にし（失敗しても続ける）、このタブのトークンを消す。画面の切り替えは呼んだ側がする。 */
 export async function signOut(): Promise<void> {
-  await getManager().removeUser();
-  window.location.assign(logoutUrl(getConfig()));
-}
-
-/** ログイン画面から戻ってきたところなら、コードをトークンに換える。そうでなければ何もしない。 */
-export async function completeSignInIfReturning(): Promise<void> {
-  if (!isReturningFromLogin()) return;
-  const user = await getManager().signinRedirectCallback();
-  restoreScreen(user);
+  const user = getPool().getCurrentUser();
+  if (!user) return;
+  // 無効にできなかったとき（回線・更新用のトークンの期限切れなど）も、下で手元のトークンは消す
+  await new Promise<void>((resolve) => user.signOut(() => resolve()));
+  forgetTokens();
 }
 
 /** ログイン中のユーザー。いなければ（または期限切れで更新もできなければ）null。 */
 export async function currentUser(): Promise<SignedInUser | null> {
-  const user = await validUser();
-  return user ? { username: usernameOf(user) } : null;
+  const session = await validSession();
+  if (!session) return null;
+  const payload = session.getIdToken().payload as Record<string, unknown>;
+  const name = payload["cognito:username"] ?? getPool().getCurrentUser()?.getUsername() ?? payload.sub;
+  return { username: String(name) };
 }
 
 /** API に付けるアクセストークン。いなければ null。 */
 export async function accessToken(): Promise<string | null> {
-  const user = await validUser();
-  return user?.access_token ?? null;
+  const session = await validSession();
+  return session?.getAccessToken().getJwtToken() ?? null;
 }
 
 // ------------------------------------------------------------------ 内部
 
-async function validUser(): Promise<User | null> {
-  const user = await getManager().getUser();
-  if (user && !user.expired) return user;
-  if (user?.refresh_token) return renew();
-  return null;
+/** 有効なトークン。期限が切れていれば、ライブラリが更新用のトークンで取り直す（REFRESH_TOKEN_AUTH）。それもできなければ null。 */
+async function validSession(): Promise<CognitoUserSession | null> {
+  const user = getPool().getCurrentUser();
+  if (!user) return null;
+  return new Promise((resolve) => {
+    user.getSession((err: Error | null, session: CognitoUserSession | null) => {
+      resolve(!err && session?.isValid() ? session : null);
+    });
+  });
 }
 
-async function renew(): Promise<User | null> {
-  try {
-    return await getManager().signinSilent();
-  } catch {
-    return null; // 更新用のトークンも切れていたら、ログインし直してもらう
+/** このタブに置いたトークンを消す（Cognito には問い合わせない）。 */
+function forgetTokens(): void {
+  getPool().getCurrentUser()?.signOut();
+}
+
+/** Cognito の失敗を、画面に出す文にする。 */
+function reasonOf(err: unknown): string {
+  const code = (err as { code?: string; name?: string } | null)?.code ?? (err as { name?: string } | null)?.name ?? "";
+  switch (code) {
+    case "NotAuthorizedException":
+    case "UserNotFoundException":
+      return "ユーザー名かパスワードが違います";
+    case "PasswordResetRequiredException":
+      return "パスワードの設定し直しが必要です。管理者に連絡してください";
+    case "UserNotConfirmedException":
+      return "このユーザーはまだ使えるようになっていません。管理者に連絡してください";
+    case "TooManyRequestsException":
+    case "LimitExceededException":
+      return "ログインの試行が多すぎます。しばらく待ってからやり直してください";
+    case "NetworkError":
+      return "Cognito につながりませんでした。回線を確かめてください";
+    default:
+      return `ログインできませんでした：${(err as Error | null)?.message ?? String(err)}`;
   }
-}
-
-function isReturningFromLogin(): boolean {
-  const params = new URLSearchParams(window.location.search);
-  return params.has("code") && params.has("state");
-}
-
-/** URL から ?code=... を消し、ログイン前の画面（ハッシュ）に戻す。 */
-function restoreScreen(user: User): void {
-  const hash = typeof user.state === "string" ? user.state : "";
-  window.history.replaceState(null, "", `/${hash}`);
-}
-
-function usernameOf(user: User): string {
-  const profile = user.profile as Record<string, unknown>;
-  const name = profile["cognito:username"] ?? profile["username"] ?? profile.sub;
-  return String(name);
-}
-
-/** Cognito のログアウト URL（Cognito は OIDC 標準のログアウトに対応していないので、専用の形で組み立てる）。 */
-function logoutUrl(c: AuthConfig): string {
-  const params = new URLSearchParams({ client_id: c.clientId, logout_uri: c.returnUrl });
-  return `${c.loginDomain}/logout?${params.toString()}`;
 }

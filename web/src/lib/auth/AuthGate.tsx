@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import LoginScreen from "../../components/LoginScreen";
 import { LOCAL_API, apiJson } from "../dataSource";
 import type { Me } from "../types";
-import { completeSignInIfReturning, currentUser, signIn, signOut, type SignedInUser } from "./authClient";
+import { currentUser, signIn, signOut, type Credentials, type SignedInUser } from "./authClient";
 
 const ADMIN_GROUP = "admin"; // contracts/common.json の admin_group
 
@@ -29,9 +29,23 @@ export default function AuthGate({ children }: { children: ReactNode }) {
     checkSignIn().then(setState);
   }, []);
 
+  /** 入力欄の値でログインし、続けて権限を読む。失敗したら投げる（ログイン画面が理由を出す）。 */
+  async function submit(credentials: Credentials): Promise<void> {
+    await signIn(credentials);
+    const next = await checkSignIn();
+    if (next.status === "signedOut") throw new Error(next.error ?? "ログインできませんでした");
+    setState(next);
+  }
+
+  /** ログアウトして、ログイン画面に戻す（Cognito の画面へは移らない）。 */
+  async function leave(): Promise<void> {
+    await signOut();
+    setState({ status: "signedOut" });
+  }
+
   if (state.status === "checking") return null;
-  if (state.status === "signedOut") return <LoginScreen error={state.error} onSignIn={signIn} />;
-  return <AuthContext.Provider value={{ user: state.user, isAdmin: state.isAdmin, signOut }}>{children}</AuthContext.Provider>;
+  if (state.status === "signedOut") return <LoginScreen notice={state.error} onSignIn={submit} />;
+  return <AuthContext.Provider value={{ user: state.user, isAdmin: state.isAdmin, signOut: leave }}>{children}</AuthContext.Provider>;
 }
 
 async function checkSignIn(): Promise<GateState> {
@@ -41,7 +55,6 @@ async function checkSignIn(): Promise<GateState> {
       const me = await apiJson<Me>("me");
       return { status: "signedIn", user: { username: me.username }, isAdmin: me.groups.includes(ADMIN_GROUP) };
     }
-    await completeSignInIfReturning();
     const user = await currentUser();
     if (!user) return { status: "signedOut" };
     const me = await apiJson<Me>("me");
