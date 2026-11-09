@@ -52,7 +52,7 @@ export function hasCoord(d: RideData, i: number): boolean {
 }
 
 export const BASIS_TEXT = {
-  "z_speed>3": "速度で補正したベースラインから 3 MAD 以上離れた窓（z_speed > 3）",
-  z_speed_top: "z_speed > 3 の窓はないため、走行中（5 km/h 以上）の z_speed 上位 10 窓を示しています",
-  score_if_top: "GPS がなく速度で補正できないため、Isolation Forest のスコア上位 10 窓を示しています（振動が大きすぎる窓だけでなく、静かすぎる窓もまれな窓として上位に入ります）",
+  "z_speed>3": "速度で補正したベースラインから 3 MAD 以上離れた所（z_speed > 3）",
+  z_speed_top: "z_speed > 3 の所はないため、走行中（5 km/h 以上）の z_speed 上位 10 か所を示しています",
+  score_if_top: "GPS がなく速度で補正できないため、Isolation Forest のスコア上位 10 か所を示しています（振動が大きすぎる所だけでなく、静かすぎる所もまれな所として上位に入ります）",
 } as const;
