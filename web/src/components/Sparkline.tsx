@@ -54,7 +54,7 @@ export default function Sparkline({ values, durationS, height = 44 }: Props) {
       </svg>
       {hover !== null && hv !== null && (
         <div
-          className="tabular pointer-events-none absolute -top-7 rounded border border-line bg-surface px-1.5 py-0.5 text-[11px] whitespace-nowrap text-ink shadow-sm"
+          className="tabular pointer-events-none absolute -top-7 rounded border border-line bg-surface px-1.5 py-0.5 text-xs whitespace-nowrap text-ink shadow-sm"
           style={{ left: `${(hover / (values.length - 1)) * 100}%`, transform: "translateX(-50%)" }}
         >
           {fmtElapsed((hover / (values.length - 1)) * durationS)} 付近　{hv.toFixed(2)} g

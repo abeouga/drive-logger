@@ -49,7 +49,7 @@ function Tile({ label, value, unit, note }: { label: string; value: string; unit
         {value}
         {unit && <span className="ml-1 text-sm font-normal text-ink-2">{unit}</span>}
       </div>
-      {note && <div className="mt-1 text-[11px] leading-snug text-muted">{note}</div>}
+      {note && <div className="mt-1 text-xs leading-snug text-muted">{note}</div>}
     </div>
   );
 }
