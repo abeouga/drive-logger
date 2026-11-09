@@ -2,6 +2,7 @@
 import { useRides } from "../lib/data";
 import { fmtDuration } from "../lib/format";
 import ModelInfo from "../components/ModelInfo";
+import PageHeader from "../components/PageHeader";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -37,13 +38,12 @@ export default function About() {
 
   return (
     <div className="flex max-w-4xl flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold">この分析について</h1>
-        <p className="mt-2 text-sm leading-relaxed text-ink-2">
+      <PageHeader title="この分析について">
+        <p>
           ハンターカブ CT125 に、ESP32（マイコン）・GPS・加速度センサー・microSD で作ったロガーを載せ、走行中の振動を位置と時刻に結びつけて可視化しました。
           {rides && ` 画面に出している走行は ${rides.length} 本（合計 ${fmtDuration(total)}、うち GPS あり ${nGps} 本）です。`}
         </p>
-      </div>
+      </PageHeader>
 
       <Section title="構成">
         <div className="flex flex-col gap-2 md:flex-row md:items-stretch">

@@ -16,6 +16,7 @@ import Tabs from "../components/Tabs";
 import LoadState from "../components/LoadState";
 import ActionButton from "../components/ActionButton";
 import RunHistory from "../components/RunHistory";
+import { pageHeaderClass, pageTitleClass } from "../components/PageHeader";
 
 type ChartKey = "timeline" | "spectrogram";
 type MobileKey = "map" | "chart" | "detail";
@@ -98,12 +99,12 @@ export default function Ride({ id }: { id: string }) {
   const header = (
     <>
       <a href={listHref} className="text-sm text-ink-2 hover:text-ink">← 走行一覧</a>
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className={`flex flex-wrap items-end justify-between gap-3 ${pageHeaderClass}`}>
         <div>
           <div className="text-sm text-ink-2">
             {summary.start_ms !== null ? `${fmtDate(summary.start_ms)} ${fmtTime(summary.start_ms)}` : "日時不明（GPS なし）"}
           </div>
-          <h1 className="text-xl font-semibold">
+          <h1 className={pageTitleClass}>
             {summary.id}
             {originalName && <span className="ml-2 align-middle text-xs font-normal text-muted">元の名前 {originalName}</span>}
           </h1>
