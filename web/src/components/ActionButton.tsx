@@ -16,7 +16,7 @@ export default function ActionButton({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const color = tone === "danger" ? "border-line text-ink-2 hover:border-red-500 hover:text-red-600" : "border-line text-ink-2 hover:border-accent hover:text-ink";
+  const color = tone === "danger" ? "border-line text-ink-2 hover:border-critical hover:text-critical" : "border-line text-ink-2 hover:border-accent hover:text-ink";
   return (
     <span className={`inline-flex flex-col gap-1 ${className}`}>
       <button
@@ -40,7 +40,7 @@ export default function ActionButton({
       >
         {busy ? "処理中…" : label}
       </button>
-      {error && <span className="max-w-xs text-[11px] break-all text-red-600">{error}</span>}
+      {error && <span className="max-w-xs text-[11px] break-all text-critical">{error}</span>}
     </span>
   );
 }

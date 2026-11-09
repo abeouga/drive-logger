@@ -1,61 +1,44 @@
 @import "tailwindcss";
 
-/* 色はデータ可視化の参照パレット（明・暗それぞれ選んだ値）。役割の名前で使う */
+/* 色は文之助の画面（Flat Design 2.0）と同じ値。明るい配色だけを使い、役割の名前で使う */
 :root {
   color-scheme: light;
-  --page: #f9f9f7;
-  --surface: #fcfcfb;
-  --ink: #0b0b0b;
-  --ink-2: #52514e;
-  --muted: #898781;
-  --grid: #e1e0d9;
-  --axis: #c3c2b7;
-  --border: rgba(11, 11, 11, 0.1);
-  --accent: #2a78d6;
-  --accent-wash: rgba(42, 120, 214, 0.1);
-  --critical: #d03b3b;
-  --warning: #fab219;
-}
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-    --page: #0d0d0d;
-    --surface: #1a1a19;
-    --ink: #f0efec;
-    --ink-2: #c3c2b7;
-    --muted: #898781;
-    --grid: #2c2c2a;
-    --axis: #383835;
-    --border: rgba(255, 255, 255, 0.1);
-    --accent: #3987e5;
-    --accent-wash: rgba(57, 135, 229, 0.16);
-  }
-}
-:root[data-theme="dark"] {
-  color-scheme: dark;
-  --page: #0d0d0d;
-  --surface: #1a1a19;
-  --ink: #f0efec;
-  --ink-2: #c3c2b7;
-  --muted: #898781;
-  --grid: #2c2c2a;
-  --axis: #383835;
-  --border: rgba(255, 255, 255, 0.1);
-  --accent: #3987e5;
-  --accent-wash: rgba(57, 135, 229, 0.16);
+  --page: #e2e8ee;
+  --surface: #ffffff;
+  --surface-muted: #f5f7f9;
+  --ink: #172431;
+  --ink-2: #445463;
+  --muted: #5f6f7d;
+  --grid: #e2e8ee;
+  --axis: #98a8b6;
+  --border: #cbd5de;
+  --border-strong: #98a8b6;
+  --accent: #23699e;
+  --accent-dark: #18547e;
+  --accent-wash: #e7f1f8;
+  --critical: #9f352d;
+  --warning: #8a5710;
+  --success: #24734a;
+  --focus-ring: #4b9bd3;
 }
 
 @theme inline {
   --color-page: var(--page);
   --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
   --color-ink: var(--ink);
   --color-ink-2: var(--ink-2);
   --color-muted: var(--muted);
   --color-grid: var(--grid);
   --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
   --color-accent: var(--accent);
+  --color-accent-dark: var(--accent-dark);
   --color-accent-wash: var(--accent-wash);
-  --font-sans: system-ui, -apple-system, "Segoe UI", "Hiragino Sans", "Yu Gothic UI", Meiryo, sans-serif;
+  --color-critical: var(--critical);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --font-sans: "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
 }
 
 html,
@@ -63,6 +46,15 @@ body {
   background: var(--page);
   color: var(--ink);
   font-family: var(--font-sans);
+}
+body {
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 .tabular {
   font-variant-numeric: tabular-nums;
