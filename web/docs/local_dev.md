@@ -9,7 +9,7 @@
 
 ## いちばん簡単な起動（ダブルクリック）
 
-このフォルダーの `start.bat` をダブルクリックする。中身は `scripts/start-dev.ps1` で、
+このフォルダーの `start.bat`（リポジトリの直下の `start.bat` でも同じ）をダブルクリックする。中身は `scripts/start-dev.ps1` で、
 
 1. すでに起動していれば、ブラウザで http://localhost:5173 を開くだけ
 2. 初回は `npm install`
