@@ -46,7 +46,7 @@ jobs:
       - run: uv run --locked python -m pytest -q
 
   web:
-    name: web（型チェック・ビルド）
+    name: web（型チェック・テスト・ビルド）
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -60,6 +60,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm test
       - run: npm run build
 
   contracts:
