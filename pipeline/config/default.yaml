@@ -32,6 +32,7 @@ model:
   n_estimators: 300
   random_state: 0
 aws:
+  env: prod                 # 向き先の環境（prod か test）。--env、環境変数 CT125_ENV、config/local.yaml の aws.env の順に優先。test の値は下の environments
   profile: ct125-logger     # 管理者のプロファイル（機器の登録・公開を Lambda に頼む）。リージョンはプロファイルのもの（ap-northeast-1）
   pipeline_profile: null    # ローカルの処理に使うプロファイル（公開用に書けないロール。docs/data_flow_design.md 11.）。null なら profile
   region: null              # null＝プロファイルの region。明示するならここ
@@ -40,6 +41,17 @@ aws:
   work_prefix: ""
   public_prefix: "datasets/shared/"
   pipeline_function: ct125-ride-pipeline  # 公開を頼む Lambda
+  device_parameter_prefix: /ct125/devices/  # 機器トークンのハッシュを置く SSM の場所（infra の device_token_parameter_prefix と同じ）
+environments:            # aws.env が prod 以外のとき、aws と upload に重ねる値（infra/environment.tf の名前の決まりと同じ）
+  test:
+    aws:
+      pipeline_profile: ct125-test-local-pipeline   # test のバケットだけに届くロール（~/.aws/config に作る。docs/test_environment.md）
+      bucket_name: "ct125-logger-test-{role}-{account_id}"
+      pipeline_function: ct125-test-ride-pipeline
+      device_parameter_prefix: /ct125-test/devices/
+    upload:
+      base_url: https://drive-test.herdio-system.com
+      token_file: config/pc01.test.token
 bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
   band_1_5: [1, 5]
   band_5_15: [5, 15]

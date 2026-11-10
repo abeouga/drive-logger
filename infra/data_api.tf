@@ -2,7 +2,7 @@
 # API Gateway が Cognito のアクセストークンを検証し、通ったリクエストだけを Lambda に渡す。
 
 locals {
-  data_api_name = "ct125-data-api"
+  data_api_name = "${local.name_prefix}-data-api"
   # Lambda の zip（api/scripts/build-lambda.ps1 が作る）。データ API とデバイス API の両方で使う
   data_api_zip = coalesce(var.data_api_zip, "${path.module}/../api/dist/lambda.zip")
 }

@@ -2,7 +2,7 @@
 # バケット自体は公開しない。Web アプリは CloudFront（OAC）経由で webapp/ だけを配る（cloudfront.tf）。
 
 resource "aws_s3_bucket" "data" {
-  bucket = "${var.bucket_prefix}-${data.aws_caller_identity.current.account_id}"
+  bucket = "${local.bucket_prefix}-${data.aws_caller_identity.current.account_id}"
   # 生データを誤って消さないよう、中身があるバケットは terraform destroy でも消えない
   force_destroy = false
 }

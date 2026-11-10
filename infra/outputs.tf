@@ -23,6 +23,16 @@ output "local_pipeline_role_arn" {
   value       = aws_iam_role.local_pipeline.arn
 }
 
+output "env" {
+  description = "環境の名前（prod か test）。スクリプトが向き先を確かめるのに使う"
+  value       = var.env
+}
+
+output "device_token_parameter_prefix" {
+  description = "機器トークンのハッシュを置く SSM の場所（pipeline の register-device が書く）"
+  value       = local.device_parameter_prefix
+}
+
 output "bucket_region" {
   value = var.aws_region
 }
@@ -32,11 +42,11 @@ output "aws_profile" {
 }
 
 output "app_url" {
-  value = "https://${var.app_domain}/"
+  value = "https://${local.app_domain}/"
 }
 
 output "cloudfront_domain" {
-  description = "Cloudflare で <app_domain> の CNAME の向き先にする（プロキシはオフ）"
+  description = "Cloudflare で画面のドメイン（app_url）の CNAME の向き先にする（プロキシはオフ）"
   value       = aws_cloudfront_distribution.app.domain_name
 }
 
@@ -71,6 +81,10 @@ output "user_pool_id" {
 output "pipeline_repository_url" {
   description = "走行データ処理のコンテナを上げる ECR（pipeline/ の scripts/build-pipeline-image.ps1 が使う）"
   value       = aws_ecr_repository.pipeline.repository_url
+}
+
+output "data_api_function_name" {
+  value = aws_lambda_function.data_api.function_name
 }
 
 output "pipeline_function_name" {

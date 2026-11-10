@@ -4,7 +4,7 @@
 # - ログイン画面は Cognito の managed login。ブラウザは認可コード＋PKCE（クライアントシークレットなし）
 
 resource "aws_cognito_user_pool" "app" {
-  name = "ct125-app-users"
+  name = "${local.name_prefix}-app-users"
   # ユーザーは Terraform から作り直せるので、destroy できるように保護はかけない
   deletion_protection = "INACTIVE"
   user_pool_tier      = "ESSENTIALS"
@@ -45,7 +45,7 @@ resource "aws_cognito_user_group" "admin" {
 }
 
 resource "aws_cognito_user_pool_client" "web" {
-  name         = "ct125-app-web"
+  name         = "${local.name_prefix}-app-web"
   user_pool_id = aws_cognito_user_pool.app.id
 
   generate_secret                      = false
@@ -55,8 +55,8 @@ resource "aws_cognito_user_pool_client" "web" {
   supported_identity_providers         = ["COGNITO"]
   # 手元の dev サーバー（web の npm run dev）からもログインできるように localhost を足す（#18）。
   # 認可コードは PKCE で守るので、ほかの人が localhost を開いてもコードだけでは使えない
-  callback_urls = ["https://${var.app_domain}/", var.dev_login_url]
-  logout_urls   = ["https://${var.app_domain}/", var.dev_login_url]
+  callback_urls = ["https://${local.app_domain}/", var.dev_login_url]
+  logout_urls   = ["https://${local.app_domain}/", var.dev_login_url]
 
   explicit_auth_flows           = ["ALLOW_USER_SRP_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]
   prevent_user_existence_errors = "ENABLED"
@@ -75,7 +75,7 @@ resource "aws_cognito_user_pool_client" "web" {
 }
 
 resource "aws_cognito_user_pool_domain" "app" {
-  domain                = var.cognito_domain_prefix
+  domain                = local.cognito_domain_prefix
   user_pool_id          = aws_cognito_user_pool.app.id
   managed_login_version = 2
 }

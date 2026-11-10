@@ -5,9 +5,15 @@
 - データを作る側：`pipeline/`（解析パイプライン。S3 にデータを上げる）
 - データを見る側：`web/`・`api/`（Web アプリ＋データ API。https://drive.herdio-system.com/ ）
 
+## 環境（本番と test）
+
+同じ Terraform で本番（prod）と test を作る。名前は `environment.tf` で `env` から作り、本番は今の名前のまま、test は `ct125-test-…` になる。
+本番は workspace の `default` と `terraform.tfvars`、test は workspace の `test` と `-var-file=test.tfvars -var-file=pipeline_image.test.tfvars` で使う。
+workspace と `env` が合っていないと plan の前に止まる。作り方・向き先の切り替えは [docs/test_environment.md](../docs/test_environment.md)。
+
 ## state の置き場
 
-state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`、ap-northeast-1）に置き、S3 だけでロックする（`versions.tf` の `backend "s3"`）。
+state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`、ap-northeast-1）に置き、S3 だけでロックする（`versions.tf` の `backend "s3"`）。test の state は同じバケットの `env:/test/infra/terraform.tfstate`。
 どの PC でも `terraform init` すれば同じ state を使う。バケットは Terraform の外で作った（非公開・SSE-S3・HTTPS のみ・バージョニング）。
 別の PC での準備は [docs/setup_another_pc.md](../docs/setup_another_pc.md)。
 
@@ -15,6 +21,7 @@ state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`
 
 | ファイル | リソース | 内容 |
 |---|---|---|
+| `environment.tf` | （リソースは無い） | 環境の名前 `env` と、そこから作る名前（本番は今のまま、test は `ct125-test-…`） |
 | `s3.tf` | S3 バケット `ct125-logger-<アカウントID>` | 画面（React のビルド結果 `webapp/`）。非公開・SSE-S3・HTTPS のみ・バージョニング。CloudFront には `webapp/` だけ読ませる。作り直しの前の走行データ（`raw/` など）も残っている |
 | `buckets.tf` | S3 バケット `ct125-logger-{raw,work,public}-<アカウントID>` | 生データ・作業用（処理の結果と記録・モデル・台帳）・公開用（画面が読む `datasets/shared/`）。設定は同じ（docs/data_flow_design.md 3.） |
 | `local_pipeline.tf` | IAM ロール `ct125-local-pipeline` | PC の処理（`python -m ct125 process` など）が使う。生データを読み、作業用に書ける。公開用には書けない |

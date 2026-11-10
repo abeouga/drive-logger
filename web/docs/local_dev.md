@@ -6,6 +6,7 @@
 |---|---|---|---|
 | `npm run dev`（`start.bat`） | 公開ドメイン（https://drive.herdio-system.com） | 要る（公開版と同じ Cognito） | ふだん。公開版と同じデータ・同じ権限で見る |
 | `npm run dev:local` | 手元で動かしたデータ API（http://localhost:8000） | 要らない（手元の開発者＝admin） | API と画面を一緒に直すとき |
+| `npm run dev:test`（`start.bat -Env test`） | test のドメイン（https://drive-test.herdio-system.com） | 要る（test の Cognito） | 本番に書かずに、つないだ動きを確かめるとき（docs/test_environment.md） |
 
 ## いちばん簡単な起動（ダブルクリック）
 
@@ -37,10 +38,10 @@ http://localhost:5173 を開き、公開版と同じユーザーでログイン�
 API と画面を一緒に直すときは、データ API を手元で動かす。`ALLOW_LOCAL_USER=true` で、ログインなしの「手元の開発者」（admin）として扱われる。
 
 ```powershell
-cd api
-$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:WORK_BUCKET="ct125-logger-work-<アカウントID>"; $env:PIPELINE_FUNCTION="ct125-ride-pipeline"; $env:RAW_BUCKET="ct125-logger-raw-<アカウントID>"; $env:ALLOW_LOCAL_USER="true"
-uv run uvicorn ct125_api.main:app --port 8000 --app-dir src
+api/scripts/run-local.ps1 -Env test
 ```
+
+`api/scripts/run-local.ps1` は、バケットと処理の Lambda の名前を Terraform の出力から読み、`ALLOW_LOCAL_USER=true` で uvicorn を起動する。`-Env` を省くと本番を使う。
 
 別の画面で：
 
@@ -48,7 +49,7 @@ uv run uvicorn ct125_api.main:app --port 8000 --app-dir src
 npm run dev:local
 ```
 
-- 手元のデータ API も本番のバケットを読み書きする（台帳を書き換え、処理の Lambda に公開を頼む）。admin の操作は本番に効く
+- `-Env test` なら test のバケットと Lambda を使う。`-Env` を省くと本番のバケットを読み書きする（台帳を書き換え、処理の Lambda に公開を頼む）。そのときの admin の操作は本番に効く
 - `ALLOW_LOCAL_USER` は手元だけで使う。Lambda では必ず付けない（Terraform は設定しない）
 
 ## データを新しくする

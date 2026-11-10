@@ -129,7 +129,7 @@ def finish_run(run: dict, finished: datetime, error: str | None = None) -> dict:
 
 def public_config(cfg: dict) -> dict:
     """run.json・model.json に残す設定（読み込みの都合で足した内部の値と、PC ごとの値は除く）。"""
-    return {key: value for key, value in cfg.items() if not key.startswith("_") and key not in ("local", "aws")}
+    return {key: value for key, value in cfg.items() if not key.startswith("_") and key not in ("local", "aws", "environments")}
 
 
 # ------------------------------------------------------------------ 走行の台帳

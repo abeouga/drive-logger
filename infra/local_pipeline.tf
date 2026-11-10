@@ -1,10 +1,11 @@
 # ローカル（PC）の処理に使うロール（docs/data_flow_design.md 11.）。
 # 生データを読み、作業用に読み書きできるが、公開用（画面が読む場所）には書けない。公開は処理の Lambda に頼む。
 # PC の CLI は、このロールを管理者のプロファイル（ct125-logger）から引き受けて使う（~/.aws/config の例は infra/README.md）。
+# 本番は ct125-local-pipeline、test は ct125-test-local-pipeline。どちらも自分の環境のバケットだけを指す。
 # 人のログイン（AWS Settings で管理）には手を加えない。このロールはこの処理のためだけに使う。
 
 resource "aws_iam_role" "local_pipeline" {
-  name                 = "ct125-local-pipeline"
+  name                 = "${local.name_prefix}-local-pipeline"
   description          = "Local pipeline CLI (python -m ct125 process/retrain). Cannot write the public bucket." # IAM の説明に日本語は使えない
   max_session_duration = 3600
 
@@ -37,7 +38,7 @@ data "aws_iam_policy_document" "local_pipeline" {
 }
 
 resource "aws_iam_role_policy" "local_pipeline" {
-  name   = "ct125-local-pipeline-policy"
+  name   = "${local.name_prefix}-local-pipeline-policy"
   role   = aws_iam_role.local_pipeline.id
   policy = data.aws_iam_policy_document.local_pipeline.json
 }
