@@ -1,5 +1,5 @@
-// この分析について：何を作ったか・処理の流れ・構成・見どころの決め方・できたこと／できていないこと・表現の決まり
-import { useRides } from "../lib/data";
+// この分析について：何を作ったか・処理の流れ・構成・基準を超えた振動の決め方・できたこと／できていないこと・表現の決まり
+import { loadModel, loadModels, useLoad, useRides, type AnomalyMethod, type ModelRecord } from "../lib/data";
 import { fmtDuration } from "../lib/format";
 import ModelInfo from "../components/ModelInfo";
 import PageHeader from "../components/PageHeader";
@@ -31,10 +31,43 @@ function Arrow() {
   );
 }
 
+/** 判定の方法ごとの説明。方法の名前は画面用データ（rides.json の anomaly_method）から選び、文に決め打ちしない */
+type JudgedMethod = Exclude<AnomalyMethod, "none">;
+const METHOD_TEXT: Record<JudgedMethod, { what: string; score: string }> = {
+  speed_baseline: { what: "速度で補正した正常時のベースラインからの逸脱", score: "z_speed" },
+};
+
+/** 今使っているモデルの設定から、しきい値を読む（読めなければ null） */
+function modelThreshold(record: ModelRecord | null): number | null {
+  const model = record?.config.model as Record<string, unknown> | undefined;
+  return typeof model?.z_threshold === "number" ? model.z_threshold : null;
+}
+
+function AnomalyRule({ methods }: { methods: JudgedMethod[] }) {
+  const models = useLoad(loadModels, []);
+  const current = models.value?.current ?? null;
+  const record = useLoad(async () => (current ? loadModel(current) : null), [current]);
+  const threshold = modelThreshold(record.value);
+  const value = threshold === null ? "しきい値（「今使っているモデル」の設定）" : `しきい値（${threshold}、「今使っているモデル」の設定）`;
+  if (methods.length === 0) return <p>画面用データに判定の方法が入っていません（判定している走行が無いか、判定の方法を持たない古いデータです）。</p>;
+  return (
+    <>
+      {methods.map((m) => (
+        <p key={m}>
+          {METHOD_TEXT[m].what}（{METHOD_TEXT[m].score}）を 1 秒ごとに求め、{value}を超えた 1 秒だけを「基準を超えた振動」として出しています。
+          超えた所が無い走行は「なし」と出します。
+        </p>
+      ))}
+    </>
+  );
+}
+
 export default function About() {
   const { rides } = useRides();
   const total = rides?.reduce((s, r) => s + r.duration_s, 0) ?? 0;
   const nGps = rides?.filter((r) => r.gps !== "none").length ?? 0;
+  // 画面用データに入っている判定の方法（知らない方法と、方法の入っていない古いデータは読み飛ばす）
+  const methods = [...new Set(rides?.map((r) => r.anomaly_method) ?? [])].filter((m): m is JudgedMethod => typeof m === "string" && m in METHOD_TEXT);
 
   return (
     <div className="flex max-w-4xl flex-col gap-8">
@@ -82,11 +115,9 @@ export default function About() {
         <ModelInfo />
       </Section>
 
-      <Section title="見どころの決め方">
-        <p>
-          z_speed が 3 を超える 1 秒（速度で補正したベースラインから大きく離れた振動）を見どころとしています。今回の走行には 3 を超える 1 秒がなかったため、
-          走行中の z_speed の上位 10 か所を示しています。GPS がない走行は速度で補正できないので、Isolation Forest のスコアの上位 10 か所です。
-        </p>
+      <Section title="基準を超えた振動の決め方">
+        {rides ? <AnomalyRule methods={methods} /> : <p>走行の一覧を読み込み中…</p>}
+        <p>GPS がない走行は、速度が分からず速度で補正できないため、判定していません。</p>
         <p>
           画面に出している値は、健康な車両の走行データから作った「速度で補正した正常時のベースライン」からの逸脱です。故障したときのデータは含まれていません。
         </p>
