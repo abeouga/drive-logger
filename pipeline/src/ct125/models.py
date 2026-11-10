@@ -1,27 +1,30 @@
 # -*- coding: utf-8 -*-
 """学習済みモデルの置き場所（作業用の場所の models/）。
 
-models/<版>/baseline.json・isolation_forest.pkl・model.json・notes.md
+models/<版>/baseline.json・isolation_forest.skops・model.json・notes.md
 models/current.json   今使う版（{"version": "20261109-031500"}）
 
 学習し直したら、新しい版を置いてから current.json を書き換えるので、途中で失敗しても前の版が使われ続ける。
-読むときは model.json のライブラリの版と今の版を突き合わせ、違えば止める（pickle は版がずれると壊れることがある）。
+Isolation Forest は skops で保存し、信頼する型を決め打ちで読む（読み込んでもコードが動かない。#23）。
+pickle（isolation_forest.pkl）しかない古い版は読まずに止める。学習し直して（retrain）、新しい版に切り替える。
+読むときは model.json のライブラリの版と今の版を突き合わせ、違えば止める（版がずれると読めない・スコアが変わることがある）。
 model.json の無い古い版（作り直しの前に作ったもの）は、突き合わせずに読む。
 """
 from __future__ import annotations
 
-import io as stdio
 import json
-import pickle
 from dataclasses import dataclass
 
 from sklearn.ensemble import IsolationForest
 
+from .model import dump_forest, load_forest
 from .records import library_mismatches, library_versions
 from .storage import Area, dump_json
 
 PREFIX = "models/"
 CURRENT = "current.json"
+FOREST = "isolation_forest.skops"
+LEGACY_FOREST = "isolation_forest.pkl"  # #23 より前の形式。読まない
 
 
 class ModelNotFoundError(RuntimeError):
@@ -30,6 +33,10 @@ class ModelNotFoundError(RuntimeError):
 
 class ModelLibraryMismatchError(RuntimeError):
     """学習したときと、今のライブラリの版が違う。"""
+
+
+class ModelFormatError(RuntimeError):
+    """読まない形式（pickle）でしか保存されていない古い版。"""
 
 
 @dataclass(frozen=True)
@@ -52,7 +59,9 @@ class ModelStore:
 
     def load(self, version: str) -> TrainedModel:
         baseline = self._work.read_json(f"{PREFIX}{version}/baseline.json")
-        forest_bytes = self._work.get(f"{PREFIX}{version}/isolation_forest.pkl")
+        forest_bytes = self._work.get(f"{PREFIX}{version}/{FOREST}")
+        if forest_bytes is None and self._work.exists(f"{PREFIX}{version}/{LEGACY_FOREST}"):
+            raise ModelFormatError(f"モデル {version} は古い形式（pickle の {LEGACY_FOREST}）で保存されていて、読みません（#23）。学習し直して（retrain）、新しい版を使ってください")
         if baseline is None or forest_bytes is None:
             raise ModelNotFoundError(f"モデル {version} のファイルがありません")
         record = self._work.read_json(f"{PREFIX}{version}/model.json")
@@ -60,7 +69,7 @@ class ModelStore:
             mismatches = library_mismatches(record["libraries"], library_versions())
             if mismatches:
                 raise ModelLibraryMismatchError(f"モデル {version} は違う版のライブラリで学習しています：{', '.join(mismatches)}。学習し直してください（retrain）")
-        forest = pickle.load(stdio.BytesIO(forest_bytes))  # noqa: S301  自分の作業用の場所に置いたモデルだけを読む（#23）
+        forest = load_forest(forest_bytes)
         return TrainedModel(version, baseline, forest, record)
 
     def load_current(self) -> TrainedModel:
@@ -68,7 +77,7 @@ class ModelStore:
 
     def save(self, version: str, baseline: dict, forest: IsolationForest, record: dict, notes: str) -> None:
         self._work.put(f"{PREFIX}{version}/baseline.json", json.dumps(baseline, ensure_ascii=False, indent=1).encode("utf-8"))
-        self._work.put(f"{PREFIX}{version}/isolation_forest.pkl", pickle.dumps(forest), "application/octet-stream")
+        self._work.put(f"{PREFIX}{version}/{FOREST}", dump_forest(forest), "application/octet-stream")
         self._work.put(f"{PREFIX}{version}/model.json", dump_json(record))
         self._work.put(f"{PREFIX}{version}/notes.md", notes.encode("utf-8"))
 

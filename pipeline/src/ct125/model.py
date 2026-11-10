@@ -5,6 +5,8 @@
   z_speed = (log_rms − 中央値) / (1.4826 × MAD)。大きいほど「その速度としては振動が大きい」。
 - Isolation Forest：振動特徴量だけで学習する（速度は使わない）。GPS なし走行にもスコアを付けるため。
   score_if は decision_function の符号反転（大きいほど異常）。
+- 保存は skops（pickle と違い、読み込んでもファイルの中のコードが動かない。#23）。読むときは信頼する型を決め打ちで渡し、
+  それ以外の型が入っていれば止める。
 
 学習データは健康な車両の走行のみ。故障データは含まれていないので、ここで出すのは
 「速度で補正した正常時のベースラインからの逸脱」であり、故障の予測ではない。
@@ -12,11 +14,11 @@
 from __future__ import annotations
 
 import json
-import pickle
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import skops.io as sio
 from sklearn.ensemble import IsolationForest
 
 MAD_SCALE = 1.4826
@@ -100,14 +102,29 @@ def apply_isolation_forest(df: pd.DataFrame, model: IsolationForest, features: l
     return pd.DataFrame({"score_if": score, "is_anomaly_if": flag}, index=df.index)
 
 
+# skops が既定で信頼しない型のうち、Isolation Forest に入っているもの（skops.io.get_untrusted_types で確かめた）。
+# ライブラリの版を上げて型が増えたら、読み込みが UntrustedTypesFoundException で止まるので、確かめてから足す
+FOREST_TRUSTED_TYPES = ["sklearn.tree._tree.Tree"]
+
+
+def dump_forest(model: IsolationForest) -> bytes:
+    return sio.dumps(model)
+
+
+def load_forest(data: bytes) -> IsolationForest:
+    """skops で読む。信頼する型（FOREST_TRUSTED_TYPES）以外が入っていれば UntrustedTypesFoundException で止まる。"""
+    model = sio.loads(data, trusted=FOREST_TRUSTED_TYPES)
+    if not isinstance(model, IsolationForest):
+        raise TypeError(f"Isolation Forest ではありません：{type(model).__name__}")
+    return model
+
+
 def save_model(model: IsolationForest, path: Path | str) -> None:
-    with open(path, "wb") as f:
-        pickle.dump(model, f)
+    Path(path).write_bytes(dump_forest(model))
 
 
 def load_model(path: Path | str) -> IsolationForest:
-    with open(path, "rb") as f:
-        return pickle.load(f)
+    return load_forest(Path(path).read_bytes())
 
 
 # ------------------------------------------------------------------ まとめて

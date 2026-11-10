@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """ライブラリの版の固定：pyproject.toml と Lambda のコンテナ（deploy/lambda/requirements.txt）が同じ版か。
 
-学習済みモデル（pickle）は、学習したときと同じ版で読む必要がある（models.py が model.json と突き合わせる）。
+学習済みモデル（skops）は、学習したときと同じ版で読む必要がある（models.py が model.json と突き合わせる）。
 """
 import re
 import tomllib
