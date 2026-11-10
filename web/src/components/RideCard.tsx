@@ -25,7 +25,7 @@ function Stat({ label, value, unit }: { label: string; value: string; unit?: str
   );
 }
 
-export default function RideCard({ ride, originalName = null }: { ride: RideSummary; originalName?: string | null }) {
+export default function RideCard({ ride }: { ride: RideSummary }) {
   const { isAdmin } = useAuth();
   const short = ride.duration_s < SHORT_S;
   const when = ride.start_ms !== null ? `${fmtDate(ride.start_ms)} ${fmtTime(ride.start_ms)}` : "日時不明（GPS なし）";
@@ -40,7 +40,6 @@ export default function RideCard({ ride, originalName = null }: { ride: RideSumm
         <div>
           <div className="text-sm text-ink-2">{when}</div>
           <div className="font-semibold">{ride.id}</div>
-          {originalName && <div className="text-xs text-muted">元の名前 {originalName}</div>}
         </div>
         <div className="flex flex-wrap justify-end gap-1">
           <Badge tone={ride.gps === "none" ? "muted" : "accent"}>{GPS_LABEL[ride.gps]}</Badge>

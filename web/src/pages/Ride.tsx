@@ -47,10 +47,9 @@ function SpecNote() {
 }
 
 export default function Ride({ id }: { id: string }) {
-  const { rides, ledger, error: ridesError } = useRides();
+  const { rides, error: ridesError } = useRides();
   const { isAdmin } = useAuth();
   const summary = rides?.find((r) => r.id === id);
-  const originalName = ledger?.find((r) => r.id === id)?.original_name ?? null;
   const wide = useMediaQuery("(min-width: 1024px)");
   const [data, setData] = useState<RideData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +105,6 @@ export default function Ride({ id }: { id: string }) {
           </div>
           <h1 className={pageTitleClass}>
             {summary.id}
-            {originalName && <span className="ml-2 align-middle text-xs font-normal text-muted">元の名前 {originalName}</span>}
           </h1>
           {summary.memo && <div className="mt-0.5 text-sm text-ink-2">{summary.memo}</div>}
         </div>

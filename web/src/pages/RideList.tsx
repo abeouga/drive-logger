@@ -3,7 +3,6 @@ import { useRides } from "../lib/data";
 import { fmtDuration, fmtKm } from "../lib/format";
 import RideCard from "../components/RideCard";
 import LoadState from "../components/LoadState";
-import PageHeader from "../components/PageHeader";
 import SortSelect from "../components/SortSelect";
 import {
   DEFAULT_RIDE_SORT,
@@ -55,9 +54,8 @@ function Tile({ label, value, unit, note }: { label: string; value: string; unit
 }
 
 export default function RideList() {
-  const { rides, ledger, error } = useRides();
+  const { rides, error } = useRides();
   const [sort, setSort] = useState<RideSortKey>(initialSort);
-  const originalName = new Map((ledger ?? []).map((r) => [r.id, r.original_name]));
   if (!rides) return <LoadState error={error} label="走行一覧" />;
   const sorted = sortRides(rides, sort);
   const totalS = rides.reduce((s, r) => s + r.duration_s, 0);
@@ -68,7 +66,8 @@ export default function RideList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title="走行一覧" />
+      {/* 今の画面は左のメニューで分かるので、見出しは読み上げ用にだけ置く */}
+      <h1 className="sr-only">走行一覧</h1>
 
       <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Tile label="走行" value={String(rides.length)} unit="本" note={`GPS あり ${nGps} 本`} />
@@ -95,7 +94,7 @@ export default function RideList() {
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {sorted.map((r) => (
-            <RideCard key={r.id} ride={r} originalName={originalName.get(r.id) ?? null} />
+            <RideCard key={r.id} ride={r} />
           ))}
         </div>
       </section>
