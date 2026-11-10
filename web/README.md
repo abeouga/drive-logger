@@ -46,7 +46,8 @@ admin でログインすると、走行を消す・ゴミ箱から戻す（#19�
 web\
 ├── README.md  package.json  vite.config.ts  tsconfig.json  index.html
 ├── .env.example                  dev の設定の見本（コミットする）
-├── .env.development.local        dev のログイン設定。start-dev.ps1 が Terraform の出力から作る（コミットしない）
+├── .env.development              dev のログイン設定（秘密ではない。Terraform が無い PC でも起動できるようにコミットする）
+├── .env.development.local        dev のログイン設定。start-dev.ps1 が Terraform の出力から作る（コミットしない。.env.development より優先）
 ├── .env.production.local         公開版のログイン設定。deploy.ps1 が Terraform の出力から作る（コミットしない）
 ├── start.bat                     ダブルクリックで npm run dev
 │
@@ -90,7 +91,7 @@ s3://ct125-logger-<アカウントID>/webapp/   React のビルド結果（Cloud
 
 ## 設定
 
-dev のログインの設定（`.env.development.local`）は `scripts/start-dev.ps1` が Terraform の出力から作る。手で書くときは `.env.example` を見る。
+dev のログインの設定は、コミットしてある `.env.development` に入っている（ユーザープールとクライアント ID。秘密ではない）。Terraform が読める PC では `scripts/start-dev.ps1` が出力から `.env.development.local` も作り、こちらが優先される。`.env.development` が Terraform の出力と違っていると、`start-dev.ps1` と `deploy.ps1` が書き直して知らせるので、そのときはコミットする。
 
 **注意：`VITE_` で始まる変数はブラウザに埋め込まれる。** `VITE_AUTH_*` はログイン画面の場所とクライアント ID で、ブラウザに見えてよい値。
 画面には AWS の鍵もバケット名も入らない（データは必ずデータ API を通す）。

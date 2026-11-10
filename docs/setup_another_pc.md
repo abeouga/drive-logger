@@ -50,12 +50,13 @@ aws sts get-caller-identity --profile ct125-logger
 | ファイル | 中身 | 作り方 |
 |---|---|---|
 | `infra/terraform.tfvars` | アプリのユーザーとパスワード（**秘密**） | `example.tfvars` をコピーし、**いま使っているパスワードと同じ値**を入れる。違う値を入れると apply でパスワードが変わる。値はパスワード管理ソフトなどで受け渡し、チャットや Git には書かない |
-| `web/.env.local` | 画面の dev サーバーが読む S3 の場所 | `web/.env.example` をコピーし、`<アカウントID>` を埋める（秘密ではない） |
 | `pipeline/config/local.yaml` | AWS のプロファイルとバケット、マスクする地点 | `pipeline/config/local.example.yaml` をコピーして埋める |
 | `api/dist/lambda.zip` | データ API・デバイス API の Lambda | `api/scripts/build-lambda.ps1` で作る（Terraform が読む） |
 
 次のものは自動で作られるか、要りません。
 
+- 画面のログインの設定：コミット済みの `web/.env.development` に入っている（秘密ではない）。そのため、画面を見るだけなら AWS と Terraform の準備（3.・5. の `terraform init`）をしていなくても `start.bat` で起動できる。Terraform が読める PC では `web/scripts/start-dev.ps1` が出力から `web/.env.development.local` も作る
+- `web/.env.local`：`/api/*` の中継先（`API_ORIGIN`・`LOCAL_API_ORIGIN`）を既定から変えるときだけ。`web/.env.example` を見る
 - `web/.env.production.local`：`web/scripts/deploy.ps1` が Terraform の出力から作る
 - `infra/pipeline_image.auto.tfvars`：コミット済み。コンテナを作り直すと `build-pipeline-image.ps1` が書き換えるので、それもコミットする
 - 走行データ：S3 にだけある。手元にデータのフォルダーは無く、処理も画面も S3 とデータ API から読む

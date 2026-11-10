@@ -15,15 +15,13 @@ function Get-TerraformOutputs {
     return $json | ConvertFrom-Json
 }
 
+. (Join-Path $PSScriptRoot "auth-env.ps1")
+
 function Write-AuthEnv($outputs) {
-    $lines = @(
-        "# scripts/deploy.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない）",
-        "VITE_AUTH_AUTHORITY=$($outputs.auth_authority.value)",
-        "VITE_AUTH_CLIENT_ID=$($outputs.auth_client_id.value)",
-        "VITE_AUTH_DOMAIN=$($outputs.auth_domain.value)"
-    )
     $path = Join-Path $root ".env.production.local"
-    [IO.File]::WriteAllLines($path, $lines, [Text.UTF8Encoding]::new($false))
+    Write-AuthEnvFile $path "# scripts/deploy.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない）" $outputs
+    # dev 用にコミットしてある .env.development も、Terraform の出力とずれていれば直す
+    Sync-CommittedAuthEnv $root $outputs
 }
 
 function Invoke-Build {
