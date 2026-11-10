@@ -3,6 +3,7 @@
 GET    /api/rides                              画面に出す走行の一覧（admin は include_deleted=true で消した走行も）
 DELETE /api/rides/{ride_id}                    走行を画面と学習から外す（admin。生データは残す）
 POST   /api/rides/{ride_id}/restore            外した走行を戻す（admin）
+POST   /api/rides/{ride_id}/purge              ゴミ箱の走行を完全に削除する（admin。生データ・処理の結果・台帳の 1 件。元に戻せない）
 GET    /api/rides/{ride_id}/runs               その走行を処理した記録（新しい順）
 PUT    /api/rides/{ride_id}/published-run      画面に出す結果を、前の処理の結果などに切り替える（admin）
 """
@@ -17,6 +18,12 @@ from ..services.ride_service import RideService
 router = APIRouter(prefix="/rides", tags=["rides"])
 
 NO_STORE_HEADERS = {"Cache-Control": "private, no-store"}
+
+
+class PurgeRequest(BaseModel):
+    """contracts/api/purge_request.schema.json"""
+
+    confirm_ride_id: str = Field(description="確かめの画面で打ち込んだ走行の名前（URL の ride_id と同じでなければ断る）")
 
 
 class PublishedRunRequest(BaseModel):
@@ -40,6 +47,16 @@ def delete_ride(ride_id: str, user: User = Depends(get_current_user), service: R
 @router.post("/{ride_id}/restore")
 def restore_ride(ride_id: str, user: User = Depends(get_current_user), service: RideService = Depends(get_ride_service)) -> dict:
     return service.restore(user, ride_id)
+
+
+@router.post("/{ride_id}/purge")
+def purge_ride(
+    ride_id: str,
+    body: PurgeRequest,
+    user: User = Depends(get_current_user),
+    service: RideService = Depends(get_ride_service),
+) -> dict:
+    return service.purge(user, ride_id, body.confirm_ride_id)
 
 
 @router.get("/{ride_id}/runs")

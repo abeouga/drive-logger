@@ -30,6 +30,7 @@ resource "aws_iam_role" "data_api" {
 }
 
 # ログを書く・公開用のデータセットを読む・作業用の台帳と記録を読む・台帳を書く・公開を処理の Lambda に頼む。
+# 完全に削除（#82）のために、生データと処理の結果を、走行のフォルダーの範囲でだけ消せる（読めない・書けない）。
 # 公開用のバケットには書けない（公開用に書けるのは処理の Lambda だけ）
 data "aws_iam_policy_document" "data_api" {
   statement {
@@ -65,6 +66,29 @@ data "aws_iam_policy_document" "data_api" {
       test     = "StringLike"
       variable = "s3:prefix"
       values   = ["ledger/*", "runs/*", "models/*"]
+    }
+  }
+  # 完全に削除：処理の結果（runs/<run_id>/rides/<ride_id>/ 以下）だけを消す。run.json・models/・ledger/ は消せない
+  statement {
+    sid       = "PurgeRideResults"
+    actions   = ["s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.role["work"].arn}/runs/*/rides/ride_*/*"]
+  }
+  # 完全に削除：生データの走行のフォルダー（<ride_id>/ 以下）だけを消す。_uploads/（送り終えた印）は消せない
+  statement {
+    sid       = "PurgeRawRide"
+    actions   = ["s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.role["raw"].arn}/${local.raw_prefix}ride_*/*"]
+  }
+  # 消すファイルの一覧を取る（走行のフォルダーの中だけ）。生データの中身は読めない
+  statement {
+    sid       = "ListRawRide"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.role["raw"].arn]
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["${local.raw_prefix}ride_*/"]
     }
   }
   statement {
@@ -103,6 +127,8 @@ resource "aws_lambda_function" "data_api" {
       WORK_BUCKET       = aws_s3_bucket.role["work"].bucket
       WORK_PREFIX       = ""
       PIPELINE_FUNCTION = aws_lambda_function.pipeline.function_name
+      RAW_BUCKET        = aws_s3_bucket.role["raw"].bucket
+      RAW_PREFIX        = local.raw_prefix
     }
   }
 
@@ -157,7 +183,7 @@ resource "aws_apigatewayv2_route" "authenticated" {
   authorizer_id      = aws_apigatewayv2_authorizer.cognito.id
 }
 
-# 書き換え（走行を消す・戻す・公開する結果やモデルの切り替え。#16・#17）もログインが必要。admin かどうかはデータ API が確かめる
+# 書き換え（走行を消す・戻す・完全に削除・公開する結果やモデルの切り替え。#16・#17・#82）もログインが必要。admin かどうかはデータ API が確かめる
 resource "aws_apigatewayv2_route" "authenticated_write" {
   for_each           = toset(["DELETE /api/{proxy+}", "PUT /api/{proxy+}", "POST /api/rides/{proxy+}"])
   api_id             = aws_apigatewayv2_api.data.id

@@ -1,10 +1,10 @@
 // 画面が使うデータの読み込みと書き換え。どれもデータ API（src/lib/dataSource.ts）を通す。
 //   走行の一覧      ：GET /api/rides（走行の台帳から作る）
 //   1 走行のデータ  ：GET /api/data/ride_<id>.json・spec_<id>.png など（公開用のデータ）
-//   消す・戻す・切り替え：admin だけ（API も admin かどうかを確かめる）
+//   消す・戻す・完全に削除・切り替え：admin だけ（API も admin かどうかを確かめる）
 import { useCallback, useEffect, useState } from "react";
 import { DataError, apiFetch, apiJson, fetchDataFile } from "./dataSource";
-import type { LedgerRide, ModelRecord, ModelsResponse, RideData, RideSummary, RidesResponse, RunsResponse, SpecMeta, Waveform, WaveFile } from "./types";
+import type { LedgerRide, ModelRecord, ModelsResponse, PurgeRequest, PurgeResponse, RideData, RideSummary, RidesResponse, RunsResponse, SpecMeta, Waveform, WaveFile } from "./types";
 
 export type * from "./types";
 export { DataError };
@@ -98,6 +98,14 @@ export async function deleteRide(id: string): Promise<void> {
 export async function restoreRide(id: string): Promise<void> {
   await apiFetch(`rides/${checkRideId(id)}/restore`, { method: "POST" });
   invalidateRides();
+}
+
+/** admin：ゴミ箱の走行を完全に削除する（#82。元に戻せない）。confirmRideId は確かめの画面で打ち込んだ名前。 */
+export async function purgeRide(id: string, confirmRideId: string): Promise<PurgeResponse> {
+  const body: PurgeRequest = { confirm_ride_id: confirmRideId };
+  const result = await apiJson<PurgeResponse>(`rides/${checkRideId(id)}/purge`, { method: "POST", body: JSON.stringify(body) });
+  invalidateRides();
+  return result;
 }
 
 // ------------------------------------------------------------------ 処理の記録

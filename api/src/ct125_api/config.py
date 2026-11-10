@@ -18,6 +18,9 @@ class Settings:
     work_prefix: str = ""
     # 公開用を作り直す処理の Lambda（消す・戻す・切り替えの後に呼ぶ）
     pipeline_function: str = ""
+    # 生データのバケットとフォルダー（<prefix><走行>/）。完全に削除（#82）のときだけ使う（消すだけで、読まない）
+    raw_bucket: str = ""
+    raw_prefix: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -28,6 +31,8 @@ class Settings:
             work_bucket=_required("WORK_BUCKET"),
             work_prefix=os.environ.get("WORK_PREFIX", ""),
             pipeline_function=_required("PIPELINE_FUNCTION"),
+            raw_bucket=_required("RAW_BUCKET"),
+            raw_prefix=os.environ.get("RAW_PREFIX", ""),
         )
 
 

@@ -61,3 +61,11 @@ class RunNotPublishableError(DomainError):
 
 class LedgerConflictError(DomainError):
     """台帳をほかの処理が続けて書き換えていて、書けなかった（読み直してやり直す）。"""
+
+
+class RideNotInTrashError(DomainError):
+    """ゴミ箱に入っていない走行は、完全に削除できない（先にゴミ箱へ移す）。"""
+
+
+class PurgeIncompleteError(DomainError):
+    """完全に削除の途中で S3 の削除に失敗した。台帳からは除いてあるので、残りはログを見て消す。"""

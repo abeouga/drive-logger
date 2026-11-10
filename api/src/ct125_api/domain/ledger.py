@@ -2,13 +2,14 @@
 
 形は contracts/records/ledger.schema.json。台帳を書くのは処理（pipeline）とこのデータ API だけ。
 「消す」は画面と学習から外すだけで、生データと処理の結果は残す（docs/data_flow_design.md 7.）。
+「完全に削除」（#82）は、ゴミ箱に入っている走行の 1 件を台帳から除く（ファイルを消すのはサービス）。
 """
 
 import copy
 import re
 from datetime import datetime, timezone
 
-from .exceptions import InvalidRequestError, RideNotFoundError, RunNotFoundError, RunNotPublishableError
+from .exceptions import InvalidRequestError, RideNotFoundError, RideNotInTrashError, RunNotFoundError, RunNotPublishableError
 
 # contracts/common.json・contracts/records/ と同じ（tests/test_contracts.py で突き合わせる）
 RIDE_ID_PATTERN = re.compile(r"ride_([0-9]{8}_[0-9]{6}(_[0-9]{1,2})?|[0-9]{3})")
@@ -53,16 +54,27 @@ def mark_deleted(ledger: dict, ride_id: str, username: str, now: datetime) -> di
     updated = copy.deepcopy(ledger)
     entry = entry_of(updated, ride_id)
     if not entry["deleted"]:
-        entry.update(deleted=True, deleted_at=_iso(now), deleted_by=username)
-    updated["updated_at"] = _iso(now)
+        entry.update(deleted=True, deleted_at=iso(now), deleted_by=username)
+    updated["updated_at"] = iso(now)
     return updated
 
 
 def restore(ledger: dict, ride_id: str, now: datetime) -> dict:
     updated = copy.deepcopy(ledger)
     entry_of(updated, ride_id).update(deleted=False, deleted_at=None, deleted_by=None)
-    updated["updated_at"] = _iso(now)
+    updated["updated_at"] = iso(now)
     return updated
+
+
+def remove(ledger: dict, ride_id: str, now: datetime) -> tuple[dict, dict]:
+    """ゴミ箱に入っている走行の 1 件を除いた新しい台帳と、除いた 1 件（元は変えない）。ゴミ箱に無ければ断る。"""
+    updated = copy.deepcopy(ledger)
+    entry = entry_of(updated, ride_id)
+    if not entry["deleted"]:
+        raise RideNotInTrashError(f"{ride_id} はゴミ箱に入っていません。完全に削除する前に、ゴミ箱へ移してください")
+    del updated["rides"][ride_id]
+    updated["updated_at"] = iso(now)
+    return updated, entry
 
 
 def point_to_run(ledger: dict, ride_id: str, run: dict | None, now: datetime) -> dict:
@@ -75,7 +87,7 @@ def point_to_run(ledger: dict, ride_id: str, run: dict | None, now: datetime) ->
     if result is None or result["status"] != "succeeded":
         raise RunNotPublishableError(f"処理 {run['run_id']} では {ride_id} が失敗しているので、公開できません")
     entry.update(published_run=run["run_id"], kind=result["kind"], kind_metrics=result["kind_metrics"])
-    updated["updated_at"] = _iso(now)
+    updated["updated_at"] = iso(now)
     return updated
 
 
@@ -83,5 +95,5 @@ def utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _iso(moment: datetime) -> str:
+def iso(moment: datetime) -> str:
     return moment.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

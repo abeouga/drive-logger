@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/api/purge_request.schema.json",
+  "version": 1,
+  "title": "POST /api/rides/{ride_id}/purge の要求（ゴミ箱の走行を完全に削除する。admin だけ。#82）",
+  "type": "object",
+  "required": ["confirm_ride_id"],
+  "additionalProperties": false,
+  "properties": {
+    "confirm_ride_id": {
+      "type": "string",
+      "description": "確かめの画面で打ち込んだ走行の名前。URL の ride_id と同じでなければ断る（押し間違いで消さないため）"
+    }
+  }
+}

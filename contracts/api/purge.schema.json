@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/api/purge.schema.json",
+  "version": 1,
+  "title": "POST /api/rides/{ride_id}/purge の応答（消したもの）",
+  "description": "台帳の 1 件を除いて公開し直しを頼み、処理の結果と生データを消した後に返す。run.json とモデルは記録なので消さない。S3 のバージョニングで、消したファイルの古い版は 30 日残る",
+  "type": "object",
+  "required": ["ride_id", "purged", "removed"],
+  "additionalProperties": false,
+  "properties": {
+    "ride_id": { "type": "string" },
+    "purged": { "const": true },
+    "removed": {
+      "type": "object",
+      "required": ["raw_files", "result_files", "runs"],
+      "additionalProperties": false,
+      "properties": {
+        "raw_files": { "type": "integer", "minimum": 0, "description": "消した生データのファイルの数（raw の <ride_id>/ 以下）" },
+        "result_files": { "type": "integer", "minimum": 0, "description": "消した処理の結果のファイルの数（work の runs/<run_id>/rides/<ride_id>/ 以下）" },
+        "runs": { "type": "array", "items": { "type": "string" }, "description": "結果を消した処理の ID（台帳にあったもの）。run.json は残る" }
+      }
+    }
+  }
+}

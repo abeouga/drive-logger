@@ -13,6 +13,7 @@ from .auth.current_user import read_user
 from .config import Settings
 from .domain.user import User
 from .repositories.data_file_repository import DataFileRepository
+from .repositories.ride_files_repository import RideFilesRepository, S3RideFilesRepository
 from .repositories.s3_data_file_repository import S3DataFileRepository
 from .repositories.work_repository import S3WorkRepository, WorkRepository
 from .services.data_file_service import DataFileService
@@ -45,11 +46,16 @@ def get_pipeline_client(settings: Settings = Depends(get_settings)) -> PipelineC
     return LambdaPipelineClient(_lambda_client(), settings.pipeline_function)
 
 
+def get_ride_files_repository(settings: Settings = Depends(get_settings)) -> RideFilesRepository:
+    return S3RideFilesRepository(_s3_client(), settings.raw_bucket, settings.raw_prefix, settings.work_bucket, settings.work_prefix)
+
+
 def get_ride_service(
     work: WorkRepository = Depends(get_work_repository),
     pipeline: PipelineClient = Depends(get_pipeline_client),
+    files: RideFilesRepository = Depends(get_ride_files_repository),
 ) -> RideService:
-    return RideService(work, pipeline)
+    return RideService(work, pipeline, files)
 
 
 def get_data_file_repository(settings: Settings = Depends(get_settings)) -> DataFileRepository:

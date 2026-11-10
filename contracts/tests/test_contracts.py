@@ -113,6 +113,8 @@ EXAMPLES = {
     "examples/api/rides.json": "api/rides.schema.json",
     "examples/api/runs.json": "api/runs.schema.json",
     "examples/api/models.json": "api/models.schema.json",
+    "examples/api/purge_request.json": "api/purge_request.schema.json",
+    "examples/api/purge.json": "api/purge.schema.json",
 }
 
 

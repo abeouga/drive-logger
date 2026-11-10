@@ -1,0 +1,9 @@
+{
+  "ride_id": "ride_20261108_011304",
+  "purged": true,
+  "removed": {
+    "raw_files": 7,
+    "result_files": 18,
+    "runs": ["20261109T031500Z-3f9a1c", "20261108T120000Z-0b1c2d"]
+  }
+}

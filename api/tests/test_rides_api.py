@@ -127,11 +127,44 @@ def world():
     return FakeWork(), FakePipeline()
 
 
-def client_for(world, user):
+class FakeFiles:
+    """生データ（raw）と処理の結果（work の runs/<run>/rides/<ride>/）の置き場所。消した順を calls に残す。"""
+
+    def __init__(self, calls, work):
+        self.calls = calls
+        self.work = work
+        self.fail_on = None
+        self.raw = {f"{ride_id}/{name}" for ride_id in work.ledger["rides"] for name in ("accel.csv", "gps.csv", "meta.json", "upload_complete.json")}
+        self.results = {
+            f"runs/{run_id}/rides/{ride_id}/{name}"
+            for ride_id, entry in work.ledger["rides"].items()
+            for run_id in entry["runs"]
+            for name in ("windows.parquet", "summary.json", "app/ride_x.json")
+        }
+
+    def delete_results(self, run_id, ride_id):
+        assert ride_id not in self.work.ledger["rides"]   # 台帳から除いた後に消す
+        if self.fail_on == "results":
+            raise RuntimeError("AccessDenied")
+        return self._delete(self.results, f"runs/{run_id}/rides/{ride_id}/", ("delete_results", run_id))
+
+    def delete_raw(self, ride_id):
+        if self.fail_on == "raw":
+            raise RuntimeError("AccessDenied")
+        return self._delete(self.raw, f"{ride_id}/", ("delete_raw", ride_id))
+
+    def _delete(self, keys, prefix, call):
+        self.calls.append(call)
+        doomed = {key for key in keys if key.startswith(prefix)}
+        keys -= doomed
+        return len(doomed)
+
+
+def client_for(world, user, files=None):
     work, pipeline = world
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_ride_service] = lambda: RideService(work, pipeline, now=lambda: NOW)
+    app.dependency_overrides[get_ride_service] = lambda: RideService(work, pipeline, files, now=lambda: NOW)
     return TestClient(app)
 
 
@@ -190,6 +223,74 @@ def test_ledger_conflict_is_retried_then_409(world):
     assert client_for(world, ADMIN).delete("/api/rides/ride_20261109_010000").status_code == 200   # 1 回目の衝突は読み直してやり直す
     work.conflicts = 5
     assert client_for(world, ADMIN).post("/api/rides/ride_20261109_010000/restore").status_code == 409
+
+
+# ------------------------------------------------------------------ 完全に削除（#82）
+TRASHED = "ride_20261109_012000"   # ゴミ箱に入っている走行
+
+
+@pytest.fixture
+def files(world):
+    work, pipeline = world
+    return FakeFiles(pipeline.calls, work)
+
+
+def purge(client, ride_id, confirm=None):
+    return client.post(f"/api/rides/{ride_id}/purge", json={"confirm_ride_id": ride_id if confirm is None else confirm})
+
+
+def test_admin_purges_a_ride_in_the_trash(world, files, caplog):
+    work, pipeline = world
+    runs_before = copy.deepcopy(work.runs)
+    with caplog.at_level("INFO", logger="ct125_api.purge"):
+        response = purge(client_for(world, ADMIN, files), TRASHED)
+    assert response.status_code == 200
+    validator("api/purge.schema.json").validate(response.json())
+    assert response.json() == {"ride_id": TRASHED, "purged": True, "removed": {"raw_files": 4, "result_files": 6, "runs": [RUN_2, RUN_1]}}
+    # 台帳から 1 件だけ除き、公開し直しを頼んでから、処理の結果 → 生データの順に消す
+    assert TRASHED not in work.ledger["rides"] and len(work.ledger["rides"]) == 3
+    assert work.ledger["updated_at"] == "2026-11-09T05:00:00Z"
+    assert pipeline.calls == [("publish",), ("delete_results", RUN_2), ("delete_results", RUN_1), ("delete_raw", TRASHED)]
+    assert not any(key.startswith(f"{TRASHED}/") for key in files.raw)
+    assert not any(f"/rides/{TRASHED}/" in key for key in files.results)
+    # ほかの走行のファイルは残る。処理の記録（run.json）は書き換えない（消した走行の ID が残る）
+    assert len(files.raw) == 12 and len(files.results) == 15
+    assert work.runs == runs_before
+    # 誰がいつ消したかをログに残す
+    assert any(TRASHED in r.getMessage() and "admin" in r.getMessage() and "2026-11-09T05:00:00Z" in r.getMessage() for r in caplog.records)
+
+
+def test_guest_cannot_purge(world, files):
+    work, pipeline = world
+    assert purge(client_for(world, GUEST, files), TRASHED).status_code == 403
+    assert TRASHED in work.ledger["rides"] and pipeline.calls == []
+
+
+def test_ride_not_in_the_trash_cannot_be_purged(world, files):
+    work, pipeline = world
+    response = purge(client_for(world, ADMIN, files), "ride_20261109_010000")
+    assert response.status_code == 409 and "ゴミ箱" in response.json()["detail"]
+    assert "ride_20261109_010000" in work.ledger["rides"] and pipeline.calls == []
+
+
+def test_purge_needs_the_ride_name_typed(world, files):
+    work, pipeline = world
+    client = client_for(world, ADMIN, files)
+    assert purge(client, TRASHED, confirm="ride_20261109_010000").status_code == 400
+    assert purge(client, TRASHED, confirm="").status_code == 400
+    assert client.post(f"/api/rides/{TRASHED}/purge", json={}).status_code == 422
+    assert TRASHED in work.ledger["rides"] and pipeline.calls == []
+    assert purge(client, "ride_20261109_235959").status_code == 404
+    assert purge(client, "x").status_code == 400
+
+
+def test_purge_stopped_midway_is_reported(world, files):
+    work, pipeline = world
+    files.fail_on = "raw"
+    response = purge(client_for(world, ADMIN, files), TRASHED)
+    assert response.status_code == 500 and "生データ" in response.json()["detail"]
+    # 台帳と画面からは除いてある（消えかけの走行は画面に出ない）
+    assert TRASHED not in work.ledger["rides"] and pipeline.calls[0] == ("publish",)
 
 
 # ------------------------------------------------------------------ 処理の記録と、前の結果に戻す
