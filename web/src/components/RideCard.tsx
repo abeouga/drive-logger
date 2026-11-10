@@ -2,6 +2,7 @@ import type { RideSummary } from "../lib/data";
 import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { rideHref } from "../lib/route";
+import { isJudged } from "../lib/rideSort";
 import Sparkline from "./Sparkline";
 import TrashButton from "./TrashButton";
 
@@ -64,9 +65,15 @@ export default function RideCard({ ride }: { ride: RideSummary }) {
       {ride.memo && <p className="line-clamp-2 text-xs text-ink-2">{ride.memo}</p>}
 
       <div className={`mt-auto flex min-h-[34px] items-center justify-between text-xs text-ink-2 ${isAdmin ? "pr-11" : ""}`}>
-        <span>
-          見どころ <span className="tabular text-ink">{ride.n_anomalies}</span> か所
-        </span>
+        {/* 0 件も判定した結果なので淡々と出す。判定していない走行（GPS なし）は 0 件と混ぜない */}
+        {isJudged(ride) ? (
+          <span>
+            基準を超えた振動{" "}
+            <span className={`tabular ${ride.n_anomalies > 0 ? "font-semibold text-ink" : ""}`}>{ride.n_anomalies}</span> か所
+          </span>
+        ) : (
+          <span className="text-muted">判定なし（GPS なし）</span>
+        )}
         <span className="font-bold text-accent opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">開く →</span>
       </div>
     </a>

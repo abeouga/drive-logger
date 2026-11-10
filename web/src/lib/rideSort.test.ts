@@ -28,11 +28,11 @@ const ms = (iso: string) => Date.parse(iso);
 
 // 記録の日時が分かる走行（GPS あり）と、分からない走行（GPS なし。走行 ID の届いた日時で代える）を混ぜる
 const rides = [
-  ride("ride_20261109_030100", { start_ms: ms("2026-11-02T13:42:00+09:00"), gps: "partial", distance_km: 0.0, duration_s: 120, n_anomalies: 0 }),
-  ride("ride_20261109_030109", { start_ms: ms("2026-11-02T14:03:00+09:00"), gps: "partial", distance_km: 4.8, duration_s: 840, n_anomalies: 10 }),
-  ride("ride_20261109_030119", { start_ms: ms("2026-11-02T14:52:00+09:00"), gps: "full", distance_km: 4.3, duration_s: 900, n_anomalies: 10 }),
-  ride("ride_20261109_030139", { duration_s: 2220, n_anomalies: 10 }), // GPS なし。届いたのは 11/9 3:01 JST
-  ride("ride_20261101_120000", { duration_s: 60, n_anomalies: 3 }), // GPS なし。届いたのは 11/1 12:00 JST
+  ride("ride_20261109_030100", { start_ms: ms("2026-11-02T13:42:00+09:00"), gps: "partial", distance_km: 0.0, duration_s: 120, n_anomalies: 0, anomaly_method: "speed_baseline" }),
+  ride("ride_20261109_030109", { start_ms: ms("2026-11-02T14:03:00+09:00"), gps: "partial", distance_km: 4.8, duration_s: 840, n_anomalies: 2, anomaly_method: "speed_baseline" }),
+  ride("ride_20261109_030119", { start_ms: ms("2026-11-02T14:52:00+09:00"), gps: "full", distance_km: 4.3, duration_s: 900, n_anomalies: 2, anomaly_method: "speed_baseline" }),
+  ride("ride_20261109_030139", { duration_s: 2220 }), // GPS なし（判定しない）。届いたのは 11/9 3:01 JST
+  ride("ride_20261101_120000", { duration_s: 60 }), // GPS なし（判定しない）。届いたのは 11/1 12:00 JST
 ];
 const ids = (list: RideSummary[]) => list.map((r) => r.id.slice(5));
 
@@ -77,18 +77,25 @@ describe("sortRides", () => {
       "20261101_120000",
     ]);
   });
-  it("見どころの多い順：同じ数なら新しい順", () => {
-    expect(ids(sortRides(rides, "highlights"))).toEqual([
-      "20261109_030139",
+  it("基準を超えた振動の多い順：同じ数なら新しい順。判定していない走行は 0 件の後（その中は新しい順）", () => {
+    expect(ids(sortRides(rides, "anomalies"))).toEqual([
       "20261109_030119",
       "20261109_030109",
-      "20261101_120000",
       "20261109_030100",
+      "20261109_030139",
+      "20261101_120000",
     ]);
+  });
+  it("基準を超えた振動の多い順：判定していない走行は数が入っていても最後", () => {
+    const list = [
+      ride("ride_20261109_000000", { n_anomalies: 5 }),
+      ride("ride_20261108_000000", { n_anomalies: 0, anomaly_method: "speed_baseline", gps: "full" }),
+    ];
+    expect(ids(sortRides(list, "anomalies"))).toEqual(["20261108_000000", "20261109_000000"]);
   });
   it("どの並べ方でも走行が抜けず、元の配列を変えない", () => {
     const before = ids(rides);
-    for (const key of ["new", "old", "distance", "duration", "highlights"] as const) {
+    for (const key of ["new", "old", "distance", "duration", "anomalies"] as const) {
       expect(sortRides(rides, key)).toHaveLength(rides.length);
     }
     expect(ids(rides)).toEqual(before);
@@ -98,11 +105,14 @@ describe("sortRides", () => {
 describe("ハッシュの並べ方", () => {
   it("?sort= を読み書きする", () => {
     expect(sortFromHash("#/?sort=distance")).toBe("distance");
-    expect(sortFromHash(listHashWithSort("highlights"))).toBe("highlights");
+    expect(sortFromHash(listHashWithSort("anomalies"))).toBe("anomalies");
     expect(listHashWithSort("new")).toBe("#/");
   });
   it("無い・知らない値は null", () => {
     expect(sortFromHash("#/")).toBeNull();
     expect(sortFromHash("#/?sort=nope")).toBeNull();
+  });
+  it("前の値（sort=highlights）は既定の並べ方に読み替える", () => {
+    expect(sortFromHash("#/?sort=highlights")).toBe("new");
   });
 });
