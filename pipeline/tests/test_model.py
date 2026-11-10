@@ -48,3 +48,34 @@ def test_isolation_forest_flags_outlier():
     assert s["score_if"].iloc[0] == s["score_if"].max()
     assert bool(s["is_anomaly_if"].iloc[0])
     assert 0.0 < s["is_anomaly_if"].mean() < 0.1
+
+
+def test_saved_forest_gives_the_same_scores_after_loading(tmp_path):
+    rng = np.random.default_rng(2)
+    df = pd.DataFrame({c: rng.normal(0, 1, 300) for c in model.IF_FEATURES})
+    forest = model.fit_isolation_forest(df, n_estimators=50)
+    path = tmp_path / "isolation_forest.skops"
+    model.save_model(forest, path)
+    assert not path.read_bytes().startswith(b"\x80")      # pickle の先頭（protocol 2 以上）ではない
+    pd.testing.assert_frame_equal(model.apply_isolation_forest(df, model.load_model(path)), model.apply_isolation_forest(df, forest))
+
+
+def test_forest_file_with_untrusted_types_is_refused():
+    from skops.io.exceptions import UntrustedTypesFoundException
+
+    with pytest.raises(UntrustedTypesFoundException):
+        model.load_forest(skops_dumps({"f": len}))     # 信頼する型の外（builtins.len）
+
+
+def test_forest_trusted_types_are_exactly_what_skops_reports():
+    import skops.io as sio
+
+    df = pd.DataFrame({c: np.arange(50, dtype=float) for c in model.IF_FEATURES})
+    data = model.dump_forest(model.fit_isolation_forest(df, n_estimators=5))
+    assert sorted(sio.get_untrusted_types(data=data)) == sorted(model.FOREST_TRUSTED_TYPES)
+
+
+def skops_dumps(obj) -> bytes:
+    import skops.io as sio
+
+    return sio.dumps(obj)

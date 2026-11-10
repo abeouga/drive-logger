@@ -59,7 +59,7 @@ work バケット
   runs/<run_id>/rides/<ride_id>/scored.parquet    点数付きの窓
   runs/<run_id>/rides/<ride_id>/summary.json      一覧用の要約（rides.json の 1 件）
   runs/<run_id>/rides/<ride_id>/app/              画面用のファイル（ride_・spec_・wave_）
-  models/<version>/baseline.json・isolation_forest.pkl・model.json・notes.md
+  models/<version>/baseline.json・isolation_forest.skops・model.json・notes.md
   models/current.json                             今使うモデルの版
   ledger/rides.json                               走行の台帳（7.）
 
@@ -151,9 +151,11 @@ public バケット
 
 `models/<version>/model.json`：版・日時・ローカルか Lambda か・コミット・ライブラリの版・設定・学習に使った走行と窓の数・使わなかった走行と理由・結果の要約（ベースラインのビンの数、異常の候補の数）。
 `models/<version>/notes.md`：要約を自動で書き、気づいたことを人が足す。
-モデルを読むときに、学習したときのライブラリの版と突き合わせ、違えば止める（pickle の読み込みは版がずれると壊れることがある）。
+モデルを読むときに、学習したときのライブラリの版（skops を含む）と突き合わせ、違えば止める（版がずれると読めない・スコアが変わることがある）。
 
-保存形式（#23 で決定、2026-11-10。実装は別の Issue）：Isolation Forest を pickle から **skops** に変える。pickle は読み込むと中のコードが動くので、`models/` に書ける人（処理の Lambda とローカルの処理のロール。どちらも `work/*` に書ける）が、処理の Lambda の中で好きなコードを動かせてしまうため。skops は読み込んでもコードが動かない。`baseline.json` は今どおり JSON。古い版の `.pkl` は読まなくなるので、今の版を学習し直す。
+保存形式（#23 で決定、2026-11-10。#80 で実装）：Isolation Forest を pickle から **skops** に変えた（`isolation_forest.skops`）。pickle は読み込むと中のコードが動くので、`models/` に書ける人（処理の Lambda とローカルの処理のロール。どちらも `work/*` に書ける）が、処理の Lambda の中で好きなコードを動かせてしまうため。skops は読み込んでもコードが動かない。`baseline.json` は今どおり JSON。
+読むときは、skops が既定で信頼しない型のうち Isolation Forest に入っているもの（`sklearn.tree._tree.Tree`）だけを決め打ちで信頼し、それ以外の型が入っていれば止める（`pipeline/src/ct125/model.py` の `FOREST_TRUSTED_TYPES`）。ライブラリの版を上げて型が増えたら、確かめてから足す。
+古い版の `.pkl` は読まない。`isolation_forest.pkl` しかない版を読もうとすると、学習し直す（retrain）よう伝えて止まる。今の版は学習し直し、新しい版に切り替える（`use_model`）。
 
 - 採用しなかった案：ONNX（推論に onnxruntime が要り、Lambda のコンテナが大きくなる。今の用途では利点が小さい）
 - 採用しなかった案：pickle のまま権限を絞り、ハッシュを model.json で確かめる（ハッシュも同じ場所に置くので、書ける人はハッシュも書き換えられる）

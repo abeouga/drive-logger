@@ -5,7 +5,7 @@
   "where": "lambda",
   "commit": "b35342d",
   "run_id": "20261109T031500Z-3f9a1c",
-  "libraries": { "python": "3.12.12", "numpy": "2.5.4", "pandas": "3.1.1", "scipy": "1.18.1", "scikit-learn": "1.9.1", "pyarrow": "26.0.1" },
+  "libraries": { "python": "3.12.12", "numpy": "2.5.4", "pandas": "3.1.1", "scipy": "1.18.1", "scikit-learn": "1.9.1", "pyarrow": "26.0.1", "skops": "0.16.0" },
   "config": { "model": { "speed_bin_kmh": 5, "baseline_min_count": 10, "z_threshold": 3.0, "contamination": 0.03, "n_estimators": 300, "random_state": 0 }, "stop_speed_kmh": 5 },
   "train": {
     "rides": [

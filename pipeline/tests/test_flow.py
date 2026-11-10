@@ -6,13 +6,15 @@ import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
 import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
 from ct125.config import load_config
 from ct125.flow import LEDGER, Pipeline, Places, PublishNotAllowedError
-from ct125.models import ModelLibraryMismatchError, ModelStore
+from ct125.models import ModelFormatError, ModelLibraryMismatchError, ModelStore
 from ct125.storage import Area, MemoryStore
 from sd_sessions import put_ride
 
@@ -233,6 +235,31 @@ def test_model_trained_with_other_library_versions_is_refused(cfg, stores):
     record["libraries"]["scikit-learn"] = "0.0.1"
     work.put(key, json.dumps(record).encode("utf-8"), "application/json")
     with pytest.raises(ModelLibraryMismatchError, match="scikit-learn"):
+        ModelStore(Area(work, "", "work")).load_current()
+
+
+def test_model_is_saved_with_skops_and_scores_the_same_after_loading(cfg, stores):
+    raw, work, public = stores
+    result = lambda_pipeline(cfg, stores, Clock()).retrain(publish=True)
+    version = result["model_version"]
+    names = {key.rsplit("/", 1)[1] for key in work.objects if key.startswith(f"models/{version}/")}
+    assert names == {"baseline.json", "isolation_forest.skops", "model.json", "notes.md"}
+    assert "skops" in read(work, f"models/{version}/model.json")["libraries"]
+
+    from ct125 import model
+    loaded = ModelStore(Area(work, "", "work")).load(version)
+    df = pd.DataFrame({c: np.linspace(-1, 1, 20) for c in model.IF_FEATURES})
+    forest = model.load_forest(work.objects[f"models/{version}/isolation_forest.skops"])
+    pd.testing.assert_frame_equal(model.apply_isolation_forest(df, loaded.forest), model.apply_isolation_forest(df, forest))
+
+
+def test_old_model_saved_only_as_pickle_is_refused(cfg, stores):
+    raw, work, public = stores
+    result = lambda_pipeline(cfg, stores, Clock()).retrain(publish=True)
+    version = result["model_version"]
+    del work.objects[f"models/{version}/isolation_forest.skops"]
+    work.put(f"models/{version}/isolation_forest.pkl", b"old pickle (not read)", "application/octet-stream")
+    with pytest.raises(ModelFormatError, match="retrain"):
         ModelStore(Area(work, "", "work")).load_current()
 
 

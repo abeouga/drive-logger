@@ -4,13 +4,14 @@ version = "0.1.0"
 description = "ハンターカブ CT125 走行データロガー（ESP32 + GPS + ADXL345）の解析パイプライン"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
-# 版を固定する：学習済みモデル（pickle）を、学習したときと同じ版で読むため。Lambda のコンテナ（deploy/lambda/requirements.txt）と同じ版にする
+# 版を固定する：学習済みモデル（skops）を、学習したときと同じ版で読むため。Lambda のコンテナ（deploy/lambda/requirements.txt）と同じ版にする
 # （tests/test_dependencies.py で突き合わせる）。版を上げたら学習し直す（retrain）。model.json に学習したときの版が残る
 dependencies = [
     "numpy==2.5.4",
     "pandas==3.1.1",
     "scipy==1.18.1",
     "scikit-learn==1.9.1",
+    "skops==0.16.0",
     "joblib==1.6.0",
     "pyarrow==26.0.1",
     "pyyaml==6.0.3",

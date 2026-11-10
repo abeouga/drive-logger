@@ -62,6 +62,7 @@ def library_versions() -> dict[str, str]:
     import pandas
     import pyarrow
     import scipy
+    import skops
     import sklearn
 
     return {
@@ -71,6 +72,7 @@ def library_versions() -> dict[str, str]:
         "scipy": scipy.__version__,
         "scikit-learn": sklearn.__version__,
         "pyarrow": pyarrow.__version__,
+        "skops": skops.__version__,
     }
 
 

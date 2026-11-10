@@ -1,10 +1,11 @@
-# Lambda のコンテナに入れるライブラリ。学習済みモデル（pickle）を読めるよう、
+# Lambda のコンテナに入れるライブラリ。学習済みモデル（skops）を読めるよう、
 # 学習した環境（ローカルの .venv）と同じ版に固定する（pyproject.toml の dependencies と同じ。tests/test_dependencies.py で突き合わせる）。
 # 版を上げたら学習し直す（{"action": "retrain"}）。
 numpy==2.5.4
 pandas==3.1.1
 scipy==1.18.1
 scikit-learn==1.9.1
+skops==0.16.0
 joblib==1.6.0
 pyarrow==26.0.1
 pyyaml==6.0.3

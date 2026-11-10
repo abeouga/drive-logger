@@ -1,6 +1,6 @@
 # 走行データの処理（ct125.cloud）を AWS Lambda で動かすコンテナ。
 # ビルドはリポジトリのルートで：scripts/build-pipeline-image.ps1
-# 学習済みモデルの pickle を読むため、Python とライブラリはローカルの .venv と同じ版にそろえる（requirements.txt）。
+# 学習済みモデル（skops）を学習したときと同じ版で読むため、Python とライブラリはローカルの .venv と同じ版にそろえる（requirements.txt）。
 FROM public.ecr.aws/lambda/python:3.12
 
 COPY deploy/lambda/requirements.txt ${LAMBDA_TASK_ROOT}/requirements.txt
