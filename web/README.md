@@ -81,7 +81,7 @@ s3://ct125-logger-public-<アカウントID>/   公開用（非公開のまま�
     ├── rides.json                        走行一覧
     ├── ride_<id>.json                    1 秒窓の列（GPS なしの窓は lat/lon が null）
     ├── spec_<id>.png ／ spec_<id>.json   スペクトログラム
-    └── wave_<id>.json                    いつもと違う振動の生波形
+    └── wave_<id>_<chunk>.json            1 秒窓の生波形（約 1 分ごと。1 秒を選んだときにその分だけ読む）
 s3://ct125-logger-<アカウントID>/webapp/   React のビルド結果（CloudFront だけが読める）
 ```
 

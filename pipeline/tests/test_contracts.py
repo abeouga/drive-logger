@@ -151,7 +151,7 @@ def build_app_examples() -> dict[str, dict]:
     nogps_summary, _ = export.ride_payload(_windows(gps=False), model_version=EXAMPLE_MODEL_VERSION, z_threshold=3.0)
     rides = export.rides_document([summary, nogps_summary])
     rides["generated_at_ms"] = FIXED_GENERATED_AT_MS
-    return {"rides.json": rides, "ride.json": payload, "spec.json": spec, "wave.json": waves}
+    return {"rides.json": rides, "ride.json": payload, "spec.json": spec, "wave.json": waves[0]}
 
 
 def _pretty(document: dict) -> str:

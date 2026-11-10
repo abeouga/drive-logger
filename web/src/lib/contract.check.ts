@@ -46,6 +46,7 @@ export const summaryKeys: NoExtraKeys<(typeof rides)["rides"][number], RideSumma
 export const rideKeys: NoExtraKeys<typeof ride, RideData> = true;
 export const columnKeys: NoExtraKeys<(typeof ride)["columns"], RideColumns> = true;
 export const specKeys: NoExtraKeys<typeof spec, SpecMeta> = true;
+export const waveFileKeys: NoExtraKeys<typeof wave, WaveFile> = true;
 export const waveKeys: NoExtraKeys<(typeof wave)["windows"][number], Waveform> = true;
 export const ledgerRideKeys: NoExtraKeys<(typeof apiRides)["rides"][number], LedgerRide> = true;
 export const runKeys: NoExtraKeys<(typeof apiRuns)["runs"][number], RunInfo> = true;

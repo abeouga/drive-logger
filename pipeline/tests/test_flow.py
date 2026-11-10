@@ -109,7 +109,10 @@ def test_retrain_trains_only_on_idle_and_ride_and_publishes(cfg, stores):
     assert [ride["id"] for ride in rides["rides"]] == ["ride_20261109_010000", "ride_20261109_011000"]
     assert rides["rides"][1]["memo"] == "# 試走\n家の周り"
     assert "ride_ride_20261109_012000.json" not in public_names(public)
-    assert {"ride_ride_20261109_011000.json", "spec_ride_20261109_011000.png", "spec_ride_20261109_011000.json", "wave_ride_20261109_011000.json"} <= public_names(public)
+    assert {"ride_ride_20261109_011000.json", "spec_ride_20261109_011000.png", "spec_ride_20261109_011000.json", "wave_ride_20261109_011000_000.json"} <= public_names(public)
+    n_windows = rides["rides"][1]["n_windows"]
+    waves = sorted(name for name in public_names(public) if name.startswith("wave_ride_20261109_011000"))
+    assert waves == [f"wave_ride_20261109_011000_{k:03d}.json" for k in range((n_windows + 59) // 60)]  # 全部の窓を約 1 分ごとに
 
 
 def test_retrain_without_usable_rides_fails_and_keeps_the_record(cfg):
@@ -206,6 +209,21 @@ def test_publishing_an_older_run_rolls_back(cfg, stores):
 
     lambda_pipeline(cfg, stores, clock).publish(first["run_id"])        # 前の結果に戻す
     assert memo() == "# 試走\n家の周り"
+
+
+def test_republishing_removes_wave_files_that_are_no_longer_made(cfg, stores):
+    raw, work, public = stores
+    clock = Clock()
+    lambda_pipeline(cfg, stores, clock).retrain(publish=True)
+    public.put("datasets/shared/wave_ride_20261109_011000.json", b"{}", "application/json")      # 1 走行 1 つだった頃の形
+    public.put("datasets/shared/wave_ride_20261109_011000_999.json", b"{}", "application/json")  # 今は作られない分
+    public.put("datasets/shared/wave_ride_20261109_0110001_000.json", b"{}", "application/json") # 名前の似た別の走行は消さない
+    lambda_pipeline(cfg, stores, clock).process(["ride_20261109_011000"], publish=True)
+    names = public_names(public)
+    assert "wave_ride_20261109_011000.json" not in names
+    assert "wave_ride_20261109_011000_999.json" not in names
+    assert "wave_ride_20261109_011000_000.json" in names
+    assert "wave_ride_20261109_0110001_000.json" in names
 
 
 def test_deleted_ride_is_hidden_and_not_trained(cfg, stores):

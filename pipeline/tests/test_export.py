@@ -109,3 +109,29 @@ def test_ride_distance_only_consecutive_windows():
 def test_sparkline_length_and_values():
     s = export.sparkline(pd.Series(np.arange(600, dtype=float)), points=60)
     assert len(s) == 60 and s[0] == pytest.approx(4.5) and s[-1] == pytest.approx(594.5)
+
+
+def _accel_for(n_windows: int, fs: float = 40.0) -> pd.DataFrame:
+    t = np.arange(int(n_windows * fs)) / fs
+    return pd.DataFrame({"t_rel": t, "ax_g": 0.1 * np.sin(2 * np.pi * 8 * t), "ay_g": 1.0, "az_g": 0.0})
+
+
+def test_waveforms_of_every_window_are_split_per_minute():
+    df = _scored(n=130)
+    df["t_start"] = df["t_rel"] - 0.5
+    _, files = export.ride_files(df, _accel_for(130))
+    waves = sorted(name for name in files if name.startswith("wave_"))
+    assert waves == ["wave_ride_t_000.json", "wave_ride_t_001.json", "wave_ride_t_002.json"]
+    seen = []
+    for k, name in enumerate(waves):
+        doc = json.loads(files[name])
+        assert doc["chunk"] == k
+        assert all(60 * k <= w["i"] < 60 * (k + 1) for w in doc["windows"])
+        seen += [w["i"] for w in doc["windows"]]
+    assert seen == list(range(130))  # 基準を超えた振動が 0 件でも、全部の窓
+
+
+def test_ride_output_files_finds_every_minute_and_the_old_single_file():
+    names = ["rides.json", "ride_ride_t.json", "spec_ride_t.png", "spec_ride_t.json", "wave_ride_t.json",
+             "wave_ride_t_000.json", "wave_ride_t_012.json", "wave_ride_t2_000.json", "ride_ride_t2.json"]
+    assert export.ride_output_files("ride_t", names) == names[1:7]
