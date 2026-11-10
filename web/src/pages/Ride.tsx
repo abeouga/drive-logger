@@ -1,11 +1,13 @@
 // 走行ページ：地図・グラフ（タイムライン／スペクトログラム）・詳細パネルが、選択中の窓・カーソル・範囲を共有して連動する。
 // PC は地図と詳細を横に並べ、下にグラフ。スマホ（1024px 未満）は 地図／グラフ／詳細 をタブで切り替える。
-import { useEffect, useMemo, useState } from "react";
-import { loadRide, loadSpectrogram, loadWaveforms, useRides, type RideData, type RideSummary, type SpecMeta, type Waveform } from "../lib/data";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { loadRide, loadSpectrogram, loadWaveChunk, useRides, type RideData, type RideSummary, type SpecMeta, type Waveform } from "../lib/data";
 import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { listHref } from "../lib/route";
 import { rankedAnomalies, type Selection } from "../lib/series";
+import { waveChunkOf } from "../lib/wave";
+import type { WaveState } from "../components/DetailPanel";
 import { useMediaQuery } from "../lib/media";
 import MapView from "../components/MapView";
 import Legend from "../components/Legend";
@@ -54,7 +56,8 @@ export default function Ride({ id }: { id: string }) {
   const [data, setData] = useState<RideData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [spec, setSpec] = useState<{ meta: SpecMeta; url: string } | null>(null);
-  const [waves, setWaves] = useState<Map<number, Waveform>>(new Map());
+  // 読んだ分の生波形（ファイルの番号 → 窓の添字 → 生波形。null はファイルが無い、"error" は読めなかった）
+  const [waveChunks, setWaveChunks] = useState<Map<number, Map<number, Waveform> | null | "error">>(new Map());
   const [hover, setHover] = useState<Selection>(null);
   const [selected, setSelected] = useState<Selection>(null);
   const [range, setRange] = useState<[number, number] | null>(null);
@@ -66,7 +69,7 @@ export default function Ride({ id }: { id: string }) {
     setData(null);
     setError(null);
     setSpec(null);
-    setWaves(new Map());
+    setWaveChunks(new Map());
     setHover(null);
     setSelected(null);
     setRange(null);
@@ -75,11 +78,38 @@ export default function Ride({ id }: { id: string }) {
       (e: Error) => alive && setError(e.message),
     );
     loadSpectrogram(id).then((s) => alive && setSpec(s));
-    loadWaveforms(id).then((w) => alive && setWaves(w));
     return () => {
       alive = false;
     };
   }, [id]);
+
+  // 生波形は、1 秒を選んだときに、その 1 秒を含む約 1 分のファイルだけを読む（走行を開いただけでは読まない）
+  // 読めなかった分は、次に 1 秒を選んだときに読み直す（効果の依存に入れると、失敗のたびに読み直し続けるので ref で見る）
+  const selectedChunk = selected === null ? null : waveChunkOf(selected);
+  const waveChunksRef = useRef(waveChunks);
+  waveChunksRef.current = waveChunks;
+  useEffect(() => {
+    if (selectedChunk === null) return;
+    const known = waveChunksRef.current.get(selectedChunk);
+    if (known !== undefined && known !== "error") return;
+    if (known === "error") setWaveChunks((prev) => { const next = new Map(prev); next.delete(selectedChunk); return next; });
+    let alive = true;
+    loadWaveChunk(id, selectedChunk).then(
+      (m) => alive && setWaveChunks((prev) => new Map(prev).set(selectedChunk, m)),
+      () => alive && setWaveChunks((prev) => new Map(prev).set(selectedChunk, "error")),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [id, selected, selectedChunk]);
+
+  const wave: WaveState = useMemo(() => {
+    if (selected === null || selectedChunk === null) return "loading";
+    const chunk = waveChunks.get(selectedChunk);
+    if (chunk === undefined) return "loading";
+    if (chunk === "error") return "error";
+    return chunk?.get(selected) ?? "missing";
+  }, [selected, selectedChunk, waveChunks]);
 
   const ranked = useMemo(() => (data ? rankedAnomalies(data) : []), [data]);
   const hasMap = summary?.gps !== "none" && !!data?.columns.lat.some((v) => v !== null);
@@ -148,7 +178,7 @@ export default function Ride({ id }: { id: string }) {
 
   const detailBlock = (
     <div className="rounded-lg border border-line bg-surface p-4 lg:max-h-[460px] lg:overflow-y-auto">
-      <DetailPanel data={data} selected={selected} ranked={ranked} waves={waves} onSelect={setSelected} />
+      <DetailPanel data={data} selected={selected} ranked={ranked} wave={wave} onSelect={setSelected} />
     </div>
   );
 

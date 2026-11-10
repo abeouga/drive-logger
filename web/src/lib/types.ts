@@ -85,7 +85,7 @@ export interface SpecMeta {
   peak_hz: Num[]; // 各窓で最も強い周波数（5 Hz 以上）
 }
 
-/** wave_<id>.json の windows[] の 1 件（いつもと違う振動の窓の 1 秒分。平均を引いた mg の整数） */
+/** wave_<id>_<chunk>.json の windows[] の 1 件（1 秒窓の生波形。平均を引いた mg の整数） */
 export interface Waveform {
   i: number; // 窓の添字（ride_<id>.json の列の位置）
   fs: number;
@@ -95,9 +95,11 @@ export interface Waveform {
   az: number[];
 }
 
+/** wave_<id>_<chunk>.json（全部の 1 秒窓を、窓の添字 60 個＝約 1 分ごとに分けた 1 ファイル。src/lib/wave.ts） */
 export interface WaveFile {
   id: string;
   unit: "mg";
+  chunk: number; // ファイルの番号（窓の添字 ÷ 60 の商）
   windows: Waveform[];
 }
 

@@ -10,7 +10,7 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 ├── ride_<id>.json           1 秒窓の列
 ├── spec_<id>.png            スペクトログラムの画像
 ├── spec_<id>.json           その説明
-└── wave_<id>.json           いつもと違う振動の窓の生波形
+└── wave_<id>_<chunk>.json   1 秒窓の生波形（全部の窓を約 1 分ごとのファイルに分けたもの）
 ```
 
 `<id>` は走行 ID そのもの（例 `ride_004`）。なので実際のファイル名は `ride_ride_004.json`・`spec_ride_004.png` のようになる。ファイル名に使える文字は `A-Z a-z 0-9 _ . -`（先頭は `.` 以外）。dev サーバーはそれ以外を 400 で断る。
@@ -92,10 +92,14 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `pct` | [number, number] | その dB を決めた分位点（5, 99.5） |
 | `peak_hz` | (number \| null)[] | 各窓で最も強い周波数（5 Hz 以上） |
 
-## `wave_<id>.json`
+## `wave_<id>_<chunk>.json`
 
 ```ts
-{ id: string; unit: "mg"; windows: { i: number; fs: number; t0: number; ax: number[]; ay: number[]; az: number[] }[] }
+{ id: string; unit: "mg"; chunk: number; windows: { i: number; fs: number; t0: number; ax: number[]; ay: number[]; az: number[] }[] }
 ```
 
-いつもと違う振動の窓（`anomaly=true`）だけ。`i` は `ride_<id>.json` の添字、`t0` は窓の開始（記録開始からの秒）、`ax`〜`az` はその 1 秒の各軸から平均（≒重力）を引いた値（mg の整数）。軸はセンサー基板の軸のまま。
+全部の 1 秒窓の生波形を、窓の添字 `i` を 60 で割った商（`chunk`）ごとのファイルに分ける（1 秒窓なので約 1 分ずつ）。`<chunk>` は 3 桁の 0 詰めで、例えば `wave_ride_004_004.json` には `i` = 240〜299 が入る。画面は走行を開いたときには読まず、1 秒を選んだときに、その 1 秒を含むファイルだけを読む（一度読んだ分は覚えておく。分け方は `src/lib/wave.ts` と pipeline の `export.WAVE_CHUNK_WINDOWS`）。記録の先頭・末尾の 60 秒の窓や GPS の無い窓も書き出す。ファイルが無いのは、加速度の記録が無い走行か、前の形で処理した走行（前は 1 走行 1 つの `wave_<id>.json` に、基準を超えた窓だけを書いていた。公開し直すと消える）。
+
+大きさの目安：1 窓 約 4.7 KB、1 ファイル（60 窓）約 290 KB、14 分の走行で 14 ファイル・合計 約 3.9 MB（ride_20261109_030109 で測った値。30 分なら 約 8 MB）。
+
+`i` は `ride_<id>.json` の添字、`t0` は窓の開始（記録開始からの秒）、`ax`〜`az` はその 1 秒の各軸から平均（≒重力）を引いた値（mg の整数）。軸はセンサー基板の軸のまま。

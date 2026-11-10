@@ -65,7 +65,7 @@ work バケット
 
 public バケット
   datasets/shared/rides.json                      画面の走行一覧（台帳から作る）
-  datasets/shared/ride_<id>.json・spec_<id>.png・spec_<id>.json・wave_<id>.json
+  datasets/shared/ride_<id>.json・spec_<id>.png・spec_<id>.json・wave_<id>_<chunk>.json（生波形は約 1 分ごと）
 ```
 
 - `run_id`：`<UTC の日時>-<6 桁の 16 進>`（例 `20261109T031500Z-3f9a1c`）。並べると時刻の順になる
@@ -127,7 +127,7 @@ public バケット
 
 ## 8. 公開の仕組み
 
-- 台帳を読み、**画面に出す走行**（消していない・机上でない）について、`published_run` の画面用ファイルを work から public にコピーし、`rides.json` を作り直す。出さなくなった走行のファイルは public から消す
+- 台帳を読み、**画面に出す走行**（消していない・机上でない）について、`published_run` の画面用ファイルを work から public にコピーし、`rides.json` を作り直す。出さなくなった走行のファイルは public から消す。走行のファイルは public の一覧から名前で探す（生波形は約 1 分ごとに分かれていて数が決まっていないため。古い形の `wave_<id>.json` も消す）
 - public に書けるのはこの仕組みだけ（処理の Lambda の中で動く）。データ API は台帳を書き換えた後、処理の Lambda に `{"action": "publish"}` を非同期で渡す
 - 前の結果に戻す ＝ 台帳の `published_run` を書き換えて publish。結果そのものは work に残っているので、計算し直さない
 

@@ -4,11 +4,14 @@ import { fmtElapsed, fmtTimeSec } from "../lib/format";
 import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, isJudged, type Selection } from "../lib/series";
 import WaveChart from "./WaveChart";
 
+/** 選んだ 1 秒の生波形：読めた波形／読み込み中／ファイルにその 1 秒が無い／読めなかった */
+export type WaveState = Waveform | "loading" | "missing" | "error";
+
 interface Props {
   data: RideData;
   selected: Selection;
   ranked: number[];
-  waves: Map<number, Waveform>;
+  wave: WaveState;
   onSelect: (i: Selection) => void;
 }
 
@@ -54,7 +57,18 @@ function Bands({ data, i }: { data: RideData; i: number }) {
   );
 }
 
-export default function DetailPanel({ data, selected, ranked, waves, onSelect }: Props) {
+function WaveBlock({ wave }: { wave: WaveState }) {
+  if (typeof wave === "object") return <WaveChart wave={wave} />;
+  const text = {
+    loading: "生波形を読み込んでいます…",
+    // 全部の 1 秒を書き出しているので、無いのは加速度の記録が無い走行か、前の形（基準を超えた所だけ）で処理した走行
+    missing: "この 1 秒の生波形はありません。加速度の記録が無い走行か、前の形で処理した走行です（処理し直すと表示されます）。",
+    error: "生波形を読み込めませんでした。別の 1 秒を選ぶと読み直します。",
+  }[wave];
+  return <p className="mt-1 text-xs text-muted">{text}</p>;
+}
+
+export default function DetailPanel({ data, selected, ranked, wave, onSelect }: Props) {
   const c = data.columns;
   if (selected === null) {
     return (
@@ -120,11 +134,7 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
       <Bands data={data} i={i} />
       <div>
         <div className="text-xs text-ink-2">この 1 秒の生波形（各軸の平均＝重力を引いたもの）</div>
-        {waves.get(i) ? (
-          <WaveChart wave={waves.get(i)!} />
-        ) : (
-          <p className="mt-1 text-xs text-muted">生波形は、ファイルを小さく保つため見どころの所だけ書き出しています。見どころ一覧から選ぶと表示されます。</p>
-        )}
+        <WaveBlock wave={wave} />
       </div>
       <div className="flex flex-wrap gap-1">
         {c.is_stopped[i] && <span className="pill pill-muted">停止中（5 km/h 未満）</span>}

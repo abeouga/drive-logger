@@ -1,14 +1,16 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/wave.schema.json",
-  "version": 1,
-  "title": "wave_<id>.json（見どころの窓の 1 秒分の生波形。平均を引いた mg の整数）",
+  "version": 2,
+  "title": "wave_<id>_<chunk>.json（1 秒窓の生波形を 60 窓＝約 1 分ごとに分けた 1 ファイル。平均を引いた mg の整数）",
+  "description": "走行の全部の 1 秒窓を書き出し、窓の添字 i を 60 で割った商（chunk）ごとのファイルに分ける。ファイル名の <chunk> は 3 桁の 0 詰め（例：wave_ride_20261109_030109_004.json は i = 240〜299）。画面は、選んだ窓の i から chunk を求めて、そのファイルだけを読む",
   "type": "object",
-  "required": ["id", "unit", "windows"],
+  "required": ["id", "unit", "chunk", "windows"],
   "additionalProperties": false,
   "properties": {
     "id": { "type": "string" },
     "unit": { "const": "mg" },
+    "chunk": { "type": "integer", "minimum": 0, "description": "ファイルの番号（窓の添字 i ÷ 60 の商）。windows[] の i はすべて 60×chunk 〜 60×chunk+59" },
     "windows": {
       "type": "array",
       "items": {

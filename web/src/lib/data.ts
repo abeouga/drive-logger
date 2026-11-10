@@ -4,6 +4,7 @@
 //   消す・戻す・完全に削除・切り替え：admin だけ（API も admin かどうかを確かめる）
 import { useCallback, useEffect, useState } from "react";
 import { DataError, apiFetch, apiJson, fetchDataFile } from "./dataSource";
+import { waveFileName } from "./wave";
 import type { LedgerRide, ModelRecord, ModelsResponse, PurgeRequest, PurgeResponse, RideData, RideSummary, RidesResponse, RunsResponse, SpecMeta, Waveform, WaveFile } from "./types";
 
 export type * from "./types";
@@ -149,13 +150,25 @@ export async function loadSpectrogram(id: string): Promise<{ meta: SpecMeta; url
   }
 }
 
-export async function loadWaveforms(id: string): Promise<Map<number, Waveform>> {
-  try {
-    const f = await getJson<WaveFile>(`wave_${id}.json`);
-    return new Map(f.windows.map((w) => [w.i, w]));
-  } catch {
-    return new Map();
+// 生波形は約 1 分ごとのファイル（src/lib/wave.ts）。読んだ分は覚えておき、同じ分をもう一度選んでも読み直さない
+const waveCache = new Map<string, Promise<Map<number, Waveform> | null>>();
+
+/** chunk 番目の生波形のファイル（窓の添字 → 生波形）。ファイルが無ければ null（加速度の無い走行・古い形で処理した走行）。 */
+export function loadWaveChunk(id: string, chunk: number): Promise<Map<number, Waveform> | null> {
+  const name = waveFileName(checkRideId(id), chunk);
+  let found = waveCache.get(name);
+  if (!found) {
+    found = getJson<WaveFile>(name).then(
+      (f) => new Map(f.windows.map((w) => [w.i, w])),
+      (e: unknown) => {
+        if (e instanceof DataError && e.status === 404) return null;
+        waveCache.delete(name); // 通信の失敗などは覚えず、次に選んだときに読み直す
+        throw e;
+      },
+    );
+    waveCache.set(name, found);
   }
+  return found;
 }
 
 // ------------------------------------------------------------------ 読み込みの小道具

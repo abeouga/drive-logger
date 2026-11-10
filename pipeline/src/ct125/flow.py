@@ -195,6 +195,7 @@ class Pipeline:
             if entry["published_run"] and classifymod.shown_on_screen(entry["kind"], entry["deleted"], self._cfg)
         }
         summaries, copied = [], []
+        existing = public.keys()  # 公開の場所にある今のファイル（生波形は分の数だけあるので、名前を一覧から探す）
         for ride_id, run_id in visible.items():
             base = f"runs/{run_id}/rides/{ride_id}/"
             summary = work.read_json(base + "summary.json")
@@ -207,13 +208,13 @@ class Pipeline:
                     name = key.rsplit("/", 1)[-1]
                     public.put(name, work.get(key))
                     names.append(name)
-                for name in export.ride_output_files(ride_id):
-                    if name not in names and public.exists(name):
+                for name in export.ride_output_files(ride_id, existing):
+                    if name not in names:
                         public.delete(name)
                 copied.append(ride_id)
         removed = [ride_id for ride_id in published if ride_id not in visible]
         for ride_id in removed:
-            for name in export.ride_output_files(ride_id):
+            for name in export.ride_output_files(ride_id, existing):
                 public.delete(name)
         public.write_json("rides.json", export.rides_document(summaries))
         work.write_json(PUBLISHED, {"published_at": records.iso(self._clock()), "rides": visible})

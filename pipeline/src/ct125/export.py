@@ -3,12 +3,15 @@
 
 - rides.json：走行一覧（カード用の要約とスパークライン）
 - ride_<id>.json：1 秒窓の列を列ごとの配列で。GPS のない窓は lat/lon を null にする
-- spec_<id>.png・spec_<id>.json：スペクトログラム、wave_<id>.json：いつもと違う振動の所の生波形
+- spec_<id>.png・spec_<id>.json：スペクトログラム
+- wave_<id>_<分>.json：全部の 1 秒窓の生波形を、60 窓（1 秒窓なので約 1 分）ごとに分けたもの。
+  画面は、選んだ 1 秒を含む分のファイルだけを読む
 """
 from __future__ import annotations
 
 import json
 import math
+import re
 
 import numpy as np
 import pandas as pd
@@ -17,6 +20,7 @@ from .gps import haversine_m
 from .model import ANOMALY_NONE, DEFAULT_Z_THRESHOLD, judge_anomalies
 
 SPARK_POINTS = 60
+WAVE_CHUNK_WINDOWS = 60  # 生波形の 1 ファイルに入れる窓の数（1 秒窓なので約 1 分）。web/src/lib/data.ts と合わせる
 
 # 列名（JSON のキー）→ (scored.parquet の列, 丸める桁数)。桁数 None は真偽値
 WINDOW_COLUMNS: dict[str, tuple[str, int | None]] = {
@@ -161,8 +165,12 @@ def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = N
     return summary, payload
 
 
-def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, wave_rows: list[int], window_sec: float = 1.0) -> tuple[np.ndarray, dict, dict]:
-    """スペクトログラムの画像（不透明度）とその情報、wave_rows の窓の生波形。df は scored.parquet（win 順）。"""
+def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, wave_rows: list[int] | None = None, window_sec: float = 1.0) -> tuple[np.ndarray, dict, list[dict]]:
+    """スペクトログラムの画像（不透明度）とその情報、生波形のファイルの中身の列。df は scored.parquet（win 順）。
+
+    生波形は wave_rows の窓（None なら全部の窓）を、WAVE_CHUNK_WINDOWS 窓ごとのファイルに分ける。
+    返す列の k 番目は wave_chunk_name(id, chunk) の中身で、chunk は wave_chunks[k]["chunk"]。
+    """
     from . import spectro
 
     t = acc["t_rel"].to_numpy(float)
@@ -173,14 +181,35 @@ def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, wave_rows: list[int], wi
     # 各窓で最も強い周波数（5 Hz 未満は車体の揺れ・姿勢の変化が混ざるので除く）。カーソルの説明用
     body = power[:, 5:]
     peak = [None if not np.isfinite(row).any() else int(np.nanargmax(row)) + 5 for row in body]
-    spec_meta = {"id": str(df["ride_id"].iloc[0]), "n_cols": int(img.shape[1]), "f_max_hz": spectro.F_MAX_HZ, "window_sec": window_sec, **scale, "peak_hz": peak}
-    waves = {"id": spec_meta["id"], "unit": "mg", "windows": spectro.waveforms(acc, t_starts, wave_rows, fs, window_sec)}
+    rid = str(df["ride_id"].iloc[0])
+    spec_meta = {"id": rid, "n_cols": int(img.shape[1]), "f_max_hz": spectro.F_MAX_HZ, "window_sec": window_sec, **scale, "peak_hz": peak}
+    rows = list(range(len(df))) if wave_rows is None else sorted(wave_rows)
+    windows = spectro.waveforms(acc, t_starts, rows, fs, window_sec)
+    chunks: dict[int, list[dict]] = {}
+    for w in windows:
+        chunks.setdefault(w["i"] // WAVE_CHUNK_WINDOWS, []).append(w)
+    waves = [{"id": rid, "unit": "mg", "chunk": c, "windows": ws} for c, ws in sorted(chunks.items())]
     return img, spec_meta, waves
 
 
-def ride_output_files(ride_id: str) -> list[str]:
-    """1 走行分の画面用のファイル名（rides.json は含まない）。"""
-    return [f"ride_{ride_id}.json", f"spec_{ride_id}.png", f"spec_{ride_id}.json", f"wave_{ride_id}.json"]
+def wave_chunk_name(ride_id: str, chunk: int) -> str:
+    """生波形のファイル名。chunk は窓の添字 // WAVE_CHUNK_WINDOWS（0 から。3 桁の 0 詰め）。"""
+    return f"wave_{ride_id}_{chunk:03d}.json"
+
+
+def is_ride_output(name: str, ride_id: str) -> bool:
+    """name が ride_id の画面用のファイルか（rides.json は含まない）。
+
+    1 走行 1 つだった古い wave_<id>.json も含める（公開し直したときに消すため）。
+    """
+    if name in (f"ride_{ride_id}.json", f"spec_{ride_id}.png", f"spec_{ride_id}.json", f"wave_{ride_id}.json"):
+        return True
+    return re.fullmatch(rf"wave_{re.escape(ride_id)}_\d{{3,}}\.json", name) is not None
+
+
+def ride_output_files(ride_id: str, names: list[str]) -> list[str]:
+    """names（公開の場所にあるファイル名の一覧）のうち、ride_id の画面用のファイル。生波形は分の数だけある。"""
+    return [name for name in names if is_ride_output(name, ride_id)]
 
 
 def rides_document(summaries: list[dict], generated_at_ms: int | None = None) -> dict:
@@ -200,7 +229,7 @@ def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "",
     """1 走行分の (rides.json に載せる要約, {ファイル名: 中身})。ファイルには書かない。
 
     scored は点数付きの窓、accel はクリーニング後の加速度（t_rel・ax_g・ay_g・az_g）。
-    accel が無ければスペクトログラムと生波形は作らない。生波形は、いつもと違う振動の窓だけ書き出す。
+    accel が無ければスペクトログラムと生波形は作らない。生波形は全部の窓を、約 1 分ごとのファイルに分けて書き出す。
     """
     from . import spectro
 
@@ -209,9 +238,9 @@ def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "",
     ride_id = summary["id"]
     files = {f"ride_{ride_id}.json": dump_json(payload)}
     if accel is not None:
-        rows = [i for i, h in enumerate(payload["columns"]["anomaly"]) if h]
-        img, meta, waves = extras_payload(df, accel, rows)
+        img, meta, waves = extras_payload(df, accel)
         files[f"spec_{ride_id}.png"] = spectro.png_alpha(img)
         files[f"spec_{ride_id}.json"] = dump_json(meta)
-        files[f"wave_{ride_id}.json"] = dump_json(waves)
+        for wave in waves:
+            files[wave_chunk_name(ride_id, wave["chunk"])] = dump_json(wave)
     return summary, files
