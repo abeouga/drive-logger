@@ -37,7 +37,7 @@ export function runs(flags: boolean[]): [number, number][] {
   return out;
 }
 
-/** いつもと違う振動の窓の添字を、スコアの高い順に並べる（順位＝地図とグラフの番号） */
+/** 基準を超えた振動（しきい値を超えた窓）の添字を、スコアの高い順に並べる（並び順＝地図・グラフ・一覧の番号） */
 export function rankedAnomalies(d: RideData): number[] {
   const c = d.columns;
   const score = c.anomaly_score;
@@ -51,12 +51,33 @@ export function hasCoord(d: RideData, i: number): boolean {
   return d.columns.lat[i] !== null && d.columns.lon[i] !== null;
 }
 
+/** 判定しているか（GPS がなく速度が分からない走行は判定しない） */
+export function isJudged(d: RideData): boolean {
+  return d.anomaly.method !== "none";
+}
+
+/** しきい値の式（例：z_speed > 3）。画面用データの方法としきい値から作る。判定しないときは null */
+export function anomalyRuleText(d: RideData): string | null {
+  if (d.anomaly.method === "speed_baseline") return `z_speed > ${d.anomaly.threshold ?? "—"}`;
+  return null;
+}
+
 /** 判定のしかたの説明（画面用データの方法としきい値から作る。モデルを差し替えても文を決め打ちしない） */
 export function anomalyBasisText(d: RideData): string {
-  if (d.anomaly.method === "speed_baseline") {
-    return `速度で補正したベースラインから大きく離れた所（z_speed > ${d.anomaly.threshold ?? "—"}）`;
-  }
-  return "GPS がなく速度で補正できないため、判定していません";
+  const rule = anomalyRuleText(d);
+  if (rule) return `速度で補正したベースラインから大きく離れた所（${rule}）を出しています`;
+  return "速度が分からないため判定していません";
+}
+
+/** 基準を超えた振動が 0 件のときの説明。判定しないときは anomalyBasisText と同じ文になるので null */
+export function anomalyEmptyText(d: RideData): string | null {
+  const rule = anomalyRuleText(d);
+  return rule ? `この走行には、しきい値（${rule}）を超えた所はありません` : null;
+}
+
+/** グラフに引くしきい値の線（z_speed の段）。判定しないときは引かない */
+export function zThreshold(d: RideData): number | undefined {
+  return d.anomaly.method === "speed_baseline" && d.anomaly.threshold !== null ? d.anomaly.threshold : undefined;
 }
 
 /** 判定に使ったスコアの短い名前（一覧の右端に添える） */

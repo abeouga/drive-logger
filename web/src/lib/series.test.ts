@@ -1,0 +1,44 @@
+import { describe, expect, it } from "vitest";
+import type { AnomalyInfo, RideData } from "./types";
+import { anomalyBasisText, anomalyEmptyText, isJudged, rankedAnomalies, zThreshold } from "./series";
+
+// 判定に関わる列だけを持つ走行（ほかの列はこの関数たちが読まないので空にしておく）
+function ride(anomaly: boolean[], score: (number | null)[], info: Partial<AnomalyInfo> = {}): RideData {
+  return {
+    id: "ride_test",
+    n: anomaly.length,
+    has_abs_time: false,
+    anomaly: { method: "speed_baseline", threshold: 3, model_version: null, ...info },
+    columns: { anomaly, anomaly_score: score } as unknown as RideData["columns"],
+  };
+}
+
+describe("rankedAnomalies", () => {
+  it("しきい値を超えた窓だけを、スコアの高い順に並べる", () => {
+    const d = ride([false, true, true, false, true], [9, 3.5, 7.2, 8, 4.1]);
+    // 3 番（score 8）は超えていないので入らない
+    expect(rankedAnomalies(d)).toEqual([2, 4, 1]);
+  });
+
+  it("超えた所が無ければ空", () => {
+    expect(rankedAnomalies(ride([false, false], [2.9, 1]))).toEqual([]);
+  });
+});
+
+describe("判定の説明", () => {
+  it("しきい値を画面用データから取る（決め打ちしない）", () => {
+    const d = ride([false], [1], { threshold: 4.5 });
+    expect(anomalyBasisText(d)).toContain("z_speed > 4.5");
+    expect(anomalyEmptyText(d)).toBe("この走行には、しきい値（z_speed > 4.5）を超えた所はありません");
+    expect(zThreshold(d)).toBe(4.5);
+    expect(isJudged(d)).toBe(true);
+  });
+
+  it("判定していない走行（GPS なし）", () => {
+    const d = ride([false], [null], { method: "none", threshold: null });
+    expect(isJudged(d)).toBe(false);
+    expect(anomalyBasisText(d)).toBe("速度が分からないため判定していません");
+    expect(anomalyEmptyText(d)).toBeNull();
+    expect(zThreshold(d)).toBeUndefined();
+  });
+});

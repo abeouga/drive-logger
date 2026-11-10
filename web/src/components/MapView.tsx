@@ -75,7 +75,7 @@ export default function MapView({ data, hover, selected, range, ranked, onHover,
   cb.current = { onHover, onSelect };
 
   const segs = useMemo(() => segments(data), [data]);
-  // 見どころ：順位の番号付きの丸（色は文字色。状態の色や系列の色は使わない）
+  // 基準を超えた振動：スコアの高い順の番号付きの丸（色は文字色。状態の色や系列の色は使わない）。0 件・判定しない走行は丸なし
   const marks = useMemo(() => points(data, ranked, (_i, k) => ({ rank: k + 1 })), [data, ranked]);
 
   // 地図を作る（走行・明暗が変わったら作り直す）
@@ -140,7 +140,7 @@ export default function MapView({ data, hover, selected, range, ranked, onHover,
         layout: { "text-field": ["to-string", ["get", "rank"]], "text-size": 11, "text-font": ["Noto Sans Bold"], "text-allow-overlap": true },
         paint: { "text-color": surface },
       });
-      // 選んだ窓の輪は見どころの丸より上に描く
+      // 選んだ窓の輪は基準を超えた振動の丸より上に描く
       m.addLayer({ id: "selected", type: "circle", source: "selected", paint: { "circle-radius": 13, "circle-color": "rgba(0,0,0,0)", "circle-stroke-color": accent, "circle-stroke-width": 3 } });
       m.addLayer({ id: "cursor", type: "circle", source: "cursor", paint: { "circle-radius": 7, "circle-color": accent, "circle-stroke-color": surface, "circle-stroke-width": 2 } });
 
