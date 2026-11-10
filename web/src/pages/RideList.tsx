@@ -7,6 +7,7 @@ import SortSelect from "../components/SortSelect";
 import {
   DEFAULT_RIDE_SORT,
   RIDE_SORT_OPTIONS,
+  isJudged,
   isRideSortKey,
   listHashWithSort,
   sortFromHash,
@@ -61,8 +62,14 @@ export default function RideList() {
   const totalS = rides.reduce((s, r) => s + r.duration_s, 0);
   const totalKm = rides.reduce((s, r) => s + (r.gps === "none" ? 0 : r.distance_km), 0);
   const nGps = rides.filter((r) => r.gps !== "none").length;
-  const nZ = rides.reduce((s, r) => s + r.n_anomaly_z, 0);
-  const nHl = rides.reduce((s, r) => s + r.n_anomalies, 0);
+  // 基準を超えた振動は、判定した走行（GPS あり）だけで数える。判定していない走行は 0 件に混ぜない
+  const judged = rides.filter(isJudged);
+  const nAnomalies = judged.reduce((s, r) => s + r.n_anomalies, 0);
+  const nNotJudged = rides.length - judged.length;
+  const judgedNote =
+    judged.length === 0
+      ? "判定した走行なし（GPS なしは判定しない）"
+      : `判定した走行 ${judged.length} 本` + (nNotJudged > 0 ? `（GPS なし ${nNotJudged} 本は判定なし）` : "");
 
   return (
     <div className="flex flex-col gap-6">
@@ -74,10 +81,10 @@ export default function RideList() {
         <Tile label="記録時間（合計）" value={fmtDuration(totalS)} />
         <Tile label="距離（GPS ありの合計）" value={fmtKm(totalKm)} unit="km" />
         <Tile
-          label="見どころ"
-          value={String(nHl)}
-          unit="か所"
-          note={nZ === 0 ? "大きな揺れはなし。各走行で目立つ所を表示" : `うち大きな揺れ ${nZ} か所`}
+          label="基準を超えた振動"
+          value={judged.length === 0 ? "—" : nAnomalies === 0 ? "なし" : String(nAnomalies)}
+          unit={judged.length > 0 && nAnomalies > 0 ? "か所" : undefined}
+          note={judgedNote}
         />
       </section>
 
