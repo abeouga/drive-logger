@@ -11,11 +11,21 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 > **家の Wi-Fi で S3 へ送り、AWS の自動処理を経て公開一覧に載るまで**を確認（4.3MB を約 33 秒）。現在は V3.2。
 > V3.2（2026-11-09）は、走行メモ `notes.md` を送るようにし、止まっているとみなす速さを 3 → 5 km/h にした（pipeline とそろえた）。
 > V3.3（2026-11-09）は、送る走行の判定を meta.json の文字列の完全一致から JSON の値の読み取りに変えた（`json_lite.h`。コロンの前後の空白を許し、版の数で比べる。PC で動くテストは `firmware/tests/host/`）。**V3.2・V3.3 はコンパイルと PC のテストだけ確かめた。実機にはまだ書き込んでいない。**
+> 2026-11-10、1 つだった `ct125_logger.ino` を役割ごとのファイルに分けた（#27。関数の中身・定数・CSV と meta.json の書き出しは変えていないので、版は V3.3 のまま）。分けた後の版は、コンパイルだけ確かめた。
 > **バッテリーでの「静か 2 分」からの自動送信と、実車での確認はまだです。**
 
 | ファイル | 中身 |
 |---|---|
-| `ct125_logger.ino` | 記録（加速度・GPS・SD）、状態の切り替え（記録中 → 送信 → 待機）、BOOT ボタン、シリアルのコマンド |
+| `ct125_logger.ino` | 起動（setup）と、状態の切り替え（記録中 → 送信 → 待機）。待機からの起き上がり（再起動） |
+| `logger_constants.h` | 版の名前（`FW_VERSION`）・配線・記録の周期・送信のきっかけのしきい値 |
+| `logger_state.cpp/.h` | 動作の状態と、タスクをまたぐ値（件数・止める合図・リングバッファ） |
+| `event_log.cpp/.h` | events.csv への出来事の書き込み |
+| `adxl345.cpp/.h` | ADXL345 のレジスタ、I2C の線の解放、初期化 |
+| `accel_sampler.cpp/.h` | 加速度のタスク（時刻の補正 PLL と 400Hz のサンプリング）→ accel.csv |
+| `nmea.cpp/.h`・`gps_task.cpp/.h` | NMEA の読み取りと GPS のタスク → gps.csv |
+| `sd_session.cpp/.h` | 走行のフォルダー、meta.json、CSV の見出しと書き出し、status.csv |
+| `motion.cpp/.h` | 静か・動き出しの判定（送信のきっかけ・送信の中断・待機からの起き上がり） |
+| `led.cpp/.h`・`boot_button.cpp/.h`・`serial_commands.cpp/.h` | LED、BOOT ボタン、シリアルのコマンド（`UPLOAD`・`LOG`・`CFG`） |
 | `uploader.cpp/.h` | Wi-Fi・HTTPS・送信の手順（PC から送る `python -m ct125 upload-sd` と同じ手順） |
 | `json_lite.h` | 小さな JSON の読み取り（応答・meta.json）と、送る走行の判定。Arduino の String だけに頼るので PC でテストできる（`../tests/host/`） |
 | `config_store.cpp/.h` | Wi-Fi と機器トークンの保存（NVS）と、シリアルからの設定 |
