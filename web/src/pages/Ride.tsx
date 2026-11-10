@@ -5,7 +5,7 @@ import { loadRide, loadSpectrogram, loadWaveforms, useRides, type RideData, type
 import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { listHref } from "../lib/route";
-import { rankedHighlights, type Selection } from "../lib/series";
+import { rankedAnomalies, type Selection } from "../lib/series";
 import { useMediaQuery } from "../lib/media";
 import MapView from "../components/MapView";
 import Legend from "../components/Legend";
@@ -81,7 +81,7 @@ export default function Ride({ id }: { id: string }) {
     };
   }, [id]);
 
-  const ranked = useMemo(() => (data ? rankedHighlights(data) : []), [data]);
+  const ranked = useMemo(() => (data ? rankedAnomalies(data) : []), [data]);
   const hasMap = summary?.gps !== "none" && !!data?.columns.lat.some((v) => v !== null);
   const hasGps = !!data?.columns.has_gps.some(Boolean);
 

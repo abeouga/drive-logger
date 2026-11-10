@@ -62,7 +62,7 @@ export default function RideList() {
   const totalKm = rides.reduce((s, r) => s + (r.gps === "none" ? 0 : r.distance_km), 0);
   const nGps = rides.filter((r) => r.gps !== "none").length;
   const nZ = rides.reduce((s, r) => s + r.n_anomaly_z, 0);
-  const nHl = rides.reduce((s, r) => s + r.n_highlights, 0);
+  const nHl = rides.reduce((s, r) => s + r.n_anomalies, 0);
 
   return (
     <div className="flex flex-col gap-6">

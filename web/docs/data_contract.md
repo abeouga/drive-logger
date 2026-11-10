@@ -1,6 +1,6 @@
 # データの約束事（公開用のバケットの `datasets/<データセット>/`）
 
-このアプリが読むデータの形（走行の一覧は `GET /api/rides`。形は `contracts/api/rides.schema.json`。各走行の `summary` は下の `rides.json` の 1 件と同じ形）。正式な定義は [contracts/app/](../../contracts/app/)（JSON Schema）と見本 `contracts/examples/app/`。作る側は `pipeline/` の `src/ct125/export.py`・`spectro.py`、読む側の型は `src/lib/types.ts`。pipeline のテストが書き出しを定義に当て、`src/lib/contract.check.ts`（型チェック）が見本を型に当てる。**3 つは同じ形に保つ。** 形を変えるときは `app/v2/` を作り、古いアプリが壊れないようにする。
+このアプリが読むデータの形（走行の一覧は `GET /api/rides`。形は `contracts/api/rides.schema.json`。各走行の `summary` は下の `rides.json` の 1 件と同じ形）。正式な定義は [contracts/app/](../../contracts/app/)（JSON Schema）と見本 `contracts/examples/app/`。作る側は `pipeline/` の `src/ct125/export.py`・`spectro.py`、読む側の型は `src/lib/types.ts`。pipeline のテストが書き出しを定義に当て、`src/lib/contract.check.ts`（型チェック）が見本を型に当てる。**3 つは同じ形に保つ。** 形を変えるときは contracts の定義の `version` を上げ、作る側と使う側を同じ PR で直す。公開中のデータは古い形のまま残るので、変えた後は全走行を処理し直して公開し直す（2026-11-10、#71 で `highlight` を `anomaly` にしたときから。前は「`app/v2/` を作る」としていたが、置き場所が `datasets/` になってからは使っていない）。
 
 ## 置き場所とファイル
 
@@ -10,7 +10,7 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 ├── ride_<id>.json           1 秒窓の列
 ├── spec_<id>.png            スペクトログラムの画像
 ├── spec_<id>.json           その説明
-└── wave_<id>.json           見どころの窓の生波形
+└── wave_<id>.json           いつもと違う振動の窓の生波形
 ```
 
 `<id>` は走行 ID そのもの（例 `ride_004`）。なので実際のファイル名は `ride_ride_004.json`・`spec_ride_004.png` のようになる。ファイル名に使える文字は `A-Z a-z 0-9 _ . -`（先頭は `.` 以外）。dev サーバーはそれ以外を 400 で断る。
@@ -38,8 +38,8 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `fix_ratio` | number | GPS が有効な窓の割合 0〜1 |
 | `gps` | `"full"` \| `"partial"` \| `"none"` | 0.95 以上／0.10 以上／未満 |
 | `n_windows` | number | 1 秒窓の数 |
-| `n_highlights` | number | 見どころの窓の数 |
-| `highlight_basis` | `"z_speed>3"` \| `"z_speed_top"` \| `"score_if_top"` | 見どころの決め方 |
+| `n_anomalies` | number | いつもと違う振動の窓の数。しきい値を超えた窓だけで、上位 N 件で埋めない。判定しない走行は 0 |
+| `anomaly_method` | `"speed_baseline"` \| `"none"` | 判定の方法（下の `ride_<id>.json` の `anomaly.method` と同じ）。0 件が「判定して無かった」のか「判定していない」のかはこれで見分ける |
 | `n_anomaly_z` / `n_anomaly_if` | number | z_speed > 3 の窓数／Isolation Forest が外れとした窓数 |
 | `n_clipped` | number | ±16 g に達したサンプルを含む窓数 |
 | `rms_median` | number | rms の中央値（g） |
@@ -49,8 +49,16 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 ## `ride_<id>.json`
 
 ```ts
-{ id: string; n: number; has_abs_time: boolean; highlight_basis: HighlightBasis; columns: RideColumns }
+{ id: string; n: number; has_abs_time: boolean; anomaly: AnomalyInfo; columns: RideColumns }
 ```
+
+`anomaly` は「いつもと違う振動」の判定のしかた。画面は `method` と `columns.anomaly` だけを読み、どのモデルで判定したかは気にしない（モデルを差し替えても画面を直さずに済むように）。
+
+| キー | 型 | 意味 |
+|---|---|---|
+| `method` | `"speed_baseline"` \| `"none"` | `speed_baseline`：速度で補正したベースラインからの逸脱（z_speed）がしきい値を超え、走行中（5 km/h 以上）の窓。`none`：判定しない（GPS がなく速度が分からない走行。Isolation Forest は速く走った所や静かすぎる所を拾うため、そのまま出さない） |
+| `threshold` | number \| null | しきい値（config の `model.z_threshold`、今は 3）。`none` は null |
+| `model_version` | string \| null | 点数付けに使ったモデルの版 |
 
 `columns` の配列はどれも長さ `n`（1 秒窓の数）で、同じ添字が同じ窓。
 
@@ -64,7 +72,9 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `z` | number \| null | z_speed。速度のない窓は null |
 | `score_if` | number \| null | Isolation Forest のスコア（大きいほどまれ） |
 | `band_1_5` / `band_5_15` / `band_15_40` | number \| null | 1〜40 Hz の合計に対する帯域の割合 |
-| `has_gps` `is_stopped` `is_edge` `is_clipped` `is_anomaly_z` `is_anomaly_if` `highlight` | boolean | 各フラグ（`is_stopped`＝5 km/h 未満、`is_edge`＝先頭・末尾 60 秒） |
+| `has_gps` `is_stopped` `is_edge` `is_clipped` `is_anomaly_z` `is_anomaly_if` | boolean | 各フラグ（`is_stopped`＝5 km/h 未満、`is_edge`＝先頭・末尾 60 秒） |
+| `anomaly` | boolean | いつもと違う振動の窓（`anomaly.method` で判定した結果。しきい値を超えた窓だけ） |
+| `anomaly_score` | number \| null | 判定に使ったスコア（大きいほど外れ。`speed_baseline` なら z_speed）。判定しない窓は null |
 | `cls` | number | 地図の線の色の段階 0〜4（座標のない窓は -1） |
 
 ## `spec_<id>.png` と `spec_<id>.json`
@@ -88,4 +98,4 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 { id: string; unit: "mg"; windows: { i: number; fs: number; t0: number; ax: number[]; ay: number[]; az: number[] }[] }
 ```
 
-見どころの窓（`highlight=true`）だけ。`i` は `ride_<id>.json` の添字、`t0` は窓の開始（記録開始からの秒）、`ax`〜`az` はその 1 秒の各軸から平均（≒重力）を引いた値（mg の整数）。軸はセンサー基板の軸のまま。
+いつもと違う振動の窓（`anomaly=true`）だけ。`i` は `ride_<id>.json` の添字、`t0` は窓の開始（記録開始からの秒）、`ax`〜`az` はその 1 秒の各軸から平均（≒重力）を引いた値（mg の整数）。軸はセンサー基板の軸のまま。

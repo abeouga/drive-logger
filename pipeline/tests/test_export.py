@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""画面用の書き出し：列・null・見どころ・地図の判定。"""
+"""画面用の書き出し：列・null・いつもと違う振動・地図の判定。"""
 import json
 
 import numpy as np
@@ -46,7 +46,7 @@ def test_json_is_strict_and_rounded(tmp_path):
     assert payload["columns"]["rms"][3] is None
     assert all(len(str(v).split(".")[-1]) <= 5 for v in payload["columns"]["lon"] if v is not None)
     assert set(export.WINDOW_COLUMNS) <= set(payload["columns"])
-    assert {"t_abs_ms", "cls", "highlight"} <= set(payload["columns"])
+    assert {"t_abs_ms", "cls", "anomaly", "anomaly_score"} <= set(payload["columns"])
     assert len(payload["columns"]["t_rel"]) == payload["n"] == 30
     assert len(summary["spark"]) == 30 and summary["gps"] in ("full", "partial", "none")
 
@@ -56,16 +56,28 @@ def test_no_gps_ride():
     assert summary["gps"] == "none" and summary["start_ms"] is None and summary["max_speed_kmh"] is None
     assert payload["columns"]["t_abs_ms"] is None
     assert all(v is None for v in payload["columns"]["lat"])
-    assert summary["highlight_basis"] == "score_if_top" and summary["n_highlights"] == 10
+    # GPS なしの走行は判定しない（Isolation Forest の上位で埋めない）
+    assert summary["anomaly_method"] == "none" and summary["n_anomalies"] == 0
+    assert payload["anomaly"] == {"method": "none", "threshold": None, "model_version": None}
+    assert not any(payload["columns"]["anomaly"]) and all(v is None for v in payload["columns"]["anomaly_score"])
 
 
-def test_highlights_fall_back_to_top_z():
+def test_no_anomaly_stays_zero():
+    """しきい値を超えた所が無ければ 0 件のまま（上位 N 件で埋めない）。"""
+    summary, payload = export.ride_payload(_scored(), model_version="20261108-180231", z_threshold=3.0)
+    assert summary["anomaly_method"] == "speed_baseline" and summary["n_anomalies"] == 0
+    assert payload["anomaly"] == {"method": "speed_baseline", "threshold": 3.0, "model_version": "20261108-180231"}
+    assert not any(payload["columns"]["anomaly"])
+    assert payload["columns"]["anomaly_score"] == payload["columns"]["z"]  # 判定に使ったスコア＝z_speed
+
+
+def test_anomaly_follows_model_judgement():
     df = _scored()
-    flag, basis = export.highlights(df)
-    assert basis == "z_speed_top" and flag.sum() == 10
-    df.loc[20, "is_anomaly_z"] = True
-    flag, basis = export.highlights(df)
-    assert basis == "z_speed>3" and flag.tolist().count(True) == 1
+    df.loc[20, ["z_speed", "is_anomaly_z"]] = [3.5, True]
+    summary, payload = export.ride_payload(df)
+    assert summary["n_anomalies"] == 1
+    assert [i for i, f in enumerate(payload["columns"]["anomaly"]) if f] == [20]
+    assert payload["columns"]["anomaly_score"][20] == 3.5
 
 
 def test_gps_kind_thresholds():

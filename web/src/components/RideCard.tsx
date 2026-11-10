@@ -65,7 +65,7 @@ export default function RideCard({ ride }: { ride: RideSummary }) {
 
       <div className={`mt-auto flex min-h-[34px] items-center justify-between text-xs text-ink-2 ${isAdmin ? "pr-11" : ""}`}>
         <span>
-          見どころ <span className="tabular text-ink">{ride.n_highlights}</span> か所
+          見どころ <span className="tabular text-ink">{ride.n_anomalies}</span> か所
         </span>
         <span className="font-bold text-accent opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100">開く →</span>
       </div>

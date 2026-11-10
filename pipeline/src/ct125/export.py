@@ -3,7 +3,7 @@
 
 - rides.json：走行一覧（カード用の要約とスパークライン）
 - ride_<id>.json：1 秒窓の列を列ごとの配列で。GPS のない窓は lat/lon を null にする
-- spec_<id>.png・spec_<id>.json：スペクトログラム、wave_<id>.json：見どころの生波形
+- spec_<id>.png・spec_<id>.json：スペクトログラム、wave_<id>.json：いつもと違う振動の所の生波形
 """
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ import numpy as np
 import pandas as pd
 
 from .gps import haversine_m
+from .model import ANOMALY_NONE, DEFAULT_Z_THRESHOLD, judge_anomalies
 
 SPARK_POINTS = 60
-HIGHLIGHT_TOP_N = 10
 
 # 列名（JSON のキー）→ (scored.parquet の列, 丸める桁数)。桁数 None は真偽値
 WINDOW_COLUMNS: dict[str, tuple[str, int | None]] = {
@@ -91,28 +91,6 @@ def ride_distance_km(df: pd.DataFrame) -> float:
     return float(np.nansum(d[consecutive]) / 1000)
 
 
-def highlights(df: pd.DataFrame, top_n: int = HIGHLIGHT_TOP_N) -> tuple[np.ndarray, str]:
-    """見どころの窓（bool 配列）とその根拠。
-
-    - z_speed > 3 の窓があればそれ（根拠 "z_speed>3"）
-    - なければ、走行中・先頭末尾以外で z_speed の上位 N 窓（"z_speed_top"）
-    - z_speed がない走行（GPS なし）は、先頭末尾以外で score_if の上位 N 窓（"score_if_top"）
-    """
-    flag = np.zeros(len(df), dtype=bool)
-    if df["is_anomaly_z"].fillna(False).any():
-        return df["is_anomaly_z"].fillna(False).to_numpy(bool), "z_speed>3"
-    base = ~df["is_edge"].fillna(False)
-    if df["z_speed"].notna().any():
-        cand = df[base & df["z_speed"].notna() & ~df["is_stopped"].fillna(False)]
-        idx = cand.nlargest(top_n, "z_speed").index
-        flag[df.index.get_indexer(idx)] = True
-        return flag, "z_speed_top"
-    cand = df[base & df["score_if"].notna()]
-    idx = cand.nlargest(top_n, "score_if").index
-    flag[df.index.get_indexer(idx)] = True
-    return flag, "score_if_top"
-
-
 def sparkline(rms: pd.Series, points: int = SPARK_POINTS) -> list:
     """rms を points 個のビンに分けた平均（スパークライン用）。"""
     v = rms.to_numpy(dtype=float)
@@ -128,12 +106,17 @@ def sparkline(rms: pd.Series, points: int = SPARK_POINTS) -> list:
 
 
 # ------------------------------------------------------------------ 書き出し
-def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
-    """1 走行分の (一覧用の要約, 窓の列データ) を作る。df は scored.parquet。"""
+def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = None, z_threshold: float = DEFAULT_Z_THRESHOLD) -> tuple[dict, dict]:
+    """1 走行分の (一覧用の要約, 窓の列データ) を作る。df は scored.parquet。
+
+    「いつもと違う振動」の判定は model.judge_anomalies に任せ、その方法・しきい値・モデルの版を一緒に書き出す。
+    画面は判定（anomaly 列）と方法の名前だけを読むので、モデルを差し替えても画面を直さずに済む。
+    z_threshold は点数付けに使った値（config の model.z_threshold）を渡す。
+    """
     df = df.sort_values("win").reset_index(drop=True)
     rid = str(df["ride_id"].iloc[0])
     located = without_gps_coordinates(df)
-    hl, basis = highlights(df)
+    method, flag, score = judge_anomalies(df)
     drawable = located["lat"].notna()
     cls = np.full(len(df), -1)
     if drawable.any():
@@ -149,7 +132,8 @@ def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
         cols[key] = _bool_list(s) if digits is None else _round_list(s, digits)
     cols["t_abs_ms"] = t_abs_ms
     cols["cls"] = cls.tolist()
-    cols["highlight"] = hl.tolist()
+    cols["anomaly"] = flag.tolist()
+    cols["anomaly_score"] = _round_list(pd.Series(score), 2)
 
     fix_ratio = float(df["has_gps"].mean())
     speed = df.loc[df["has_gps"], "speed_kmh"]
@@ -163,8 +147,8 @@ def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
         "fix_ratio": round(fix_ratio, 3),
         "gps": gps_kind(fix_ratio),
         "n_windows": int(len(df)),
-        "n_highlights": int(hl.sum()),
-        "highlight_basis": basis,
+        "n_anomalies": int(flag.sum()),
+        "anomaly_method": method,
         "n_anomaly_z": int(df["is_anomaly_z"].fillna(False).sum()),
         "n_anomaly_if": int(df["is_anomaly_if"].fillna(False).sum()),
         "n_clipped": int(df["is_clipped"].fillna(False).sum()),
@@ -172,12 +156,13 @@ def ride_payload(df: pd.DataFrame, memo: str = "") -> tuple[dict, dict]:
         "spark": sparkline(df["rms"]),
         "memo": memo,
     }
-    payload = {"id": rid, "n": int(len(df)), "has_abs_time": bool(has_abs), "highlight_basis": basis, "columns": cols}
+    anomaly = {"method": method, "threshold": None if method == ANOMALY_NONE else float(z_threshold), "model_version": model_version}
+    payload = {"id": rid, "n": int(len(df)), "has_abs_time": bool(has_abs), "anomaly": anomaly, "columns": cols}
     return summary, payload
 
 
-def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, highlight_rows: list[int], window_sec: float = 1.0) -> tuple[np.ndarray, dict, dict]:
-    """スペクトログラムの画像（不透明度）とその情報、見どころの生波形。df は scored.parquet（win 順）。"""
+def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, wave_rows: list[int], window_sec: float = 1.0) -> tuple[np.ndarray, dict, dict]:
+    """スペクトログラムの画像（不透明度）とその情報、wave_rows の窓の生波形。df は scored.parquet（win 順）。"""
     from . import spectro
 
     t = acc["t_rel"].to_numpy(float)
@@ -189,7 +174,7 @@ def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, highlight_rows: list[int
     body = power[:, 5:]
     peak = [None if not np.isfinite(row).any() else int(np.nanargmax(row)) + 5 for row in body]
     spec_meta = {"id": str(df["ride_id"].iloc[0]), "n_cols": int(img.shape[1]), "f_max_hz": spectro.F_MAX_HZ, "window_sec": window_sec, **scale, "peak_hz": peak}
-    waves = {"id": spec_meta["id"], "unit": "mg", "windows": spectro.waveforms(acc, t_starts, highlight_rows, fs, window_sec)}
+    waves = {"id": spec_meta["id"], "unit": "mg", "windows": spectro.waveforms(acc, t_starts, wave_rows, fs, window_sec)}
     return img, spec_meta, waves
 
 
@@ -211,20 +196,20 @@ def dump_json(obj) -> bytes:
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
 
 
-def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "") -> tuple[dict, dict[str, bytes]]:
+def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "", model_version: str | None = None, z_threshold: float = DEFAULT_Z_THRESHOLD) -> tuple[dict, dict[str, bytes]]:
     """1 走行分の (rides.json に載せる要約, {ファイル名: 中身})。ファイルには書かない。
 
     scored は点数付きの窓、accel はクリーニング後の加速度（t_rel・ax_g・ay_g・az_g）。
-    accel が無ければスペクトログラムと生波形は作らない。
+    accel が無ければスペクトログラムと生波形は作らない。生波形は、いつもと違う振動の窓だけ書き出す。
     """
     from . import spectro
 
     df = scored.sort_values("win").reset_index(drop=True)
-    summary, payload = ride_payload(df, memo)
+    summary, payload = ride_payload(df, memo, model_version, z_threshold)
     ride_id = summary["id"]
     files = {f"ride_{ride_id}.json": dump_json(payload)}
     if accel is not None:
-        rows = [i for i, h in enumerate(payload["columns"]["highlight"]) if h]
+        rows = [i for i, h in enumerate(payload["columns"]["anomaly"]) if h]
         img, meta, waves = extras_payload(df, accel, rows)
         files[f"spec_{ride_id}.png"] = spectro.png_alpha(img)
         files[f"spec_{ride_id}.json"] = dump_json(meta)

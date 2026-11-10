@@ -43,7 +43,7 @@ def _entry(ride_id, kind, published_run=RUN_2, runs=(RUN_2, RUN_1), deleted=Fals
 
 def _run(run_id, results, action="process", where="lambda"):
     return {
-        "schema": "run/1", "run_id": run_id, "action": action, "where": where, "commit": "abc1234",
+        "schema": "run/2", "run_id": run_id, "action": action, "where": where, "commit": "abc1234",
         "started_at": "2026-11-09T02:00:00Z", "finished_at": "2026-11-09T02:00:20Z",
         "status": "failed" if any(r["status"] == "failed" for r in results) else "succeeded", "error": None,
         "config": {}, "model_version": "20261109-020000", "rides": results,
@@ -52,7 +52,7 @@ def _run(run_id, results, action="process", where="lambda"):
 
 def _result(ride_id, kind="ride", error=None):
     return {"ride_id": ride_id, "status": "failed" if error else "succeeded", "kind": None if error else kind, "kind_metrics": None,
-            "n_windows": None if error else 100, "n_highlights": None if error else 10, "error": error}
+            "n_windows": None if error else 100, "n_anomalies": None if error else 0, "error": error}
 
 
 def _summary(ride_id):

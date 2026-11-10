@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/rides.schema.json",
-  "version": 1,
+  "version": 2,
   "title": "rides.json（走行一覧。カード用の要約とスパークライン）",
   "type": "object",
   "required": ["generated_at_ms", "rides"],
@@ -14,7 +14,7 @@
     "nullableNumber": { "type": ["number", "null"] },
     "rideSummary": {
       "type": "object",
-      "required": ["id", "start_ms", "duration_s", "distance_km", "max_speed_kmh", "fix_ratio", "gps", "n_windows", "n_highlights", "highlight_basis", "n_anomaly_z", "n_anomaly_if", "n_clipped", "rms_median", "spark", "memo"],
+      "required": ["id", "start_ms", "duration_s", "distance_km", "max_speed_kmh", "fix_ratio", "gps", "n_windows", "n_anomalies", "anomaly_method", "n_anomaly_z", "n_anomaly_if", "n_clipped", "rms_median", "spark", "memo"],
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "description": "走行 ID" },
@@ -25,8 +25,8 @@
         "fix_ratio": { "type": "number", "minimum": 0, "maximum": 1, "description": "GPS のある窓の割合" },
         "gps": { "enum": ["full", "partial", "none"], "description": "0.95 以上／0.10 以上／未満" },
         "n_windows": { "type": "integer", "minimum": 0 },
-        "n_highlights": { "type": "integer", "minimum": 0 },
-        "highlight_basis": { "enum": ["z_speed>3", "z_speed_top", "score_if_top"] },
+        "n_anomalies": { "type": "integer", "minimum": 0, "description": "いつもと違う振動の窓の数（判定しない走行は 0。anomaly_method で見分ける）" },
+        "anomaly_method": { "$ref": "ride.schema.json#/$defs/anomalyMethod" },
         "n_anomaly_z": { "type": "integer", "minimum": 0 },
         "n_anomaly_if": { "type": "integer", "minimum": 0 },
         "n_clipped": { "type": "integer", "minimum": 0 },

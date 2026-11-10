@@ -1,7 +1,7 @@
 // 詳細パネル：何も選んでいないときは見どころの一覧、選んだら その 1 秒の値
 import type { RideData, Waveform } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
-import { BASIS_TEXT, type Selection } from "../lib/series";
+import { SCORE_LABEL, anomalyBasisText, type Selection } from "../lib/series";
 import WaveChart from "./WaveChart";
 
 interface Props {
@@ -60,7 +60,7 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
     return (
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">見どころ</h2>
-        <p className="text-xs leading-relaxed text-ink-2">{BASIS_TEXT[data.highlight_basis]}。地図の線やグラフをクリックすると、その 1 秒の値をここに表示します。</p>
+        <p className="text-xs leading-relaxed text-ink-2">{anomalyBasisText(data)}。地図の線やグラフをクリックすると、その 1 秒の値をここに表示します。</p>
         {ranked.length === 0 ? (
           <p className="text-xs text-muted">この走行には見どころがありません（記録が短く、先頭・末尾 60 秒を除くと残らないため）。</p>
         ) : (
@@ -77,7 +77,7 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
                     {c.speed[i] !== null && `${num(c.speed[i], 0)} km/h ・ `}rms {num(c.rms[i], 2)} g
                   </span>
                   <span className="tabular text-xs">
-                    {data.highlight_basis === "score_if_top" ? `IF ${num(c.score_if[i], 2)}` : `z ${num(c.z[i], 2)}`}
+                    {SCORE_LABEL[data.anomaly.method]} {num(c.anomaly_score[i], 2)}
                   </span>
                 </button>
               </li>

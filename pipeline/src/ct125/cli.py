@@ -119,7 +119,7 @@ def local_pipeline(cfg: dict, acfg: dict):
 def _print_result(result: dict) -> None:
     print(f"処理 {result['run_id']}（{result['action']}）：{result['status']}、モデル {result['model_version']}")
     for ride in result["rides"]:
-        detail = ride["error"] or f"{ride['kind']}、窓 {ride['n_windows']}、見どころ {ride['n_highlights']}"
+        detail = ride["error"] or f"{ride['kind']}、窓 {ride['n_windows']}、いつもと違う振動 {ride['n_anomalies']}"
         print(f"  {ride['ride_id']}: {detail}")
     if result["status"] == "succeeded":
         print(f"画面に出すときは：python -m ct125 publish --run {result['run_id']}")
