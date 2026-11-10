@@ -38,27 +38,38 @@ if (-not (Test-Path (Join-Path $root "node_modules"))) {
     if ($LASTEXITCODE -ne 0) { throw "npm install に失敗しました" }
 }
 
-# ログインの設定（.env.development.local）を Terraform の出力から作る（公開版の deploy.ps1 と同じ値。秘密ではない）
+# ログインの設定を Terraform の出力から .env.development.local に作る（公開版の deploy.ps1 と同じ値。秘密ではない）。
+# Terraform が読めない PC（AWS のログインや terraform init がまだ）でも、コミットしてある .env.development の値で起動を続ける
+. (Join-Path $PSScriptRoot "auth-env.ps1")
 $envFile = Join-Path $root ".env.development.local"
 $terraformDir = Join-Path (Split-Path -Parent $root) "infra"
-$ErrorActionPreference = "Continue"
-$json = terraform "-chdir=$terraformDir" output -json 2>$null
-$ok = ($LASTEXITCODE -eq 0)
-$ErrorActionPreference = "Stop"
+$ok = $false
+$terraformError = ""
+if (Get-Command terraform -ErrorAction SilentlyContinue) {
+    $errFile = [IO.Path]::GetTempFileName()
+    try {
+        $ErrorActionPreference = "Continue"
+        $json = terraform "-chdir=$terraformDir" output -no-color -json 2>$errFile
+        $ok = ($LASTEXITCODE -eq 0)
+        $ErrorActionPreference = "Stop"
+        $terraformError = [IO.File]::ReadAllText($errFile)
+    } finally {
+        Remove-Item $errFile -ErrorAction SilentlyContinue
+    }
+}
 if ($ok) {
     $outputs = $json | ConvertFrom-Json
-    $lines = @(
-        "# scripts/start-dev.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない）",
-        "VITE_AUTH_AUTHORITY=$($outputs.auth_authority.value)",
-        "VITE_AUTH_CLIENT_ID=$($outputs.auth_client_id.value)",
-        "VITE_AUTH_DOMAIN=$($outputs.auth_domain.value)"
-    )
-    [IO.File]::WriteAllLines($envFile, $lines, [Text.UTF8Encoding]::new($false))
+    Write-AuthEnvFile $envFile "# scripts/start-dev.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない）" $outputs
+    Sync-CommittedAuthEnv $root $outputs
     Write-Host "ログインの設定を作りました（$envFile）。データは公開ドメインのデータ API から読みます（ログインが要ります）"
-} elseif (Test-Path $envFile) {
-    Write-Host "Terraform の出力を読めなかったので、前に作った $envFile を使います" -ForegroundColor Yellow
 } else {
-    throw "Terraform の出力を読めません（terraform -chdir=infra init と AWS のログインを確認）。.env.example を見て .env.development.local を手で作ってもよい"
+    $hint = Get-TerraformFailureHint $terraformDir "ct125-logger" $terraformError
+    Write-Host "Terraform の出力を読めませんでした：$hint" -ForegroundColor Yellow
+    if (Test-Path $envFile) {
+        Write-Host "前に作った $envFile のログインの設定で起動します" -ForegroundColor Yellow
+    } else {
+        Write-Host "コミットしてある .env.development のログインの設定で起動します（画面を見るだけならこのままでよい）" -ForegroundColor Yellow
+    }
 }
 
 # 起動を待ってブラウザを開く（裏で待つ）

@@ -1,4 +1,5 @@
-// ログインの設定。値は .env.production.local（公開版。scripts/deploy.ps1 が作る）か .env.development.local（dev。scripts/start-dev.ps1 が作る）から入る。どちらも Terraform の出力から。
+// ログインの設定。値は .env.production.local（公開版。scripts/deploy.ps1 が Terraform の出力から作る）か、
+// dev では .env.development.local（scripts/start-dev.ps1 が Terraform の出力から作る）→ .env.development（コミット済み）の順に入る。
 // どれも秘密ではない（ブラウザに見えてよい値）。
 export interface AuthConfig {
   /** ユーザープール ID（<region>_<文字列>） */
