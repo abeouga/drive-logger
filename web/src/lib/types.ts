@@ -155,6 +155,18 @@ export interface ModelsResponse {
   models: ModelItem[];
 }
 
+/** POST /api/rides/{id}/purge の要求（ゴミ箱の走行を完全に削除する。#82） */
+export interface PurgeRequest {
+  confirm_ride_id: string;
+}
+
+/** POST /api/rides/{id}/purge の応答（消したもの。run.json とモデルは残る） */
+export interface PurgeResponse {
+  ride_id: string;
+  purged: true;
+  removed: { raw_files: number; result_files: number; runs: string[] };
+}
+
 /** GET /api/models/{version}（model.json。contracts/records/model.schema.json）のうち画面で使うところ */
 export interface ModelRecord {
   version: string;

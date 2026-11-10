@@ -30,6 +30,7 @@ ESP32    ─https（署名付き URL）→ S3 生データ <走行>/ → 完了�
 | `GET /api/rides` | ログイン | 走行の台帳から作った一覧（画面に出す走行と要約）。admin は `?include_deleted=true` で消した走行も |
 | `DELETE /api/rides/{ride_id}` | admin | 走行を画面と学習から外す（生データは残す）。処理の Lambda に公開用の作り直しを頼む |
 | `POST /api/rides/{ride_id}/restore` | admin | 外した走行を戻す |
+| `POST /api/rides/{ride_id}/purge` | admin | ゴミ箱の走行を完全に削除する（#82。元に戻せない）。本文の `confirm_ride_id` が走行 ID と同じでなければ 400、ゴミ箱に無ければ 409。台帳の 1 件を除いて公開し直しを頼み、処理の結果 → 生データの順に消す。誰がいつ消したかはデータ API のログに残る |
 | `GET /api/rides/{ride_id}/runs` | ログイン | その走行を処理した記録（新しい順。どれを画面に出しているか） |
 | `PUT /api/rides/{ride_id}/published-run` | admin | 画面に出す結果を、前の処理の結果などに切り替える |
 | `GET /api/models` | ログイン | モデルの版の一覧と、今使っている版 |
@@ -37,6 +38,7 @@ ESP32    ─https（署名付き URL）→ S3 生データ <走行>/ → 完了�
 | `PUT /api/models/current` | admin | 今使うモデルを切り替える（全走行の点数付けし直しは処理の Lambda。202 を返し、数分で画面に出る） |
 
 応答の形は `../contracts/api/`（`tests/test_rides_api.py` が定義に当てる）。データ API が書けるのは作業用のバケットの台帳（`ledger/rides.json`）だけで、公開用には書けない。
+完全に削除のときだけ、生データの `<ride_id>/` 以下と、作業用の `runs/<run_id>/rides/<ride_id>/` 以下を消せる（読めない）。`run.json` とモデルは記録なので消さない。
 | `GET /api/docs` | ― | データ API の説明書（OpenAPI） |
 | `POST /api/device/uploads` | 機器 | 送るファイルと大きさ → 走行名（`ride_<日時>`）とファイルごとの PUT 用 URL（15 分）。途中で切れたら前回の走行名を付けて呼び直す |
 | `POST /api/device/uploads/{ride_id}/complete` | 機器 | S3 の大きさが申告どおりなら完了の合図を置く（違えば 409）。完了済みなら `already_complete` |
@@ -105,10 +107,11 @@ uv run pytest
 S3 の本物のデータでデータ API を動かすとき（ログインなしで「ローカルの開発者」として扱う）：
 
 ```powershell
-$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:WORK_BUCKET="ct125-logger-work-<アカウントID>"; $env:PIPELINE_FUNCTION="ct125-ride-pipeline"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --port 8000 --app-dir src
+$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:WORK_BUCKET="ct125-logger-work-<アカウントID>"; $env:PIPELINE_FUNCTION="ct125-ride-pipeline"; $env:RAW_BUCKET="ct125-logger-raw-<アカウントID>"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --port 8000 --app-dir src
 ```
 
 http://localhost:8000/api/docs で説明書が開きます。`ALLOW_LOCAL_USER` は Lambda では設定しません。
+管理者のプロファイルで動かすと、ゴミ箱の「完全に削除」は本番の生データを本当に消します（`RAW_BUCKET` はそのためだけに使う）。
 
 ## Lambda 用の zip を作る
 

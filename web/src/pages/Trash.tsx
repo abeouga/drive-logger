@@ -1,4 +1,5 @@
-// ゴミ箱（admin だけ）：画面から消した走行の一覧と「戻す」。机上と判定した走行（画面に出さない）も見られる。
+// ゴミ箱（admin だけ）：画面から消した走行の一覧と「戻す」「完全に削除」（#82）。机上と判定した走行（画面に出さない）も見られる。
+import { useState } from "react";
 import { invalidateRides, loadFullLedger, restoreRide, useLoad, type LedgerRide } from "../lib/data";
 import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDuration } from "../lib/format";
@@ -6,10 +7,11 @@ import { listHref } from "../lib/route";
 import ActionButton from "../components/ActionButton";
 import LoadState from "../components/LoadState";
 import PageHeader from "../components/PageHeader";
+import PurgeDialog from "../components/PurgeDialog";
 
 const KIND_LABEL: Record<string, string> = { desk: "机上", idle: "停車", ride: "実走", ride_nogps: "実走（GPS なし）" };
 
-function Row({ ride, onRestored }: { ride: LedgerRide; onRestored: () => void }) {
+function Row({ ride, onChanged, onPurge }: { ride: LedgerRide; onChanged: () => void; onPurge: () => void }) {
   return (
     <li className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div className="flex flex-col">
@@ -23,13 +25,18 @@ function Row({ ride, onRestored }: { ride: LedgerRide; onRestored: () => void })
         {ride.summary?.memo && <span className="mt-0.5 line-clamp-1 text-xs text-ink-2">{ride.summary.memo}</span>}
       </div>
       {ride.deleted && (
-        <ActionButton
-          label="戻す"
-          onRun={async () => {
-            await restoreRide(ride.id);
-            onRestored();
-          }}
-        />
+        <div className="flex items-start gap-2">
+          <ActionButton
+            label="戻す"
+            onRun={async () => {
+              await restoreRide(ride.id);
+              onChanged();
+            }}
+          />
+          <button type="button" className="btn btn-compact btn-danger" onClick={onPurge}>
+            完全に削除
+          </button>
+        </div>
       )}
     </li>
   );
@@ -38,6 +45,8 @@ function Row({ ride, onRestored }: { ride: LedgerRide; onRestored: () => void })
 export default function Trash() {
   const { isAdmin } = useAuth();
   const { value: rides, error, reload } = useLoad(loadFullLedger, []);
+  const [purging, setPurging] = useState<string | null>(null);
+  const [purged, setPurged] = useState<string | null>(null);
   if (!isAdmin) return <p className="text-sm text-ink-2">このページは admin だけが使えます。<a href={listHref} className="text-accent">走行一覧へ</a></p>;
   if (!rides) return <LoadState error={error} label="走行の台帳" />;
   const deleted = rides.filter((r) => r.deleted);
@@ -51,11 +60,17 @@ export default function Trash() {
       <PageHeader title="ゴミ箱">
         画面から消した走行です。消しても生データと処理の結果は残ります。消した走行は画面に出さず、学習にも使いません。
         「戻す」と一覧に戻ります（画面用のデータは数秒で戻ります）。
+        「完全に削除」は、生データ・処理の結果・台帳から、その走行を消します。元に戻せません。
       </PageHeader>
+      {purged && (
+        <p role="status" className="rounded-[12px] border border-line bg-surface-muted px-4 py-2 text-sm">
+          {purged} を完全に削除しました。
+        </p>
+      )}
       <section className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">消した走行（{deleted.length}）</h2>
         {deleted.length === 0 ? <p className="text-sm text-ink-2">ありません。</p> : (
-          <ul className="flex flex-col gap-2">{deleted.map((r) => <Row key={r.id} ride={r} onRestored={refresh} />)}</ul>
+          <ul className="flex flex-col gap-2">{deleted.map((r) => <Row key={r.id} ride={r} onChanged={refresh} onPurge={() => setPurging(r.id)} />)}</ul>
         )}
       </section>
       <section className="flex flex-col gap-2">
@@ -70,6 +85,16 @@ export default function Trash() {
           ))}
         </ul>
       </section>
+      {purging && (
+        <PurgeDialog
+          rideId={purging}
+          onClose={() => setPurging(null)}
+          onPurged={() => {
+            setPurged(purging);
+            refresh();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -17,7 +17,9 @@ from .domain.exceptions import (
     LedgerConflictError,
     ModelNotFoundError,
     NotAuthenticatedError,
+    PurgeIncompleteError,
     RideNotFoundError,
+    RideNotInTrashError,
     RunNotFoundError,
     RunNotPublishableError,
     UploadConflictError,
@@ -39,6 +41,8 @@ STATUS_BY_ERROR: dict[type[DomainError], int] = {
     UploadConflictError: 409,
     RunNotPublishableError: 409,
     LedgerConflictError: 409,
+    RideNotInTrashError: 409,
+    PurgeIncompleteError: 500,
 }
 
 
