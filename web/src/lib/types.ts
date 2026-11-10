@@ -2,7 +2,8 @@
 // 作る側は pipeline/ の export.py・spectro.py。
 
 export type GpsKind = "full" | "partial" | "none";
-export type HighlightBasis = "z_speed>3" | "z_speed_top" | "score_if_top";
+/** いつもと違う振動の判定の方法。speed_baseline＝速度で補正したベースラインからの逸脱（z_speed）、none＝判定しない（GPS なし） */
+export type AnomalyMethod = "speed_baseline" | "none";
 type Num = number | null;
 
 /** rides.json の rides[] の 1 件（走行一覧のカード） */
@@ -15,8 +16,8 @@ export interface RideSummary {
   fix_ratio: number;
   gps: GpsKind;
   n_windows: number;
-  n_highlights: number;
-  highlight_basis: HighlightBasis;
+  n_anomalies: number; // いつもと違う振動の数（判定しない走行は 0。anomaly_method で見分ける）
+  anomaly_method: AnomalyMethod;
   n_anomaly_z: number;
   n_anomaly_if: number;
   n_clipped: number;
@@ -53,14 +54,22 @@ export interface RideColumns {
   is_anomaly_z: boolean[];
   is_anomaly_if: boolean[];
   cls: number[]; // 地図の色の段階 0〜4（座標のない窓は -1）
-  highlight: boolean[];
+  anomaly: boolean[]; // いつもと違う振動の窓（しきい値を超えた窓だけ）
+  anomaly_score: Num[]; // 判定に使ったスコア（大きいほど外れ）。判定しない窓は null
+}
+
+/** ride_<id>.json の anomaly（判定のしかた。画面は method と columns.anomaly だけを読み、どのモデルかは気にしない） */
+export interface AnomalyInfo {
+  method: AnomalyMethod;
+  threshold: number | null; // 判定しないときは null
+  model_version: string | null;
 }
 
 export interface RideData {
   id: string;
   n: number;
   has_abs_time: boolean;
-  highlight_basis: HighlightBasis;
+  anomaly: AnomalyInfo;
   columns: RideColumns;
 }
 
@@ -76,7 +85,7 @@ export interface SpecMeta {
   peak_hz: Num[]; // 各窓で最も強い周波数（5 Hz 以上）
 }
 
-/** wave_<id>.json の windows[] の 1 件（見どころの窓の 1 秒分。平均を引いた mg の整数） */
+/** wave_<id>.json の windows[] の 1 件（いつもと違う振動の窓の 1 秒分。平均を引いた mg の整数） */
 export interface Waveform {
   i: number; // 窓の添字（ride_<id>.json の列の位置）
   fs: number;

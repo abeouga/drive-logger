@@ -109,6 +109,7 @@ def test_stop_speed_matches_common():
 
 # ------------------------------------------------------------------ 画面用 JSON（export.py）
 FIXED_GENERATED_AT_MS = 1762650000000  # 見本の rides.json の作った時刻（毎回同じにする）
+EXAMPLE_MODEL_VERSION = "20261108-180231"  # 見本の判定に使ったモデルの版
 
 
 def _windows(n: int = 12, gps: bool = True) -> pd.DataFrame:
@@ -131,6 +132,9 @@ def _windows(n: int = 12, gps: bool = True) -> pd.DataFrame:
     df["is_stopped"] = df["has_gps"] & (df["speed_kmh"] < 5) if gps else False
     df["z_speed"] = np.where(df["has_gps"], np.linspace(-1.0, 2.5, n), np.nan) if gps else np.nan
     df["is_anomaly_z"] = False
+    if gps:  # しきい値（3）を超えた所を 2 つ（いつもと違う振動の見本）
+        df.loc[[7, 9], "z_speed"] = [3.4, 3.1]
+        df.loc[[7, 9], "is_anomaly_z"] = True
     return df
 
 
@@ -141,10 +145,10 @@ def _accel(n_windows: int = 12, fs: float = 40.0) -> pd.DataFrame:
 
 def build_app_examples() -> dict[str, dict]:
     df = _windows()
-    summary, payload = export.ride_payload(df, memo="# 例\n家の前で 2 分アイドリングしてから出発")
-    rows = [i for i, flag in enumerate(payload["columns"]["highlight"]) if flag][:2]
+    summary, payload = export.ride_payload(df, memo="# 例\n家の前で 2 分アイドリングしてから出発", model_version=EXAMPLE_MODEL_VERSION, z_threshold=3.0)
+    rows = [i for i, flag in enumerate(payload["columns"]["anomaly"]) if flag][:2]
     _, spec, waves = export.extras_payload(df, _accel(), rows)
-    nogps_summary, _ = export.ride_payload(_windows(gps=False))
+    nogps_summary, _ = export.ride_payload(_windows(gps=False), model_version=EXAMPLE_MODEL_VERSION, z_threshold=3.0)
     rides = export.rides_document([summary, nogps_summary])
     rides["generated_at_ms"] = FIXED_GENERATED_AT_MS
     return {"rides.json": rides, "ride.json": payload, "spec.json": spec, "wave.json": waves}
@@ -178,4 +182,4 @@ def test_examples_come_from_the_exporter(name):
 
 def test_window_columns_match_app_schema():
     columns = load("app/ride.schema.json")["properties"]["columns"]["properties"]
-    assert set(export.WINDOW_COLUMNS) | {"t_abs_ms", "cls", "highlight"} == set(columns)
+    assert set(export.WINDOW_COLUMNS) | {"t_abs_ms", "cls", "anomaly", "anomaly_score"} == set(columns)

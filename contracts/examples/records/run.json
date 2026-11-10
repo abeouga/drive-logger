@@ -1,5 +1,5 @@
 {
-  "schema": "run/1",
+  "schema": "run/2",
   "run_id": "20261109T031500Z-3f9a1c",
   "action": "process",
   "where": "lambda",
@@ -17,7 +17,7 @@
       "kind": "desk",
       "kind_metrics": { "vib_median_g": 0.014, "gps_windows": 280, "max_dist_m": 6.0, "moving_windows": 0 },
       "n_windows": 291,
-      "n_highlights": 10,
+      "n_anomalies": 0,
       "error": null
     },
     {
@@ -26,7 +26,7 @@
       "kind": null,
       "kind_metrics": null,
       "n_windows": null,
-      "n_highlights": null,
+      "n_anomalies": null,
       "error": "ride_20261109_020000 の gps.csv が S3 にありません（3 ファイル）"
     }
   ]

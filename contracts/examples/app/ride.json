@@ -2,7 +2,11 @@
   "id": "ride_20261108_011304",
   "n": 12,
   "has_abs_time": true,
-  "highlight_basis": "z_speed_top",
+  "anomaly": {
+    "method": "speed_baseline",
+    "threshold": 3.0,
+    "model_version": "20261108-180231"
+  },
   "columns": {
     "t_rel": [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5],
     "lat": [null, null, 35.0002, 35.0003, 35.0004, 35.0005, 35.0006, 35.0007, 35.0008, 35.0009, 35.001, 35.0011],
@@ -12,7 +16,7 @@
     "log_rms": [-2.303, -1.609, -1.204, -0.916, -0.693, -0.511, -0.357, -0.223, -0.105, 0.0, 0.095, 0.182],
     "p2p": [0.5, 0.818, 1.136, 1.455, 1.773, 2.091, 2.409, 2.727, 3.045, 3.364, 3.682, 4.0],
     "crest": [2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5, 2.5],
-    "z": [null, null, -0.36, -0.05, 0.27, 0.59, 0.91, 1.23, 1.55, 1.86, 2.18, 2.5],
+    "z": [null, null, -0.36, -0.05, 0.27, 0.59, 0.91, 3.4, 1.55, 3.1, 2.18, 2.5],
     "score_if": [-0.2, -0.173, -0.145, -0.118, -0.091, -0.064, -0.036, -0.009, 0.018, 0.045, 0.073, 0.1],
     "band_1_5": [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1],
     "band_5_15": [0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3],
@@ -21,10 +25,11 @@
     "is_stopped": [false, false, false, false, false, false, false, false, false, false, false, false],
     "is_edge": [true, false, false, false, false, false, false, false, false, false, false, false],
     "is_clipped": [false, false, false, false, false, true, false, false, false, false, false, false],
-    "is_anomaly_z": [false, false, false, false, false, false, false, false, false, false, false, false],
+    "is_anomaly_z": [false, false, false, false, false, false, false, true, false, true, false, false],
     "is_anomaly_if": [false, false, false, false, false, false, false, false, false, true, false, false],
     "t_abs_ms": [1793595600500, 1793595601500, 1793595602500, 1793595603500, 1793595604500, 1793595605500, 1793595606500, 1793595607500, 1793595608500, 1793595609500, 1793595610500, 1793595611500],
     "cls": [-1, -1, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4],
-    "highlight": [false, false, true, true, true, true, true, true, true, true, true, true]
+    "anomaly": [false, false, false, false, false, false, false, true, false, true, false, false],
+    "anomaly_score": [null, null, -0.36, -0.05, 0.27, 0.59, 0.91, 3.4, 1.55, 3.1, 2.18, 2.5]
   }
 }

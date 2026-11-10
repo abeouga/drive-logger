@@ -91,7 +91,7 @@ public バケット
 
 ```json
 {
-  "schema": "run/1",
+  "schema": "run/2",
   "run_id": "20261109T031500Z-3f9a1c",
   "action": "process",
   "where": "lambda",
@@ -103,7 +103,7 @@ public バケット
   "config": { "window_sec": 1.0, "classify": { "...": "..." }, "model": { "...": "..." } },
   "model_version": "20261107-143620",
   "rides": [
-    { "ride_id": "ride_20261108_011304", "status": "succeeded", "kind": "idle", "kind_metrics": { "vib_median_g": 0.14, "gps_windows": 280, "max_dist_m": 12.0, "moving_windows": 0 }, "n_windows": 291, "n_highlights": 10, "error": null }
+    { "ride_id": "ride_20261108_011304", "status": "succeeded", "kind": "idle", "kind_metrics": { "vib_median_g": 0.14, "gps_windows": 280, "max_dist_m": 12.0, "moving_windows": 0 }, "n_windows": 291, "n_anomalies": 0, "error": null }
   ]
 }
 ```

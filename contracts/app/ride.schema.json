@@ -1,19 +1,29 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/ride.schema.json",
-  "version": 1,
+  "version": 2,
   "title": "ride_<id>.json（1 走行の 1 秒窓の列。どの列も長さ n）",
   "type": "object",
-  "required": ["id", "n", "has_abs_time", "highlight_basis", "columns"],
+  "required": ["id", "n", "has_abs_time", "anomaly", "columns"],
   "additionalProperties": false,
   "properties": {
     "id": { "type": "string" },
     "n": { "type": "integer", "minimum": 0, "description": "窓の数" },
     "has_abs_time": { "type": "boolean", "description": "GPS の時刻があるか（無ければ t_abs_ms は null）" },
-    "highlight_basis": { "enum": ["z_speed>3", "z_speed_top", "score_if_top"] },
+    "anomaly": {
+      "type": "object",
+      "required": ["method", "threshold", "model_version"],
+      "additionalProperties": false,
+      "description": "「いつもと違う振動」の判定のしかた。画面は method と columns.anomaly だけを読み、どのモデルかは気にしない",
+      "properties": {
+        "method": { "$ref": "#/$defs/anomalyMethod" },
+        "threshold": { "type": ["number", "null"], "description": "判定のしきい値（speed_baseline なら z_speed のしきい値）。判定しない（none）ときは null" },
+        "model_version": { "type": ["string", "null"], "description": "点数付けに使ったモデルの版" }
+      }
+    },
     "columns": {
       "type": "object",
-      "required": ["t_rel", "t_abs_ms", "lat", "lon", "speed", "rms", "log_rms", "p2p", "crest", "z", "score_if", "band_1_5", "band_5_15", "band_15_40", "has_gps", "is_stopped", "is_edge", "is_clipped", "is_anomaly_z", "is_anomaly_if", "cls", "highlight"],
+      "required": ["t_rel", "t_abs_ms", "lat", "lon", "speed", "rms", "log_rms", "p2p", "crest", "z", "score_if", "band_1_5", "band_5_15", "band_15_40", "has_gps", "is_stopped", "is_edge", "is_clipped", "is_anomaly_z", "is_anomaly_if", "cls", "anomaly", "anomaly_score"],
       "additionalProperties": false,
       "properties": {
         "t_rel": { "$ref": "#/$defs/numbers", "description": "窓の中心の相対秒（小数 1 桁）" },
@@ -37,11 +47,13 @@
         "is_anomaly_z": { "$ref": "#/$defs/booleans" },
         "is_anomaly_if": { "$ref": "#/$defs/booleans" },
         "cls": { "type": "array", "items": { "type": "integer", "minimum": -1, "maximum": 4 }, "description": "地図の色の段階 0〜4（座標の無い窓は -1）" },
-        "highlight": { "$ref": "#/$defs/booleans", "description": "見どころの窓" }
+        "anomaly": { "$ref": "#/$defs/booleans", "description": "いつもと違う振動の窓（しきい値を超えた窓だけ。上位 N 件で埋めない）" },
+        "anomaly_score": { "$ref": "#/$defs/numbers", "description": "判定に使ったスコア（大きいほど外れ。speed_baseline なら z_speed）。判定しない窓は null" }
       }
     }
   },
   "$defs": {
+    "anomalyMethod": { "enum": ["speed_baseline", "none"], "description": "speed_baseline：速度で補正したベースラインからの逸脱（z_speed）。none：判定しない（GPS がなく速度が分からない走行）" },
     "numbers": { "type": "array", "items": { "type": ["number", "null"] } },
     "booleans": { "type": "array", "items": { "type": "boolean" } }
   }

@@ -19,7 +19,7 @@ RIDE_ID_PATTERN = re.compile(r"ride_([0-9]{8}_[0-9]{6}(_[0-9]{1,2})?|[0-9]{3})")
 RUN_ID_PATTERN = re.compile(r"[0-9]{8}T[0-9]{6}Z-[0-9a-f]{6}")
 MODEL_VERSION_PATTERN = re.compile(r"[0-9]{8}(-[0-9]{6})?")
 
-RUN_SCHEMA = "run/1"
+RUN_SCHEMA = "run/2"  # 2：走行ごとの n_highlights を n_anomalies にした（#71）
 LEDGER_SCHEMA = "ledger/1"
 MODEL_SCHEMA = "model/1"
 
@@ -106,14 +106,14 @@ def start_run(run_id: str, action: str, where: str, commit: str | None, cfg: dic
     }
 
 
-def ride_result(ride_id: str, kind: str | None = None, kind_metrics: dict | None = None, n_windows: int | None = None, n_highlights: int | None = None, error: str | None = None) -> dict:
+def ride_result(ride_id: str, kind: str | None = None, kind_metrics: dict | None = None, n_windows: int | None = None, n_anomalies: int | None = None, error: str | None = None) -> dict:
     return {
         "ride_id": ride_id,
         "status": "failed" if error else "succeeded",
         "kind": kind,
         "kind_metrics": kind_metrics,
         "n_windows": n_windows,
-        "n_highlights": n_highlights,
+        "n_anomalies": n_anomalies,
         "error": error,
     }
 

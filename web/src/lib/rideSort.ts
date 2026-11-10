@@ -67,7 +67,7 @@ export function sortRides(rides: readonly RideSummary[], key: RideSortKey): Ride
     case "duration":
       return list.sort(byDesc((r) => r.duration_s));
     case "highlights":
-      return list.sort(byDesc((r) => r.n_highlights));
+      return list.sort(byDesc((r) => r.n_anomalies));
   }
 }
 

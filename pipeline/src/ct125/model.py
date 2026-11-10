@@ -20,6 +20,7 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 MAD_SCALE = 1.4826
+DEFAULT_Z_THRESHOLD = 3.0  # config の model.z_threshold が無いとき
 IF_FEATURES = ["log_rms", "p2p", "std", "crest", "jerk_rms", "band_1_5", "band_5_15", "band_15_40"]
 
 
@@ -132,8 +133,29 @@ def apply_models(windows: pd.DataFrame, baseline: dict, forest: IsolationForest,
     out = windows.copy()
     out["is_stopped"] = out["has_gps"] & (out["speed_kmh"] < stop_speed_kmh)
     out["z_speed"] = apply_speed_baseline(out, baseline)
-    out["is_anomaly_z"] = (out["z_speed"] > mcfg.get("z_threshold", 3.0)) & ~out["is_stopped"]
+    out["is_anomaly_z"] = (out["z_speed"] > mcfg.get("z_threshold", DEFAULT_Z_THRESHOLD)) & ~out["is_stopped"]
     return pd.concat([out, apply_isolation_forest(out, forest)], axis=1)
+
+
+ANOMALY_SPEED_BASELINE = "speed_baseline"
+ANOMALY_NONE = "none"
+
+
+def judge_anomalies(scored: pd.DataFrame) -> tuple[str, np.ndarray, np.ndarray]:
+    """画面に出す「いつもと違う振動」の判定：(方法, 判定, 判定に使ったスコア)。scored は apply_models の結果。
+
+    - 速度のある窓がある走行：速度補正ベースライン（is_anomaly_z。走行中かつ z_speed > z_threshold）。スコアは z_speed
+    - 速度のある窓が無い走行（GPS なし）：判定しない。Isolation Forest は速度を使わず、速く走った所や
+      静かすぎる所を拾うため、そのまま「いつもと違う振動」としては出さない（#71）。判定はすべて False、スコアは NaN
+
+    上位 N 件で埋めることはしない。しきい値を超えた窓が無ければ 0 件のまま。
+    モデルを差し替えるときは、ここに新しい方法を足す（画面は方法の名前と判定だけを読む）。
+    """
+    n = len(scored)
+    z = scored["z_speed"].to_numpy(float)
+    if np.isfinite(z).any():
+        return ANOMALY_SPEED_BASELINE, scored["is_anomaly_z"].fillna(False).to_numpy(bool), z
+    return ANOMALY_NONE, np.zeros(n, dtype=bool), np.full(n, np.nan)
 
 
 def score_windows(all_windows: pd.DataFrame, mcfg: dict, stop_speed_kmh: float = 5.0) -> tuple[pd.DataFrame, dict, IsolationForest]:

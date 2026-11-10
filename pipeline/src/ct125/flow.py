@@ -22,7 +22,7 @@ import pandas as pd
 from . import classify as classifymod
 from . import export, io, processing, records
 from .records import RIDE_ID_PATTERN
-from .model import apply_models, fit_models, training_mask
+from .model import DEFAULT_Z_THRESHOLD, apply_models, fit_models, training_mask
 from .models import ModelStore
 from .storage import Area, WriteConflictError
 
@@ -81,7 +81,7 @@ class Pipeline:
         try:
             analyzed = self._analyze(ride_id)
             scored = self._score(analyzed.pre.windows, trained.baseline, trained.forest)
-            return self._save_ride(run_id, analyzed, scored)
+            return self._save_ride(run_id, analyzed, scored, trained.version)
         except Exception as error:  # 1 走行の失敗は記録して、ほかの走行は続ける
             self._log(f"{ride_id}: 失敗 {type(error).__name__}: {error}")
             return records.ride_result(ride_id, error=f"{type(error).__name__}: {error}")
@@ -112,7 +112,7 @@ class Pipeline:
 
             for ride_id in sorted(analyzed):
                 scored = self._score(analyzed[ride_id].pre.windows, baseline, forest)
-                run["rides"].append(self._save_ride(run["run_id"], analyzed[ride_id], scored))
+                run["rides"].append(self._save_ride(run["run_id"], analyzed[ride_id], scored, version))
             run["rides"] += [records.ride_result(ride_id, error=error) for ride_id, error in sorted(failed.items())]
             run["rides"].sort(key=lambda result: result["ride_id"])
 
@@ -268,9 +268,10 @@ class Pipeline:
     def _score(self, windows: pd.DataFrame, baseline: dict, forest) -> pd.DataFrame:
         return apply_models(windows, baseline, forest, self._cfg.get("model", {}), self._cfg.get("stop_speed_kmh", 5.0))
 
-    def _save_ride(self, run_id: str, analyzed: _Analyzed, scored: pd.DataFrame) -> dict:
+    def _save_ride(self, run_id: str, analyzed: _Analyzed, scored: pd.DataFrame, model_version: str) -> dict:
         pre = analyzed.pre
-        summary, files = export.ride_files(scored, pre.accel, pre.memo)
+        z_threshold = self._cfg.get("model", {}).get("z_threshold", DEFAULT_Z_THRESHOLD)
+        summary, files = export.ride_files(scored, pre.accel, pre.memo, model_version, z_threshold)
         base = f"runs/{run_id}/rides/{pre.ride_id}/"
         work = self._places.work
         work.put(base + "windows.parquet", _parquet(pre.windows))
@@ -278,7 +279,7 @@ class Pipeline:
         work.write_json(base + "summary.json", summary)
         for name, data in files.items():
             work.put(base + "app/" + name, data)
-        return records.ride_result(pre.ride_id, analyzed.kind, analyzed.kind_metrics, int(len(scored)), int(summary["n_highlights"]))
+        return records.ride_result(pre.ride_id, analyzed.kind, analyzed.kind_metrics, int(len(scored)), int(summary["n_anomalies"]))
 
     def _save_run(self, run: dict) -> None:
         self._places.work.write_json(f"runs/{run['run_id']}/run.json", run)

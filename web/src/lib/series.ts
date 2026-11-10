@@ -37,11 +37,11 @@ export function runs(flags: boolean[]): [number, number][] {
   return out;
 }
 
-/** 見どころの窓の添字を、スコアの高い順に並べる（順位＝地図とグラフの番号） */
-export function rankedHighlights(d: RideData): number[] {
+/** いつもと違う振動の窓の添字を、スコアの高い順に並べる（順位＝地図とグラフの番号） */
+export function rankedAnomalies(d: RideData): number[] {
   const c = d.columns;
-  const score = d.highlight_basis === "score_if_top" ? c.score_if : c.z;
-  return c.highlight
+  const score = c.anomaly_score;
+  return c.anomaly
     .map((h, i) => (h ? i : -1))
     .filter((i) => i >= 0)
     .sort((a, b) => (score[b] ?? -Infinity) - (score[a] ?? -Infinity));
@@ -51,8 +51,13 @@ export function hasCoord(d: RideData, i: number): boolean {
   return d.columns.lat[i] !== null && d.columns.lon[i] !== null;
 }
 
-export const BASIS_TEXT = {
-  "z_speed>3": "速度で補正したベースラインから 3 MAD 以上離れた所（z_speed > 3）",
-  z_speed_top: "z_speed > 3 の所はないため、走行中（5 km/h 以上）の z_speed 上位 10 か所を示しています",
-  score_if_top: "GPS がなく速度で補正できないため、Isolation Forest のスコア上位 10 か所を示しています（振動が大きすぎる所だけでなく、静かすぎる所もまれな所として上位に入ります）",
-} as const;
+/** 判定のしかたの説明（画面用データの方法としきい値から作る。モデルを差し替えても文を決め打ちしない） */
+export function anomalyBasisText(d: RideData): string {
+  if (d.anomaly.method === "speed_baseline") {
+    return `速度で補正したベースラインから大きく離れた所（z_speed > ${d.anomaly.threshold ?? "—"}）`;
+  }
+  return "GPS がなく速度で補正できないため、判定していません";
+}
+
+/** 判定に使ったスコアの短い名前（一覧の右端に添える） */
+export const SCORE_LABEL = { speed_baseline: "z", none: "" } as const;
