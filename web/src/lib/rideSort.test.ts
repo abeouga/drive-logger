@@ -29,7 +29,7 @@ const ms = (iso: string) => Date.parse(iso);
 // 記録の日時が分かる走行（GPS あり）と、分からない走行（GPS なし。走行 ID の届いた日時で代える）を混ぜる
 const rides = [
   ride("ride_20261109_030100", { start_ms: ms("2026-11-02T13:42:00+09:00"), gps: "partial", distance_km: 0.0, duration_s: 120, n_anomalies: 0, anomaly_method: "speed_baseline" }),
-  ride("ride_20261109_030109", { start_ms: ms("2026-11-02T14:03:00+09:00"), gps: "partial", distance_km: 4.8, duration_s: 840, n_anomalies: 2, anomaly_method: "speed_baseline" }),
+  ride("ride_20261109_030109", { start_ms: ms("2026-11-02T14:03:00+09:00"), gps: "partial", distance_km: 4.8, duration_s: 840, n_anomalies: 2, anomaly_method: "speed_iforest" }),
   ride("ride_20261109_030119", { start_ms: ms("2026-11-02T14:52:00+09:00"), gps: "full", distance_km: 4.3, duration_s: 900, n_anomalies: 2, anomaly_method: "speed_baseline" }),
   ride("ride_20261109_030139", { duration_s: 2220 }), // GPS なし（判定しない）。届いたのは 11/9 3:01 JST
   ride("ride_20261101_120000", { duration_s: 60 }), // GPS なし（判定しない）。届いたのは 11/1 12:00 JST

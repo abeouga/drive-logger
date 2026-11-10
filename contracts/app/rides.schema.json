@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/rides.schema.json",
-  "version": 2,
+  "version": 3,
   "title": "rides.json（走行一覧。カード用の要約とスパークライン）",
   "type": "object",
   "required": ["generated_at_ms", "rides"],

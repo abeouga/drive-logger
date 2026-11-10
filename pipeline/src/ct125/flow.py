@@ -5,6 +5,7 @@ process：生データ → 前処理 → 分類 → 今のモデルで点数付�
 retrain：台帳で「学習に使う」走行だけで学習 → 新しいモデルの版 → 全走行を点数付けし直す → 作業用に保存 → 記録 → 台帳
 publish：台帳が指す結果から、公開用（画面が読む場所）を作り直す
 use_model：今使うモデルを選んだ版にし、全走行を点数付けし直して公開する（画面の「このモデルに切り替える」）
+evaluate：学習に使う走行を 1 本ずつ抜いて学習し、抜いた走行に点数を付ける（確かめ。どこにも書かない）
 
 違うのは「どこで動いたか（where）」と「公開してよいか」だけ。公開用に書けるのは Lambda だけで、
 ローカルの処理は作業用に結果を置くだけ（公開は Lambda に頼む）。
@@ -20,9 +21,10 @@ from pathlib import Path
 import pandas as pd
 
 from . import classify as classifymod
+from . import evaluate as evaluatemod
 from . import export, io, processing, records
 from .records import RIDE_ID_PATTERN
-from .model import DEFAULT_Z_THRESHOLD, apply_models, fit_models, training_mask
+from .model import anomaly_rule, apply_models, fit_models, training_mask
 from .models import ModelStore
 from .storage import Area, WriteConflictError
 
@@ -80,8 +82,8 @@ class Pipeline:
     def _process_one(self, run_id: str, ride_id: str, trained) -> dict:
         try:
             analyzed = self._analyze(ride_id)
-            scored = self._score(analyzed.pre.windows, trained.baseline, trained.forest)
-            return self._save_ride(run_id, analyzed, scored, trained.version)
+            scored = self._score(analyzed.pre.windows, trained.baseline, trained.forest, trained.forest_info)
+            return self._save_ride(run_id, analyzed, scored, trained.version, trained.forest_info)
         except Exception as error:  # 1 走行の失敗は記録して、ほかの走行は続ける
             self._log(f"{ride_id}: 失敗 {type(error).__name__}: {error}")
             return records.ride_result(ride_id, error=f"{type(error).__name__}: {error}")
@@ -108,15 +110,15 @@ class Pipeline:
             if not train_ids:
                 raise ValueError("学習に使える走行がありません（停車・実走で、消していない走行）")
             train_windows = pd.concat([analyzed[ride_id].pre.windows for ride_id in train_ids], ignore_index=True)
-            baseline, forest = fit_models(train_windows, self._cfg.get("model", {}))
+            baseline, forest, forest_info = fit_models(train_windows, self._cfg.get("model", {}))
 
             for ride_id in sorted(analyzed):
-                scored = self._score(analyzed[ride_id].pre.windows, baseline, forest)
-                run["rides"].append(self._save_ride(run["run_id"], analyzed[ride_id], scored, version))
+                scored = self._score(analyzed[ride_id].pre.windows, baseline, forest, forest_info)
+                run["rides"].append(self._save_ride(run["run_id"], analyzed[ride_id], scored, version, forest_info))
             run["rides"] += [records.ride_result(ride_id, error=error) for ride_id, error in sorted(failed.items())]
             run["rides"].sort(key=lambda result: result["ride_id"])
 
-            record = self._model_record(version, run["run_id"], analyzed, train_ids, excluded, train_windows, baseline, forest)
+            record = self._model_record(version, run["run_id"], analyzed, train_ids, excluded, train_windows, baseline, forest, forest_info)
             self._models.save(version, baseline, forest, record, records.model_notes(record))
             self._log(f"モデル {version}：学習した走行 {len(train_ids)}、窓 {record['train']['n_windows']}、使わなかった走行 {len(excluded)}")
         except Exception as error:
@@ -133,6 +135,22 @@ class Pipeline:
         self._models.set_current(version)
         self._log(f"今使うモデルを {version} にしました。全走行を点数付けし直します")
         return self.process(self.ride_ids(), publish=True)
+
+    # ================================================================ 確かめ（読むだけ）
+    def evaluate(self, top_n: int = 20) -> evaluatemod.Evaluation:
+        """retrain と同じ決まりで学習に使う走行を選び、1 走行ずつ抜いて確かめる。モデルの版・処理の記録・台帳は書かない。"""
+        ledger = self._read_ledger()
+        analyzed: dict[str, _Analyzed] = {}
+        failed: dict[str, str] = {}
+        for ride_id in self.ride_ids():
+            try:
+                analyzed[ride_id] = self._analyze(ride_id)
+            except Exception as error:
+                failed[ride_id] = f"{type(error).__name__}: {error}"
+                self._log(f"{ride_id}: 失敗 {failed[ride_id]}")
+        train_ids, _ = self._choose_training(analyzed, failed, ledger)
+        windows = {ride_id: analyzed[ride_id].pre.windows for ride_id in train_ids}
+        return evaluatemod.leave_one_ride_out(windows, self._cfg.get("model", {}), self._cfg.get("stop_speed_kmh", 5.0), top_n)
 
     def ride_ids(self) -> list[str]:
         """生データの場所にある走行（走行 ID の形のフォルダーだけ。受け付けの記録などは除く）。"""
@@ -152,17 +170,18 @@ class Pipeline:
                 excluded.append({"ride_id": ride_id, "reason": reason})
         return train, excluded
 
-    def _model_record(self, version: str, run_id: str, analyzed, train_ids, excluded, train_windows, baseline, forest) -> dict:
+    def _model_record(self, version: str, run_id: str, analyzed, train_ids, excluded, train_windows, baseline, forest, forest_info) -> dict:
         mask = training_mask(train_windows)
-        scored_train = self._score(train_windows[mask], baseline, forest)
+        scored_train = self._score(train_windows[mask], baseline, forest, forest_info)
         train = [{"ride_id": ride_id, "kind": analyzed[ride_id].kind, "n_windows": int(training_mask(analyzed[ride_id].pre.windows).sum())} for ride_id in train_ids]
         summary = {
             "baseline_bins": len(baseline["bins"]),
             "baseline_n_train": int(baseline["n_train"]),
             "n_anomaly_z": int(scored_train["is_anomaly_z"].sum()),
             "n_anomaly_if": int(scored_train["is_anomaly_if"].sum()),
+            "n_anomaly_sif": int(scored_train["is_anomaly_sif"].sum()),
         }
-        return records.model_record(version, self._clock(), self._where, self._commit, run_id, self._cfg, train, excluded, summary)
+        return records.model_record(version, self._clock(), self._where, self._commit, run_id, self._cfg, train, excluded, summary, forest_info)
 
     # ================================================================ 公開
     def publish(self, run_id: str | None = None) -> dict:
@@ -266,13 +285,13 @@ class Pipeline:
     def _marker(self, ride_id: str) -> dict | None:
         return self._places.raw.read_json(f"{ride_id}/{UPLOAD_COMPLETE}")
 
-    def _score(self, windows: pd.DataFrame, baseline: dict, forest) -> pd.DataFrame:
-        return apply_models(windows, baseline, forest, self._cfg.get("model", {}), self._cfg.get("stop_speed_kmh", 5.0))
+    def _score(self, windows: pd.DataFrame, baseline: dict, forest, forest_info: dict) -> pd.DataFrame:
+        return apply_models(windows, baseline, forest, self._cfg.get("model", {}), self._cfg.get("stop_speed_kmh", 5.0), forest_info)
 
-    def _save_ride(self, run_id: str, analyzed: _Analyzed, scored: pd.DataFrame, model_version: str) -> dict:
+    def _save_ride(self, run_id: str, analyzed: _Analyzed, scored: pd.DataFrame, model_version: str, forest_info: dict) -> dict:
         pre = analyzed.pre
-        z_threshold = self._cfg.get("model", {}).get("z_threshold", DEFAULT_Z_THRESHOLD)
-        summary, files = export.ride_files(scored, pre.accel, pre.memo, model_version, z_threshold)
+        rule = anomaly_rule(self._cfg.get("model", {}), forest_info)
+        summary, files = export.ride_files(scored, pre.accel, pre.memo, model_version, rule)
         base = f"runs/{run_id}/rides/{pre.ride_id}/"
         work = self._places.work
         work.put(base + "windows.parquet", _parquet(pre.windows))

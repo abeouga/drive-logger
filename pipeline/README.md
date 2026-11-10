@@ -20,7 +20,7 @@ ESP32 ロガー（ATGM336H GPS ＋ ADXL345 加速度 ＋ microSD）の走行記�
 | GPS 結合 | 速度の平滑化、窓の中心への補間 | `src/ct125/gps.py` |
 | 前処理の本体 | 上の 4 つを 1 走行分まとめる（ファイルを読み書きしない） | `src/ct125/processing.py` |
 | 走行の分類 | 机上・停車・実走・実走（GPS なし）。学習と画面に出すかを決める | `src/ct125/classify.py` |
-| スコア | 速度で補正した正常時のベースライン（5 km/h ビンの中央値・MAD）からの逸脱 `z_speed` と、振動特徴量だけの Isolation Forest `score_if` | `src/ct125/model.py` |
+| スコア | 速度で補正した正常時のベースライン（5 km/h ビンの中央値・MAD）からの逸脱 `z_speed` と、振動特徴量に速度を足した Isolation Forest `score_if`（しきい値は学習データのスコアの分位点）。画面の判定にどちらを使うかは config の `model.anomaly_method` | `src/ct125/model.py` |
 | 画面用データ | rides.json・ride_<id>.json・スペクトログラム・生波形（記憶の上で作る） | `src/ct125/export.py`・`spectro.py` |
 | 処理の流れ | process・retrain・publish。ローカルの CLI と Lambda が同じものを呼ぶ | `src/ct125/flow.py` |
 | 記録 | 処理の記録（run.json）・走行の台帳・モデルの記録（model.json・notes.md） | `src/ct125/records.py`・`models.py` |

@@ -39,7 +39,7 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `gps` | `"full"` \| `"partial"` \| `"none"` | 0.95 以上／0.10 以上／未満 |
 | `n_windows` | number | 1 秒窓の数 |
 | `n_anomalies` | number | いつもと違う振動の窓の数。しきい値を超えた窓だけで、上位 N 件で埋めない。判定しない走行は 0 |
-| `anomaly_method` | `"speed_baseline"` \| `"none"` | 判定の方法（下の `ride_<id>.json` の `anomaly.method` と同じ）。0 件が「判定して無かった」のか「判定していない」のかはこれで見分ける |
+| `anomaly_method` | `"speed_baseline"` \| `"speed_iforest"` \| `"none"` | 判定の方法（下の `ride_<id>.json` の `anomaly.method` と同じ）。0 件が「判定して無かった」のか「判定していない」のかはこれで見分ける |
 | `n_anomaly_z` / `n_anomaly_if` | number | z_speed > 3 の窓数／Isolation Forest が外れとした窓数 |
 | `n_clipped` | number | ±16 g に達したサンプルを含む窓数 |
 | `rms_median` | number | rms の中央値（g） |
@@ -56,8 +56,8 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 
 | キー | 型 | 意味 |
 |---|---|---|
-| `method` | `"speed_baseline"` \| `"none"` | `speed_baseline`：速度で補正したベースラインからの逸脱（z_speed）がしきい値を超え、走行中（5 km/h 以上）の窓。`none`：判定しない（GPS がなく速度が分からない走行。Isolation Forest は速く走った所や静かすぎる所を拾うため、そのまま出さない） |
-| `threshold` | number \| null | しきい値（config の `model.z_threshold`、今は 3）。`none` は null |
+| `method` | `"speed_baseline"` \| `"speed_iforest"` \| `"none"` | `speed_baseline`：速度で補正したベースラインからの逸脱（z_speed）がしきい値を超え、走行中（5 km/h 以上）の窓。`speed_iforest`：速度を足した Isolation Forest のスコア（score_if）がしきい値を超え、その速度でのふだんより振動が大きく（z_speed > 0）、走行中の窓。`none`：判定しない（GPS がなく速度が分からない走行。Isolation Forest は速く走った所や静かすぎる所を拾うため、そのまま出さない） |
+| `threshold` | number \| null | しきい値。`speed_baseline` は config の `model.z_threshold`（今は 3）、`speed_iforest` は学習に使った窓の score_if の分位点（model.json の `forest.threshold`、小数 4 桁）。`none` は null |
 | `model_version` | string \| null | 点数付けに使ったモデルの版 |
 
 `columns` の配列はどれも長さ `n`（1 秒窓の数）で、同じ添字が同じ窓。
@@ -70,11 +70,11 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `speed` | number \| null | km/h（GPS の品質フィルター後、3 点の移動中央値） |
 | `rms` / `log_rms` / `p2p` / `crest` | number \| null | 重力を引いた合成加速度の rms（g）・その対数・振れ幅（g）・波高率 |
 | `z` | number \| null | z_speed。速度のない窓は null |
-| `score_if` | number \| null | Isolation Forest のスコア（大きいほどまれ） |
+| `score_if` | number \| null | Isolation Forest のスコア（大きいほどまれ）。速度を足した版では GPS のない窓は null |
 | `band_1_5` / `band_5_15` / `band_15_40` | number \| null | 1〜40 Hz の合計に対する帯域の割合 |
 | `has_gps` `is_stopped` `is_edge` `is_clipped` `is_anomaly_z` `is_anomaly_if` | boolean | 各フラグ（`is_stopped`＝5 km/h 未満、`is_edge`＝先頭・末尾 60 秒） |
 | `anomaly` | boolean | いつもと違う振動の窓（`anomaly.method` で判定した結果。しきい値を超えた窓だけ） |
-| `anomaly_score` | number \| null | 判定に使ったスコア（大きいほど外れ。`speed_baseline` なら z_speed）。判定しない窓は null |
+| `anomaly_score` | number \| null | 判定に使ったスコア（大きいほど外れ。`speed_baseline` なら z_speed（小数 2 桁）、`speed_iforest` なら score_if（小数 3 桁））。判定しない窓は null |
 | `cls` | number | 地図の線の色の段階 0〜4（座標のない窓は -1） |
 
 ## `spec_<id>.png` と `spec_<id>.json`

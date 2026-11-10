@@ -1,6 +1,6 @@
 // タイムライン（ECharts）。横軸を共有する段を縦に並べる（2 本の縦軸は使わない）。
-//   GPS あり：rms（対数軸）／速度／z_speed
-//   GPS なし：rms（対数軸）／score_if
+//   GPS あり：rms（対数軸）／速度／z_speed（speed_iforest で判定したときは score_if も）
+//   GPS なし：rms（対数軸）／score_if（スコアがある版のモデルだけ）
 // - カーソル → onHover（地図に点）、クリック → onSelect、範囲の拡大 → onRange（地図がその区間に寄る）
 // - 地図側のカーソル（hover）と選択（selected）を縦線で示す
 import { useEffect, useMemo, useRef } from "react";
@@ -10,7 +10,7 @@ import { GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, 
 import { CanvasRenderer } from "echarts/renderers";
 import type { RideData } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
-import { nearestIndex, runs, xValues, zThreshold, type Selection } from "../lib/series";
+import { nearestIndex, runs, scoreIfThreshold, xValues, zThreshold, type Selection } from "../lib/series";
 import { cssVar } from "../lib/theme";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, AxisPointerComponent, CanvasRenderer]);
@@ -52,7 +52,13 @@ export default function Timeline({ data, hover, selected, ranked, onHover, onSel
       // 停止中（5 km/h 未満）はアイドリングの窓ばかりで MAD が極端に小さく、z が ±20 を超える針になる。
       // 基準を超えた振動の判定と同じく、走行中の窓だけを描く。しきい値の線は画面用データの値を使う
       p.push({ key: "z", name: "z_speed（走行中のみ）", unit: "", values: c.z.map((v, i) => (c.is_stopped[i] ? null : v)), threshold: zThreshold(data), digits: 2 });
-    } else {
+      // 速度を足した Isolation Forest で判定したときは、そのスコアとしきい値の線も描く（停止中は判定しないので描かない）
+      const ifThreshold = scoreIfThreshold(data);
+      if (ifThreshold !== undefined) {
+        p.push({ key: "score_if", name: "score_if（走行中のみ）", unit: "", values: c.score_if.map((v, i) => (c.is_stopped[i] ? null : v)), threshold: ifThreshold, digits: 3 });
+      }
+    } else if (c.score_if.some((v) => v !== null)) {
+      // 速度を足す前のモデルは GPS なしの窓にもスコアを付けていた。速度を足した版では null だけなので描かない
       p.push({ key: "score_if", name: "score_if（Isolation Forest）", unit: "", values: c.score_if, digits: 3 });
     }
     return p;

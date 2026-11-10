@@ -33,29 +33,46 @@ function Arrow() {
 
 /** 判定の方法ごとの説明。方法の名前は画面用データ（rides.json の anomaly_method）から選び、文に決め打ちしない */
 type JudgedMethod = Exclude<AnomalyMethod, "none">;
-const METHOD_TEXT: Record<JudgedMethod, { what: string; score: string }> = {
+const METHOD_TEXT: Record<JudgedMethod, { what: string; score: string; note?: string }> = {
   speed_baseline: { what: "速度で補正した正常時のベースラインからの逸脱", score: "z_speed" },
+  speed_iforest: {
+    what: "速度と振動の特徴量で学習した Isolation Forest（まれな組み合わせを見つける手法）のスコア",
+    score: "score_if",
+    note: "Isolation Forest は静かすぎる 1 秒にも高いスコアを付けるため、その速度でのふだんの振動（中央値）より大きい 1 秒だけを数えています。",
+  },
 };
 
-/** 今使っているモデルの設定から、しきい値を読む（読めなければ null） */
-function modelThreshold(record: ModelRecord | null): number | null {
+/** 今使っているモデルの記録から、方法ごとのしきい値を読む（読めなければ null） */
+function modelThreshold(record: ModelRecord | null, method: JudgedMethod): number | null {
+  if (method === "speed_iforest") return record?.forest?.threshold ?? null;
   const model = record?.config.model as Record<string, unknown> | undefined;
   return typeof model?.z_threshold === "number" ? model.z_threshold : null;
+}
+
+/** しきい値の決め方の説明（speed_iforest は学習データの分位点） */
+function thresholdText(record: ModelRecord | null, method: JudgedMethod): string {
+  const threshold = modelThreshold(record, method);
+  if (method === "speed_iforest") {
+    const top = record?.forest ? `上位 ${+((1 - record.forest.quantile) * 100).toFixed(3)}%` : "上位の決まった割合";
+    return threshold === null
+      ? `しきい値（学習に使った 1 秒のスコアの${top}に当たる値。「今使っているモデル」の記録）`
+      : `しきい値（${threshold.toFixed(4)}。学習に使った 1 秒のスコアの${top}に当たる値で、「今使っているモデル」の記録）`;
+  }
+  return threshold === null ? "しきい値（「今使っているモデル」の設定）" : `しきい値（${threshold}、「今使っているモデル」の設定）`;
 }
 
 function AnomalyRule({ methods }: { methods: JudgedMethod[] }) {
   const models = useLoad(loadModels, []);
   const current = models.value?.current ?? null;
   const record = useLoad(async () => (current ? loadModel(current) : null), [current]);
-  const threshold = modelThreshold(record.value);
-  const value = threshold === null ? "しきい値（「今使っているモデル」の設定）" : `しきい値（${threshold}、「今使っているモデル」の設定）`;
   if (methods.length === 0) return <p>画面用データに判定の方法が入っていません（判定している走行が無いか、判定の方法を持たない古いデータです）。</p>;
   return (
     <>
       {methods.map((m) => (
         <p key={m}>
-          {METHOD_TEXT[m].what}（{METHOD_TEXT[m].score}）を 1 秒ごとに求め、{value}を超えた 1 秒だけを「基準を超えた振動」として出しています。
-          超えた所が無い走行は「なし」と出します。
+          {METHOD_TEXT[m].what}（{METHOD_TEXT[m].score}）を 1 秒ごとに求め、{thresholdText(record.value, m)}を超えた 1 秒だけを「基準を超えた振動」として出しています。
+          {METHOD_TEXT[m].note && ` ${METHOD_TEXT[m].note}`}
+          停止中（5 km/h 未満）の 1 秒は判定に入れません。超えた所が無い走行は「なし」と出します。
         </p>
       ))}
     </>
@@ -99,7 +116,7 @@ export default function About() {
           <li>加速度を 1 秒ずつに区切り、重力（各軸の平均）を引いた振動の大きさ（rms）・振れ幅・周波数帯ごとの割合を計算する。</li>
           <li>GPS は衛星数・HDOP・位置の飛び・速度の食い違いで品質を確かめ、悪い点は使わない。</li>
           <li>速度を 5 km/h ごとに区切り、それぞれの速度での「ふだんの振動の大きさ」（中央値とばらつき）を求める。各 1 秒がそこからどれだけ離れているかを z_speed とする。</li>
-          <li>速度を使わない見方として、振動の特徴量だけで Isolation Forest（まれな組み合わせを見つける手法）のスコアも付ける。</li>
+          <li>振動の特徴量と速度を合わせて Isolation Forest（まれな組み合わせを見つける手法）で学習し、GPS のある 1 秒にスコア（score_if）を付ける。しきい値は、学習に使った 1 秒のスコアの上位の決まった割合に当たる値にする。</li>
         </ol>
       </Section>
 
@@ -119,7 +136,8 @@ export default function About() {
         {rides ? <AnomalyRule methods={methods} /> : <p>走行の一覧を読み込み中…</p>}
         <p>GPS がない走行は、速度が分からず速度で補正できないため、判定していません。</p>
         <p>
-          画面に出している値は、健康な車両の走行データから作った「速度で補正した正常時のベースライン」からの逸脱です。故障したときのデータは含まれていません。
+          画面に出している値は、健康な車両の走行データから作った「速度で補正した正常時のベースライン」からの逸脱、またはそのデータで学習したモデルから見た「まれさ」です。故障したときのデータは含まれていません。
+          正解の分かっているデータが無いので、精度は出していません。確かめは、1 走行ずつ抜いて学習し、抜いた走行のスコアの上位を目で見る形で行いました。
         </p>
         <p>
           値が大きいのは「路面または車両に起因する振動の変化」があった場所です。段差・マンホール・荒れた舗装などの路面の影響が大きく、車両の異常と断定するものではありません。

@@ -79,3 +79,92 @@ def skops_dumps(obj) -> bytes:
     import skops.io as sio
 
     return sio.dumps(obj)
+
+
+# ------------------------------------------------------------------ 速度を足した Isolation Forest（#81）
+MCFG = {"contamination": 0.03, "n_estimators": 100, "random_state": 0, "anomaly_quantile": 0.99, "z_threshold": 3.0}
+
+
+def _rides(n=600, seed=0):
+    """速度が上がるほど振動が大きくなる走行。速度は 5〜60 km/h（走行中）。"""
+    rng = np.random.default_rng(seed)
+    speed = rng.uniform(5, 60, n)
+    frame = pd.DataFrame({"speed_kmh": speed, "has_gps": True, "is_edge": False, "is_clipped": False})
+    frame["log_rms"] = -2 + speed / 20 + rng.normal(0, 0.1, n)
+    for name in model.VIBRATION_FEATURES:
+        if name != "log_rms":
+            frame[name] = frame["log_rms"] * 0.5 + rng.normal(0, 0.1, n)
+    return frame
+
+
+def _probe(speed_kmh: float, shift: float) -> pd.DataFrame:
+    """その速度でのふだんの振動から shift だけずらした 1 秒。"""
+    log_rms = -2 + speed_kmh / 20 + shift
+    row = {"speed_kmh": speed_kmh, "has_gps": True, "is_edge": False, "is_clipped": False, "log_rms": log_rms}
+    row.update({name: log_rms * 0.5 for name in model.VIBRATION_FEATURES if name != "log_rms"})
+    return pd.DataFrame([row])
+
+
+def test_speed_is_a_feature_and_threshold_is_the_training_quantile():
+    train = _rides()
+    baseline, forest, info = model.fit_models(train, MCFG)
+    assert info["features"] == model.IF_FEATURES and "speed_kmh" in info["features"]
+    assert forest.n_features_in_ == len(model.IF_FEATURES)
+    scores = model.apply_isolation_forest(train, forest)["score_if"]
+    assert info["threshold"] == pytest.approx(float(np.quantile(scores, 0.99)))
+    assert info["quantile"] == 0.99 and info["n_train"] == len(train)
+
+
+def test_too_quiet_window_is_not_judged_even_with_a_high_score():
+    """振動が小さすぎる 1 秒は、Isolation Forest のスコアがしきい値を超えても判定に入らない。"""
+    baseline, forest, info = model.fit_models(_rides(), MCFG)
+    probes = pd.concat([_probe(40, -3.0), _probe(40, +3.0)], ignore_index=True)  # 静かすぎる・大きすぎる
+    scored = model.apply_models(probes, baseline, forest, MCFG, forest_info=info)
+    assert (scored["score_if"] > info["threshold"]).all()       # どちらもまれな組み合わせ
+    assert scored["is_anomaly_sif"].tolist() == [False, True]   # 判定は大きい側だけ
+
+
+def test_fast_but_ordinary_window_is_not_judged():
+    """速く走って振動が大きいだけ（その速度ではふだんどおり）の 1 秒は、判定に入らない。"""
+    baseline, forest, info = model.fit_models(_rides(), MCFG)
+    scored = model.apply_models(_probe(55, 0.0), baseline, forest, MCFG, forest_info=info)
+    assert not scored["is_anomaly_sif"].any()
+
+
+def test_stopped_and_no_gps_windows_are_not_judged():
+    train = _rides()
+    no_gps = train.assign(has_gps=False, speed_kmh=np.nan).head(50)
+    baseline, forest, info = model.fit_models(pd.concat([train, no_gps], ignore_index=True), MCFG)
+    assert info["n_train"] == len(train)                         # GPS の無い 1 秒は学習に使わない
+    stopped = _probe(2, +3.0)
+    scored = model.apply_models(pd.concat([stopped, no_gps.head(3)], ignore_index=True), baseline, forest, MCFG, forest_info=info)
+    assert scored["score_if"].iloc[1:].isna().all()              # 速度が無ければスコアも付けない
+    assert not scored["is_anomaly_sif"].any()
+
+
+def test_judge_switches_by_rule():
+    baseline, forest, info = model.fit_models(_rides(), MCFG)
+    scored = model.apply_models(pd.concat([_probe(40, 0.0), _probe(40, +3.0)], ignore_index=True), baseline, forest, MCFG, forest_info=info)
+    method, flag, score, threshold = model.judge_anomalies(scored, model.anomaly_rule({**MCFG, "anomaly_method": "speed_iforest"}, info))
+    assert method == "speed_iforest" and threshold == info["threshold"]
+    assert flag.tolist() == [False, True] and np.allclose(score, scored["score_if"])
+    method, flag, score, threshold = model.judge_anomalies(scored, model.anomaly_rule(MCFG, info))
+    assert method == "speed_baseline" and threshold == 3.0 and np.allclose(score, scored["z_speed"])
+
+
+def test_speed_iforest_needs_a_model_with_a_threshold():
+    with pytest.raises(ValueError, match="学習し直して"):
+        model.anomaly_rule({"anomaly_method": "speed_iforest"}, None)
+    with pytest.raises(ValueError, match="anomaly_method"):
+        model.anomaly_rule({"anomaly_method": "top_n"}, None)
+    with pytest.raises(ValueError, match="anomaly_quantile"):
+        model.forest_threshold(np.arange(10.0), 1.0)
+
+
+def test_legacy_forest_without_speed_still_scores():
+    """速度を足す前の版（振動の特徴量だけ）も読める。is_anomaly_sif は立たない。"""
+    train = _rides()
+    baseline = model.fit_speed_baseline(train)
+    forest = model.fit_isolation_forest(train, n_estimators=50, features=model.VIBRATION_FEATURES)
+    scored = model.apply_models(train.head(10), baseline, forest, MCFG)
+    assert scored["score_if"].notna().all() and not scored["is_anomaly_sif"].any()

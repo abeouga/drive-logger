@@ -145,10 +145,10 @@ def _accel(n_windows: int = 12, fs: float = 40.0) -> pd.DataFrame:
 
 def build_app_examples() -> dict[str, dict]:
     df = _windows()
-    summary, payload = export.ride_payload(df, memo="# 例\n家の前で 2 分アイドリングしてから出発", model_version=EXAMPLE_MODEL_VERSION, z_threshold=3.0)
+    summary, payload = export.ride_payload(df, memo="# 例\n家の前で 2 分アイドリングしてから出発", model_version=EXAMPLE_MODEL_VERSION)
     rows = [i for i, flag in enumerate(payload["columns"]["anomaly"]) if flag][:2]
     _, spec, waves = export.extras_payload(df, _accel(), rows)
-    nogps_summary, _ = export.ride_payload(_windows(gps=False), model_version=EXAMPLE_MODEL_VERSION, z_threshold=3.0)
+    nogps_summary, _ = export.ride_payload(_windows(gps=False), model_version=EXAMPLE_MODEL_VERSION)
     rides = export.rides_document([summary, nogps_summary])
     rides["generated_at_ms"] = FIXED_GENERATED_AT_MS
     return {"rides.json": rides, "ride.json": payload, "spec.json": spec, "wave.json": waves[0]}

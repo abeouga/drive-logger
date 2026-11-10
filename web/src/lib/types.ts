@@ -2,8 +2,11 @@
 // 作る側は pipeline/ の export.py・spectro.py。
 
 export type GpsKind = "full" | "partial" | "none";
-/** いつもと違う振動の判定の方法。speed_baseline＝速度で補正したベースラインからの逸脱（z_speed）、none＝判定しない（GPS なし） */
-export type AnomalyMethod = "speed_baseline" | "none";
+/**
+ * いつもと違う振動の判定の方法。speed_baseline＝速度で補正したベースラインからの逸脱（z_speed）、
+ * speed_iforest＝速度を足した Isolation Forest のスコア（score_if）のうち振動が大きい側、none＝判定しない（GPS なし）
+ */
+export type AnomalyMethod = "speed_baseline" | "speed_iforest" | "none";
 type Num = number | null;
 
 /** rides.json の rides[] の 1 件（走行一覧のカード） */
@@ -180,7 +183,9 @@ export interface ModelRecord {
   config: Record<string, unknown>;
   train: { rides: { ride_id: string; kind: "idle" | "ride"; n_windows: number }[]; n_windows: number };
   excluded: { ride_id: string; reason: "desk" | "ride_nogps" | "deleted" | "failed" | "unclassified" }[];
-  summary: { baseline_bins: number; baseline_n_train: number; n_anomaly_z: number; n_anomaly_if: number };
+  summary: { baseline_bins: number; baseline_n_train: number; n_anomaly_z: number; n_anomaly_if: number; n_anomaly_sif?: number };
+  /** Isolation Forest の特徴量としきい値。速度を足す前の版には無い */
+  forest?: { features: string[]; quantile: number; threshold: number; n_train: number };
 }
 
 /** GET /api/me */

@@ -17,7 +17,7 @@
         "gps": "partial",
         "n_windows": 12,
         "n_anomalies": 0,
-        "anomaly_method": "speed_baseline",
+        "anomaly_method": "speed_iforest",
         "n_anomaly_z": 0,
         "n_anomaly_if": 1,
         "n_clipped": 1,

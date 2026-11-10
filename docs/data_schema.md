@@ -158,7 +158,8 @@
 | `is_stopped` | `has_gps` かつ `speed_kmh < stop_speed_kmh`（5 km/h） |
 | `z_speed` | 速度ビン（5 km/h）ごとの `log_rms` の中央値・MAD からの逸脱 `(log_rms − 中央値)/(1.4826×MAD)`。速度がない窓は NaN |
 | `is_anomaly_z` | `z_speed > z_threshold`（3.0）かつ走行中 |
-| `score_if` | Isolation Forest（振動特徴量 8 列、速度なし）の `decision_function` の符号反転。大きいほど異常。全窓に付く |
-| `is_anomaly_if` | IF の判定（contamination 3%） |
+| `score_if` | Isolation Forest（振動特徴量 8 列＋`speed_kmh`。#81）の `decision_function` の符号反転。大きいほど異常。速度がない窓は NaN（#81 より前の版は振動特徴量 8 列だけで、全窓に付く） |
+| `is_anomaly_if` | IF の外れ（contamination 3%）。判定には使わない |
+| `is_anomaly_sif` | `score_if >` しきい値（学習に使った窓の `score_if` の `anomaly_quantile` 分位点。model.json の `forest.threshold`）かつ `z_speed > 0`（その速度でのふだんより振動が大きい側）かつ走行中 |
 
 モデルは `data/models/<yyyymmdd>/baseline.json`（ビンごとの n・中央値・MAD・借用元ビン）と `isolation_forest.pkl`（コミットしない）。

@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from ct125 import export
+from ct125 import export, model
 
 START = (35.0, 135.0)
 
@@ -64,7 +64,7 @@ def test_no_gps_ride():
 
 def test_no_anomaly_stays_zero():
     """しきい値を超えた所が無ければ 0 件のまま（上位 N 件で埋めない）。"""
-    summary, payload = export.ride_payload(_scored(), model_version="20261108-180231", z_threshold=3.0)
+    summary, payload = export.ride_payload(_scored(), model_version="20261108-180231", rule=model.AnomalyRule("speed_baseline", 3.0))
     assert summary["anomaly_method"] == "speed_baseline" and summary["n_anomalies"] == 0
     assert payload["anomaly"] == {"method": "speed_baseline", "threshold": 3.0, "model_version": "20261108-180231"}
     assert not any(payload["columns"]["anomaly"])
@@ -135,3 +135,21 @@ def test_ride_output_files_finds_every_minute_and_the_old_single_file():
     names = ["rides.json", "ride_ride_t.json", "spec_ride_t.png", "spec_ride_t.json", "wave_ride_t.json",
              "wave_ride_t_000.json", "wave_ride_t_012.json", "wave_ride_t2_000.json", "ride_ride_t2.json"]
     assert export.ride_output_files("ride_t", names) == names[1:7]
+
+
+def test_speed_iforest_rule_is_written_with_its_threshold():
+    df = _scored()
+    df["is_anomaly_sif"] = False
+    df.loc[25, "is_anomaly_sif"] = True
+    summary, payload = export.ride_payload(df, model_version="20261111-000000", rule=model.AnomalyRule("speed_iforest", 0.07812345))
+    assert summary["anomaly_method"] == "speed_iforest" and summary["n_anomalies"] == 1
+    assert payload["anomaly"] == {"method": "speed_iforest", "threshold": 0.0781, "model_version": "20261111-000000"}
+    assert [i for i, f in enumerate(payload["columns"]["anomaly"]) if f] == [25]
+    assert payload["columns"]["anomaly_score"] == payload["columns"]["score_if"]  # 判定に使ったスコア＝score_if
+
+
+def test_no_gps_ride_is_not_judged_with_speed_iforest():
+    df = _scored(gps=False)
+    df["is_anomaly_sif"] = False
+    summary, payload = export.ride_payload(df, rule=model.AnomalyRule("speed_iforest", 0.08))
+    assert summary["anomaly_method"] == "none" and payload["anomaly"]["threshold"] is None

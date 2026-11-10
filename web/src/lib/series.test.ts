@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnomalyInfo, RideData } from "./types";
-import { anomalyBasisText, anomalyEmptyText, isJudged, rankedAnomalies, zThreshold } from "./series";
+import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, isJudged, rankedAnomalies, scoreIfThreshold, zThreshold } from "./series";
 
 // 判定に関わる列だけを持つ走行（ほかの列はこの関数たちが読まないので空にしておく）
 function ride(anomaly: boolean[], score: (number | null)[], info: Partial<AnomalyInfo> = {}): RideData {
@@ -34,11 +34,23 @@ describe("判定の説明", () => {
     expect(isJudged(d)).toBe(true);
   });
 
+  it("速度を足した Isolation Forest の判定は、score_if としきい値をデータから出す", () => {
+    const d = ride([false], [0.01], { method: "speed_iforest", threshold: 0.0781 });
+    expect(anomalyBasisText(d)).toContain("Isolation Forest");
+    expect(anomalyBasisText(d)).toContain("score_if > 0.0781");
+    expect(anomalyEmptyText(d)).toBe("この走行には、しきい値（score_if > 0.0781）を超えた所はありません");
+    expect(scoreIfThreshold(d)).toBe(0.0781);
+    expect(zThreshold(d)).toBeUndefined();
+    expect(isJudged(d)).toBe(true);
+    expect(SCORE_LABEL[d.anomaly.method]).toBe("score");
+  });
+
   it("判定していない走行（GPS なし）", () => {
     const d = ride([false], [null], { method: "none", threshold: null });
     expect(isJudged(d)).toBe(false);
     expect(anomalyBasisText(d)).toBe("速度が分からないため判定していません");
     expect(anomalyEmptyText(d)).toBeNull();
     expect(zThreshold(d)).toBeUndefined();
+    expect(scoreIfThreshold(d)).toBeUndefined();
   });
 });

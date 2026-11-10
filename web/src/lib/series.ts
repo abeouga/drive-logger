@@ -1,5 +1,5 @@
 // 窓の列データを扱う小さな関数（地図とタイムラインで共通）
-import type { RideData } from "./data";
+import type { AnomalyMethod, RideData } from "./data";
 
 export type Selection = number | null; // 窓の番号（配列の添字）
 
@@ -56,16 +56,23 @@ export function isJudged(d: RideData): boolean {
   return d.anomaly.method !== "none";
 }
 
+/** 判定の方法ごとの、スコアの名前と説明（方法の名前は画面用データから選ぶ） */
+const METHOD_RULE: Record<Exclude<AnomalyMethod, "none">, { score: string; basis: string }> = {
+  speed_baseline: { score: "z_speed", basis: "速度で補正したベースラインから大きく離れた所" },
+  speed_iforest: { score: "score_if", basis: "速度と振動の特徴量で学習した Isolation Forest で、まれな組み合わせのうち振動がふだんより大きい所" },
+};
+
 /** しきい値の式（例：z_speed > 3）。画面用データの方法としきい値から作る。判定しないときは null */
 export function anomalyRuleText(d: RideData): string | null {
-  if (d.anomaly.method === "speed_baseline") return `z_speed > ${d.anomaly.threshold ?? "—"}`;
-  return null;
+  if (d.anomaly.method === "none") return null;
+  const rule = METHOD_RULE[d.anomaly.method];
+  return rule ? `${rule.score} > ${d.anomaly.threshold ?? "—"}` : null;
 }
 
 /** 判定のしかたの説明（画面用データの方法としきい値から作る。モデルを差し替えても文を決め打ちしない） */
 export function anomalyBasisText(d: RideData): string {
   const rule = anomalyRuleText(d);
-  if (rule) return `速度で補正したベースラインから大きく離れた所（${rule}）を出しています`;
+  if (rule && d.anomaly.method !== "none") return `${METHOD_RULE[d.anomaly.method].basis}（${rule}）を出しています`;
   return "速度が分からないため判定していません";
 }
 
@@ -80,5 +87,10 @@ export function zThreshold(d: RideData): number | undefined {
   return d.anomaly.method === "speed_baseline" && d.anomaly.threshold !== null ? d.anomaly.threshold : undefined;
 }
 
+/** グラフに引くしきい値の線（score_if の段）。speed_iforest で判定したときだけ */
+export function scoreIfThreshold(d: RideData): number | undefined {
+  return d.anomaly.method === "speed_iforest" && d.anomaly.threshold !== null ? d.anomaly.threshold : undefined;
+}
+
 /** 判定に使ったスコアの短い名前（一覧の右端に添える） */
-export const SCORE_LABEL = { speed_baseline: "z", none: "" } as const;
+export const SCORE_LABEL: Record<AnomalyMethod, string> = { speed_baseline: "z", speed_iforest: "score", none: "" };

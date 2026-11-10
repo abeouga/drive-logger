@@ -3,8 +3,11 @@
 
 - 速度補正ベースライン：速度を一定幅（既定 5 km/h）でビン分けし、各ビンで log_rms の中央値と MAD を求める。
   z_speed = (log_rms − 中央値) / (1.4826 × MAD)。大きいほど「その速度としては振動が大きい」。
-- Isolation Forest：振動特徴量だけで学習する（速度は使わない）。GPS なし走行にもスコアを付けるため。
-  score_if は decision_function の符号反転（大きいほど異常）。
+- Isolation Forest：振動の特徴量に速度を足して学習する（#81）。速度が分からない窓（GPS なし）は学習に使わず、スコアも付けない。
+  score_if は decision_function の符号反転（大きいほど異常）。しきい値は、学習に使った窓の score_if の分位点
+  （config の model.anomaly_quantile）で、学習のときに求めて model.json の forest に保存する。
+  速度を足す前に作った版（model.json に forest が無い）は、振動の特徴量だけで読む（LEGACY_FOREST_INFO）。
+- 画面に出す判定（judge_anomalies）の方法は、config の model.anomaly_method で選ぶ（speed_baseline か speed_iforest）。
 - 保存は skops（pickle と違い、読み込んでもファイルの中のコードが動かない。#23）。読むときは信頼する型を決め打ちで渡し、
   それ以外の型が入っていれば止める。
 
@@ -14,6 +17,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -23,7 +27,11 @@ from sklearn.ensemble import IsolationForest
 
 MAD_SCALE = 1.4826
 DEFAULT_Z_THRESHOLD = 3.0  # config の model.z_threshold が無いとき
-IF_FEATURES = ["log_rms", "p2p", "std", "crest", "jerk_rms", "band_1_5", "band_5_15", "band_15_40"]
+DEFAULT_ANOMALY_QUANTILE = 0.999  # config の model.anomaly_quantile が無いとき
+VIBRATION_FEATURES = ["log_rms", "p2p", "std", "crest", "jerk_rms", "band_1_5", "band_5_15", "band_15_40"]
+IF_FEATURES = [*VIBRATION_FEATURES, "speed_kmh"]
+# 速度を足す前（#81 より前）に作った版。振動の特徴量だけで学習していて、しきい値を持たない（speed_iforest には使えない）
+LEGACY_FOREST_INFO = {"features": VIBRATION_FEATURES, "quantile": None, "threshold": None, "n_train": None}
 
 
 # ------------------------------------------------------------------ 速度補正ベースライン
@@ -91,7 +99,7 @@ def fit_isolation_forest(df: pd.DataFrame, contamination: float = 0.03, n_estima
 
 
 def apply_isolation_forest(df: pd.DataFrame, model: IsolationForest, features: list[str] = IF_FEATURES) -> pd.DataFrame:
-    """score_if（大きいほど異常）と is_anomaly_if（モデルの contamination に基づく判定）。欠損のある窓は NaN。"""
+    """score_if（大きいほど異常）と is_anomaly_if（モデルの contamination に基づく外れ）。欠損のある窓（速度の無い窓も）は NaN。"""
     X = df[features].to_numpy(float)
     ok = np.isfinite(X).all(axis=1)
     score = np.full(len(df), np.nan)
@@ -133,50 +141,116 @@ def training_mask(df: pd.DataFrame) -> pd.Series:
     return (~df["is_edge"]) & (~df["is_clipped"])
 
 
-def fit_models(all_windows: pd.DataFrame, mcfg: dict) -> tuple[dict, IsolationForest]:
-    """学習：全走行の windows から、速度補正ベースラインと Isolation Forest を作る。"""
+def forest_threshold(scores: np.ndarray, quantile: float) -> float:
+    """学習に使った窓の score_if の分位点（quantile=0.999 なら、学習の窓の上位 0.1% がこれを超える）。"""
+    if not 0 < quantile < 1:
+        raise ValueError(f"model.anomaly_quantile は 0 より大きく 1 より小さい値にしてください：{quantile}")
+    s = np.asarray(scores, dtype=float)
+    s = s[np.isfinite(s)]
+    if len(s) == 0:
+        raise ValueError("しきい値を求めるスコアがありません")
+    return float(np.quantile(s, quantile))
+
+
+def fit_models(all_windows: pd.DataFrame, mcfg: dict) -> tuple[dict, IsolationForest, dict]:
+    """学習：全走行の windows から、速度補正ベースラインと、速度を足した Isolation Forest を作る。
+
+    どちらも速度の分かる窓（has_gps）だけで学習する。3 つめの返り値（forest_info）は、Isolation Forest の
+    特徴量・分位点の割合・しきい値・学習した窓の数。model.json の forest に入れ、点数付けのときに読む。
+    """
     train = all_windows[training_mask(all_windows)]
-    baseline = fit_speed_baseline(train[train["has_gps"]], mcfg.get("speed_bin_kmh", 5.0), mcfg.get("baseline_min_count", 10))
-    forest = fit_isolation_forest(train, mcfg.get("contamination", 0.03), mcfg.get("n_estimators", 300), mcfg.get("random_state", 0))
-    return baseline, forest
+    located = train[train["has_gps"].fillna(False).astype(bool)]
+    baseline = fit_speed_baseline(located, mcfg.get("speed_bin_kmh", 5.0), mcfg.get("baseline_min_count", 10))
+    forest = fit_isolation_forest(located, mcfg.get("contamination", 0.03), mcfg.get("n_estimators", 300), mcfg.get("random_state", 0), IF_FEATURES)
+    scores = apply_isolation_forest(located, forest, IF_FEATURES)["score_if"].to_numpy(float)
+    quantile = float(mcfg.get("anomaly_quantile", DEFAULT_ANOMALY_QUANTILE))
+    info = {"features": list(IF_FEATURES), "quantile": quantile, "threshold": forest_threshold(scores, quantile), "n_train": int(np.isfinite(scores).sum())}
+    return baseline, forest, info
 
 
-def apply_models(windows: pd.DataFrame, baseline: dict, forest: IsolationForest, mcfg: dict, stop_speed_kmh: float = 5.0) -> pd.DataFrame:
+def apply_models(windows: pd.DataFrame, baseline: dict, forest: IsolationForest, mcfg: dict, stop_speed_kmh: float = 5.0, forest_info: dict | None = None) -> pd.DataFrame:
     """推論：学習済みのモデルで、windows（1 走行でも全走行でもよい）にスコア列を付けて返す。
 
     z_speed は速度のある全窓に付けるが、is_anomaly_z は走行中（speed ≥ stop_speed_kmh）の窓だけに立てる。
     停止ビン（0〜5 km/h）はアイドリングの窓が大半で MAD がとても小さく、発進・取り回しの窓が z>3 になってしまうため。
+
+    is_anomaly_sif（速度を足した Isolation Forest の判定）は、次の全部に当てはまる窓だけに立てる。
+    - score_if が forest_info のしきい値を超える
+    - その速度でのふだんより振動が大きい（z_speed > 0。log_rms が、その速度のビンの中央値より大きい）。
+      Isolation Forest は「まれな組み合わせ」を拾うので、静かすぎる窓もスコアが高くなる。それは判定に入れない
+    - 走行中（is_anomaly_z と同じ理由で、停止中の窓は入れない）
+    forest_info を省くと、速度を足す前の版（LEGACY_FOREST_INFO）として読み、is_anomaly_sif はすべて False。
     """
+    info = forest_info or LEGACY_FOREST_INFO
     out = windows.copy()
     out["is_stopped"] = out["has_gps"] & (out["speed_kmh"] < stop_speed_kmh)
     out["z_speed"] = apply_speed_baseline(out, baseline)
     out["is_anomaly_z"] = (out["z_speed"] > mcfg.get("z_threshold", DEFAULT_Z_THRESHOLD)) & ~out["is_stopped"]
-    return pd.concat([out, apply_isolation_forest(out, forest)], axis=1)
+    out = pd.concat([out, apply_isolation_forest(out, forest, info["features"])], axis=1)
+    if info.get("threshold") is None:
+        out["is_anomaly_sif"] = False
+    else:
+        louder = out["z_speed"].fillna(-np.inf) > 0
+        moving = ~out["is_stopped"].fillna(False).astype(bool)
+        out["is_anomaly_sif"] = (out["score_if"].fillna(-np.inf) > info["threshold"]) & louder & moving
+    return out
 
 
 ANOMALY_SPEED_BASELINE = "speed_baseline"
+ANOMALY_SPEED_IFOREST = "speed_iforest"
 ANOMALY_NONE = "none"
+ANOMALY_METHODS = (ANOMALY_SPEED_BASELINE, ANOMALY_SPEED_IFOREST)
 
 
-def judge_anomalies(scored: pd.DataFrame) -> tuple[str, np.ndarray, np.ndarray]:
-    """画面に出す「いつもと違う振動」の判定：(方法, 判定, 判定に使ったスコア)。scored は apply_models の結果。
+@dataclass(frozen=True)
+class AnomalyRule:
+    """画面に出す判定の決め方：方法（config の model.anomaly_method）と、そのしきい値。"""
 
-    - 速度のある窓がある走行：速度補正ベースライン（is_anomaly_z。走行中かつ z_speed > z_threshold）。スコアは z_speed
-    - 速度のある窓が無い走行（GPS なし）：判定しない。Isolation Forest は速度を使わず、速く走った所や
-      静かすぎる所を拾うため、そのまま「いつもと違う振動」としては出さない（#71）。判定はすべて False、スコアは NaN
+    method: str
+    threshold: float
+
+
+DEFAULT_RULE = AnomalyRule(ANOMALY_SPEED_BASELINE, DEFAULT_Z_THRESHOLD)
+
+
+def anomaly_rule(mcfg: dict, forest_info: dict | None = None) -> AnomalyRule:
+    """config と、今使うモデルの forest_info から、判定の決め方を作る。
+
+    speed_iforest を選んだのに、モデルがしきい値を持たない（速度を足す前の版）ときは止める。学習し直してから切り替える。
+    """
+    method = mcfg.get("anomaly_method", ANOMALY_SPEED_BASELINE)
+    if method == ANOMALY_SPEED_BASELINE:
+        return AnomalyRule(method, float(mcfg.get("z_threshold", DEFAULT_Z_THRESHOLD)))
+    if method == ANOMALY_SPEED_IFOREST:
+        threshold = (forest_info or LEGACY_FOREST_INFO).get("threshold")
+        if threshold is None:
+            raise ValueError("このモデルの版は、速度を足した Isolation Forest のしきい値を持っていません（#81 より前の版）。学習し直してから speed_iforest を使ってください")
+        return AnomalyRule(method, float(threshold))
+    raise ValueError(f"model.anomaly_method は {' か '.join(ANOMALY_METHODS)} にしてください：{method}")
+
+
+def judge_anomalies(scored: pd.DataFrame, rule: AnomalyRule = DEFAULT_RULE) -> tuple[str, np.ndarray, np.ndarray, float | None]:
+    """画面に出す「いつもと違う振動」の判定：(方法, 判定, 判定に使ったスコア, しきい値)。scored は apply_models の結果。
+
+    - 速度のある窓がある走行：rule の方法で判定する
+      - speed_baseline：is_anomaly_z（走行中かつ z_speed > z_threshold）。スコアは z_speed
+      - speed_iforest：is_anomaly_sif（走行中・振動が大きい側・score_if > しきい値）。スコアは score_if
+    - 速度のある窓が無い走行（GPS なし）：判定しない。判定はすべて False、スコアは NaN、しきい値は None
 
     上位 N 件で埋めることはしない。しきい値を超えた窓が無ければ 0 件のまま。
-    モデルを差し替えるときは、ここに新しい方法を足す（画面は方法の名前と判定だけを読む）。
+    モデルを差し替えるときは、ここに新しい方法を足す（画面は方法の名前・しきい値・判定だけを読む）。
     """
     n = len(scored)
     z = scored["z_speed"].to_numpy(float)
-    if np.isfinite(z).any():
-        return ANOMALY_SPEED_BASELINE, scored["is_anomaly_z"].fillna(False).to_numpy(bool), z
-    return ANOMALY_NONE, np.zeros(n, dtype=bool), np.full(n, np.nan)
+    if not np.isfinite(z).any():
+        return ANOMALY_NONE, np.zeros(n, dtype=bool), np.full(n, np.nan), None
+    if rule.method == ANOMALY_SPEED_IFOREST:
+        return rule.method, scored["is_anomaly_sif"].fillna(False).to_numpy(bool), scored["score_if"].to_numpy(float), rule.threshold
+    return ANOMALY_SPEED_BASELINE, scored["is_anomaly_z"].fillna(False).to_numpy(bool), z, rule.threshold
 
 
-def score_windows(all_windows: pd.DataFrame, mcfg: dict, stop_speed_kmh: float = 5.0) -> tuple[pd.DataFrame, dict, IsolationForest]:
+def score_windows(all_windows: pd.DataFrame, mcfg: dict, stop_speed_kmh: float = 5.0) -> tuple[pd.DataFrame, dict, IsolationForest, dict]:
     """学習してから、同じ windows にスコア列を付けて返す（fit_models → apply_models）。"""
-    baseline, forest = fit_models(all_windows, mcfg)
-    scored = apply_models(all_windows, baseline, forest, mcfg, stop_speed_kmh)
-    return scored, baseline, forest
+    baseline, forest, info = fit_models(all_windows, mcfg)
+    scored = apply_models(all_windows, baseline, forest, mcfg, stop_speed_kmh, info)
+    return scored, baseline, forest, info

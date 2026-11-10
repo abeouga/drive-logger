@@ -8,6 +8,7 @@ process        ：走行を処理する（生データ → 作業用に結果と
 retrain        ：全走行で学習し直す（新しいモデルの版を作業用に置く。今使うモデルは変えない）
 publish        ：処理の結果を公開するよう、処理の Lambda に頼む
 rides          ：走行の台帳を表で見る
+evaluate       ：判定の確かめ。学習に使う走行を 1 本ずつ抜いて学習し、抜いた走行に点数を付ける（読むだけ。どこにも書かない）
 upload-sd      ：PC から SD の走行を送る（ESP32 と同じデバイス API を通す。同じ走行は 2 回受け付けない）
 register-device / revoke-device：ESP32・PC の機器トークンの登録と取り消し
 """
@@ -31,6 +32,12 @@ def main(argv: list[str] | None = None) -> int:
     pb = sub.add_parser("publish", help="処理の結果を公開するよう、処理の Lambda に頼む")
     pb.add_argument("--run", default=None, help="公開する処理の ID（省くと台帳のとおりに作り直すだけ）")
     sub.add_parser("rides", help="走行の台帳を表で見る")
+    ev = sub.add_parser("evaluate", help="判定の確かめ（1 走行ずつ抜いて学習し、抜いた走行に点数を付ける。どこにも書かない）")
+    ev.add_argument("--leave-one-ride-out", action="store_true", required=True, help="1 走行ずつ抜く（今はこの確かめ方だけ）")
+    ev.add_argument("--top", type=int, default=20, help="スコアの上位を何件出すか（既定 20）")
+    ev.add_argument("--method", default=None, help="判定の方法（speed_baseline・speed_iforest。既定は config の model.anomaly_method）")
+    ev.add_argument("--quantile", type=float, default=None, help="speed_iforest のしきい値の分位点（既定は config の model.anomaly_quantile）")
+    ev.add_argument("--windows-dir", default=None, help="S3 から読まず、このフォルダーの <走行 ID>*.parquet（windows.parquet。学習に使う走行だけ）を使う")
     us = sub.add_parser("upload-sd", help="PC から SD の走行を送る（デバイス API を通す。走行 ID はサーバーが付ける）")
     us.add_argument("paths", nargs="+", help="SD の走行のフォルダー（accel.csv がある所）か、その親（/sessions など）")
     us.add_argument("--device-id", default=None, help="機器 ID（既定は config の upload.device_id）")
@@ -57,6 +64,8 @@ def main(argv: list[str] | None = None) -> int:
         return _invoke_publish(acfg, args.run)
     if args.cmd == "rides":
         return _print_ledger(cfg, acfg)
+    if args.cmd == "evaluate":
+        return _evaluate(cfg, acfg, args)
     if args.cmd == "upload-sd":
         return _upload_sd(cfg, args)
     if args.cmd in ("register-device", "revoke-device"):
@@ -167,6 +176,26 @@ def _upload_sd(cfg: dict, args) -> int:
         else:
             print(f"{folder.name}: {result.ride_id} として送りました（{len(result.sent)} ファイル、{result.completed}）。AWS 側で処理が始まります")
     return 1 if failed else 0
+
+
+def _evaluate(cfg: dict, acfg: dict, args) -> int:
+    from . import evaluate
+
+    mcfg = dict(cfg.get("model", {}))
+    if args.method:
+        mcfg["anomaly_method"] = args.method
+    if args.quantile is not None:
+        mcfg["anomaly_quantile"] = args.quantile
+    cfg = {**cfg, "model": mcfg}
+    if args.windows_dir:
+        import pandas as pd
+
+        windows = {path.stem.split("__")[0]: pd.read_parquet(path) for path in sorted(Path(args.windows_dir).glob("*.parquet"))}
+        result = evaluate.leave_one_ride_out(windows, mcfg, cfg.get("stop_speed_kmh", 5.0), args.top)
+    else:
+        result = local_pipeline(cfg, acfg).evaluate(args.top)
+    print(evaluate.format_evaluation(result))
+    return 0
 
 
 def _print_ledger(cfg: dict, acfg: dict) -> int:
