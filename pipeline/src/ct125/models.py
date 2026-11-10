@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 from sklearn.ensemble import IsolationForest
 
-from .model import dump_forest, load_forest
+from .model import LEGACY_FOREST_INFO, dump_forest, load_forest
 from .records import library_mismatches, library_versions
 from .storage import Area, dump_json
 
@@ -46,6 +46,11 @@ class TrainedModel:
     forest: IsolationForest
     record: dict | None  # model.json（古い版では None）
 
+    @property
+    def forest_info(self) -> dict:
+        """Isolation Forest の特徴量・分位点の割合・しきい値（model.json の forest）。速度を足す前の版は LEGACY_FOREST_INFO。"""
+        return (self.record or {}).get("forest") or LEGACY_FOREST_INFO
+
 
 class ModelStore:
     def __init__(self, work: Area) -> None:
@@ -70,7 +75,10 @@ class ModelStore:
             if mismatches:
                 raise ModelLibraryMismatchError(f"モデル {version} は違う版のライブラリで学習しています：{', '.join(mismatches)}。学習し直してください（retrain）")
         forest = load_forest(forest_bytes)
-        return TrainedModel(version, baseline, forest, record)
+        trained = TrainedModel(version, baseline, forest, record)
+        if forest.n_features_in_ != len(trained.forest_info["features"]):
+            raise ModelFormatError(f"モデル {version} の Isolation Forest は特徴量が {forest.n_features_in_} 個で、記録（model.json の forest）の {len(trained.forest_info['features'])} 個と合いません")
+        return trained
 
     def load_current(self) -> TrainedModel:
         return self.load(self.current_version())

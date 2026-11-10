@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/ride.schema.json",
-  "version": 2,
+  "version": 3,
   "title": "ride_<id>.json（1 走行の 1 秒窓の列。どの列も長さ n）",
   "type": "object",
   "required": ["id", "n", "has_abs_time", "anomaly", "columns"],
@@ -17,7 +17,7 @@
       "description": "「いつもと違う振動」の判定のしかた。画面は method と columns.anomaly だけを読み、どのモデルかは気にしない",
       "properties": {
         "method": { "$ref": "#/$defs/anomalyMethod" },
-        "threshold": { "type": ["number", "null"], "description": "判定のしきい値（speed_baseline なら z_speed のしきい値）。判定しない（none）ときは null" },
+        "threshold": { "type": ["number", "null"], "description": "判定のしきい値。speed_baseline なら z_speed のしきい値（config の model.z_threshold）、speed_iforest なら score_if のしきい値（学習に使った窓の score_if の分位点。model.json の forest.threshold）。判定しない（none）ときは null" },
         "model_version": { "type": ["string", "null"], "description": "点数付けに使ったモデルの版" }
       }
     },
@@ -36,7 +36,7 @@
         "p2p": { "$ref": "#/$defs/numbers" },
         "crest": { "$ref": "#/$defs/numbers" },
         "z": { "$ref": "#/$defs/numbers", "description": "z_speed（速度で補正したベースラインからの逸脱）" },
-        "score_if": { "$ref": "#/$defs/numbers", "description": "Isolation Forest（大きいほど外れ）" },
+        "score_if": { "$ref": "#/$defs/numbers", "description": "Isolation Forest（大きいほど外れ）。速度を足して学習した版では、GPS の無い窓は null" },
         "band_1_5": { "$ref": "#/$defs/numbers" },
         "band_5_15": { "$ref": "#/$defs/numbers" },
         "band_15_40": { "$ref": "#/$defs/numbers" },
@@ -48,12 +48,12 @@
         "is_anomaly_if": { "$ref": "#/$defs/booleans" },
         "cls": { "type": "array", "items": { "type": "integer", "minimum": -1, "maximum": 4 }, "description": "地図の色の段階 0〜4（座標の無い窓は -1）" },
         "anomaly": { "$ref": "#/$defs/booleans", "description": "いつもと違う振動の窓（しきい値を超えた窓だけ。上位 N 件で埋めない）" },
-        "anomaly_score": { "$ref": "#/$defs/numbers", "description": "判定に使ったスコア（大きいほど外れ。speed_baseline なら z_speed）。判定しない窓は null" }
+        "anomaly_score": { "$ref": "#/$defs/numbers", "description": "判定に使ったスコア（大きいほど外れ。speed_baseline なら z_speed、speed_iforest なら score_if）。判定しない窓は null" }
       }
     }
   },
   "$defs": {
-    "anomalyMethod": { "enum": ["speed_baseline", "none"], "description": "speed_baseline：速度で補正したベースラインからの逸脱（z_speed）。none：判定しない（GPS がなく速度が分からない走行）" },
+    "anomalyMethod": { "enum": ["speed_baseline", "speed_iforest", "none"], "description": "speed_baseline：速度で補正したベースラインからの逸脱（z_speed > しきい値）。speed_iforest：速度を足した Isolation Forest のスコア（score_if > しきい値）のうち、その速度でのふだんより振動が大きい側（z_speed > 0）だけ。どちらも走行中（5 km/h 以上）の窓だけ。none：判定しない（GPS がなく速度が分からない走行）" },
     "numbers": { "type": "array", "items": { "type": ["number", "null"] } },
     "booleans": { "type": "array", "items": { "type": "boolean" } }
   }

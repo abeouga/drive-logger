@@ -298,3 +298,61 @@ def test_use_model_rescores_every_ride_with_the_chosen_version(cfg, stores):
     assert all(entry["published_run"] == result["run_id"] for entry in read(work, LEDGER)["rides"].values())
     with pytest.raises(PublishNotAllowedError):
         local_pipeline(cfg, stores, clock).use_model(first["model_version"])
+
+
+# ------------------------------------------------------------------ 速度を足した Isolation Forest（#81）
+def test_retrain_saves_the_forest_threshold_in_model_json(cfg, stores):
+    raw, work, public = stores
+    result = lambda_pipeline(cfg, stores, Clock()).retrain(publish=True)
+    record = read(work, f"models/{result['model_version']}/model.json")
+    validator("records/model.schema.json").validate(record)
+    forest = record["forest"]
+    assert "speed_kmh" in forest["features"] and forest["quantile"] == cfg["model"]["anomaly_quantile"]
+    assert isinstance(forest["threshold"], float) and forest["n_train"] > 0
+    assert "n_anomaly_sif" in record["summary"]
+    assert ModelStore(Area(work, "", "work")).load_current().forest_info == forest
+
+
+def test_anomaly_method_is_switched_by_config(cfg, stores):
+    raw, work, public = stores
+    clock = Clock()
+    lambda_pipeline(cfg, stores, clock).retrain(publish=True)
+    ride = read(public, "datasets/shared/ride_ride_20261109_011000.json")
+    assert ride["anomaly"]["method"] == "speed_baseline" and ride["anomaly"]["threshold"] == cfg["model"]["z_threshold"]
+
+    switched = {**cfg, "model": {**cfg["model"], "anomaly_method": "speed_iforest"}}
+    result = lambda_pipeline(switched, stores, clock).process(["ride_20261109_011000"], publish=True)
+    assert result["status"] == "succeeded"
+    ride = read(public, "datasets/shared/ride_ride_20261109_011000.json")
+    validator("app/ride.schema.json").validate(ride)
+    threshold = read(work, f"models/{result['model_version']}/model.json")["forest"]["threshold"]
+    assert ride["anomaly"] == {"method": "speed_iforest", "threshold": round(threshold, 4), "model_version": result["model_version"]}
+    rides = read(public, "datasets/shared/rides.json")
+    validator("app/rides.schema.json").validate(rides)
+    assert {r["id"]: r["anomaly_method"] for r in rides["rides"]}["ride_20261109_011000"] == "speed_iforest"
+
+
+def test_speed_iforest_with_a_model_without_threshold_fails(cfg, stores):
+    """速度を足す前の版（model.json に forest が無い）で speed_iforest を選ぶと、走行の処理を失敗として残す。"""
+    raw, work, public = stores
+    clock = Clock()
+    trained = lambda_pipeline(cfg, stores, clock).retrain(publish=True)
+    key = f"models/{trained['model_version']}/model.json"
+    record = read(work, key)
+    del record["forest"]
+    work.put(key, json.dumps(record).encode("utf-8"), "application/json")
+    from ct125 import model
+    windows = pd.DataFrame({c: np.linspace(-1, 1, 50) for c in model.VIBRATION_FEATURES})
+    legacy = model.fit_isolation_forest(windows, n_estimators=5, features=model.VIBRATION_FEATURES)  # 振動の特徴量だけの版
+    work.put(f"models/{trained['model_version']}/isolation_forest.skops", model.dump_forest(legacy), "application/octet-stream")
+    switched = {**cfg, "model": {**cfg["model"], "anomaly_method": "speed_iforest"}}
+    result = lambda_pipeline(switched, stores, clock).process(["ride_20261109_011000"], publish=False)
+    assert "学習し直して" in result["rides"][0]["error"]
+
+
+def test_evaluate_reads_only_and_holds_out_each_training_ride(cfg, stores):
+    raw, work, public = stores
+    before = (dict(raw.objects), dict(work.objects), dict(public.objects))
+    result = local_pipeline(cfg, stores, Clock()).evaluate(top_n=3)
+    assert result.rides["ride_id"].tolist() == ["ride_20261109_010000", "ride_20261109_011000"]  # 机上は使わない
+    assert (dict(raw.objects), dict(work.objects), dict(public.objects)) == before                # どこにも書かない

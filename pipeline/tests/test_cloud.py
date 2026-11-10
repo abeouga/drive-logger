@@ -117,9 +117,9 @@ def _feature_windows(n=400, seed=0):
 def test_apply_models_matches_score_windows():
     windows = _feature_windows()
     mcfg = {"contamination": 0.05, "n_estimators": 50, "random_state": 0}
-    scored, _, _ = model.score_windows(windows, mcfg)
-    baseline, forest = model.fit_models(windows, mcfg)
-    applied = model.apply_models(windows, baseline, forest, mcfg)
+    scored, _, _, _ = model.score_windows(windows, mcfg)
+    baseline, forest, info = model.fit_models(windows, mcfg)
+    applied = model.apply_models(windows, baseline, forest, mcfg, forest_info=info)
     pd.testing.assert_frame_equal(scored, applied)
 
 
@@ -127,11 +127,11 @@ def test_apply_models_on_a_single_new_ride():
     train = _feature_windows(seed=0)
     new_ride = _feature_windows(n=50, seed=1)
     mcfg = {"contamination": 0.05, "n_estimators": 50, "random_state": 0}
-    baseline, forest = model.fit_models(train, mcfg)
-    scored = model.apply_models(new_ride, baseline, forest, mcfg)
+    baseline, forest, info = model.fit_models(train, mcfg)
+    scored = model.apply_models(new_ride, baseline, forest, mcfg, forest_info=info)
     assert len(scored) == 50
     assert scored["score_if"].notna().all()
-    assert {"z_speed", "is_anomaly_z", "is_stopped", "is_anomaly_if"} <= set(scored.columns)
+    assert {"z_speed", "is_anomaly_z", "is_stopped", "is_anomaly_if", "is_anomaly_sif"} <= set(scored.columns)
 
 
 # ------------------------------------------------------------------ コンテナに入れるライブラリ

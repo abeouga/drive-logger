@@ -198,7 +198,8 @@ def _iso_or_none(value: str | None) -> str | None:
 
 
 # ------------------------------------------------------------------ モデルの記録
-def model_record(version: str, created: datetime, where: str, commit: str | None, run_id: str, cfg: dict, train: list[dict], excluded: list[dict], summary: dict) -> dict:
+def model_record(version: str, created: datetime, where: str, commit: str | None, run_id: str, cfg: dict, train: list[dict], excluded: list[dict], summary: dict, forest: dict) -> dict:
+    """model.json の中身。forest は Isolation Forest の特徴量・分位点の割合・しきい値・学習した窓の数（model.fit_models の返り値）。"""
     return {
         "schema": MODEL_SCHEMA,
         "version": version,
@@ -211,11 +212,18 @@ def model_record(version: str, created: datetime, where: str, commit: str | None
         "train": {"rides": train, "n_windows": int(sum(item["n_windows"] for item in train))},
         "excluded": excluded,
         "summary": summary,
+        "forest": forest,
     }
 
 
 KIND_NAMES = {"desk": "机上", "idle": "停車", "ride": "実走", "ride_nogps": "実走（GPS なし）"}
 REASON_NAMES = {"desk": "机上の試験", "ride_nogps": "GPS が足りない", "deleted": "画面で消した", "failed": "処理に失敗した", "unclassified": "分類できなかった"}
+
+
+def _forest_lines(forest: dict | None) -> list[str]:
+    if not forest:
+        return []
+    return [f"- Isolation Forest：特徴量 {', '.join(forest['features'])}。GPS のある窓 {forest['n_train']} で学習。しきい値 {forest['threshold']:.4f}（学習の窓の score_if の {forest['quantile']} 分位点）"]
 
 
 def model_notes(record: dict) -> str:
@@ -227,7 +235,8 @@ def model_notes(record: dict) -> str:
         f"- 作った日時：{record['created_at']}（{'Lambda' if record['where'] == 'lambda' else 'ローカル'}、コミット {record['commit'] or '不明'}、処理 {record['run_id']}）",
         f"- 学習に使った窓：{record['train']['n_windows']}（先頭・末尾 {record['config'].get('edge_sec', '?')} 秒と振り切れの窓を除く）",
         f"- 速度補正ベースライン：ビン {s['baseline_bins']}、学習した窓 {s['baseline_n_train']}（GPS のある窓）",
-        f"- 学習した窓のうち z_speed の候補 {s['n_anomaly_z']}、Isolation Forest の外れ {s['n_anomaly_if']}",
+        f"- 学習した窓のうち z_speed の候補 {s['n_anomaly_z']}、Isolation Forest の外れ {s['n_anomaly_if']}、速度を足した Isolation Forest の判定 {s.get('n_anomaly_sif', '?')}",
+        *_forest_lines(record.get("forest")),
         "",
         "## 学習に使った走行",
         "",

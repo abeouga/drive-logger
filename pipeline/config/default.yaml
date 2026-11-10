@@ -26,7 +26,9 @@ model:
   speed_bin_kmh: 5       # 速度補正ベースラインのビン幅
   baseline_min_count: 10 # 窓数がこれ未満のビンは最寄りのビンの中央値・MAD を借りる
   z_threshold: 3.0       # z_speed の候補異常しきい値
-  contamination: 0.03    # IsolationForest
+  anomaly_method: speed_baseline  # 画面の「基準を超えた振動」の判定：speed_baseline（z_speed > z_threshold）か speed_iforest（速度を足した Isolation Forest）。変えたら全走行を点数付けし直す
+  anomaly_quantile: 0.999  # speed_iforest のしきい値＝学習に使った窓の score_if のこの分位点（0.999 なら上位 0.1%）。学習のときに求めて model.json に保存する
+  contamination: 0.03    # IsolationForest（is_anomaly_if の外れの割合。判定には使わない）
   n_estimators: 300
   random_state: 0
 aws:

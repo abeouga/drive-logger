@@ -40,6 +40,7 @@ function Record({ record }: { record: ModelRecord }) {
       {model && (
         <p className="text-xs">
           設定：速度の区間 {String(model.speed_bin_kmh)} km/h、候補とする z_speed &gt; {String(model.z_threshold)}、Isolation Forest は木 {String(model.n_estimators)} 本・外れの割合 {String(model.contamination)}。
+          {record.forest && `Isolation Forest は速度も特徴量にして GPS のある 1 秒 ${record.forest.n_train.toLocaleString()} 個で学習し、しきい値は学習の 1 秒のスコアの上位 ${+((1 - record.forest.quantile) * 100).toFixed(3)}%（score_if > ${record.forest.threshold.toFixed(4)}）。`}
           ライブラリ：{Object.entries(record.libraries).map(([k, v]) => `${k} ${v}`).join("、")}
         </p>
       )}

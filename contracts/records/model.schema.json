@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/records/model.schema.json",
-  "version": 1,
+  "version": 2,
   "title": "モデルの記録（work バケットの models/<version>/model.json）。同じものを作り直せるように残す",
   "type": "object",
   "required": ["schema", "version", "created_at", "where", "commit", "run_id", "libraries", "config", "train", "excluded", "summary"],
@@ -58,7 +58,20 @@
         "baseline_bins": { "type": "integer", "minimum": 0, "description": "速度補正ベースラインのビンの数" },
         "baseline_n_train": { "type": "integer", "minimum": 0, "description": "ベースラインの学習に使った窓の数（GPS のある窓）" },
         "n_anomaly_z": { "type": "integer", "minimum": 0, "description": "学習した窓のうち z_speed > しきい値の窓の数" },
-        "n_anomaly_if": { "type": "integer", "minimum": 0, "description": "学習した窓のうち Isolation Forest が外れとした窓の数" }
+        "n_anomaly_if": { "type": "integer", "minimum": 0, "description": "学習した窓のうち Isolation Forest が外れとした窓の数" },
+        "n_anomaly_sif": { "type": "integer", "minimum": 0, "description": "学習した窓のうち speed_iforest の判定（score_if > しきい値・振動が大きい側・走行中）に入った窓の数。速度を足す前の版には無い" }
+      }
+    },
+    "forest": {
+      "type": "object",
+      "description": "Isolation Forest の特徴量としきい値（#81）。速度を足す前の版には無い（そのときは振動の特徴量だけで読み、speed_iforest の判定には使えない）",
+      "required": ["features", "quantile", "threshold", "n_train"],
+      "additionalProperties": false,
+      "properties": {
+        "features": { "type": "array", "items": { "type": "string" }, "minItems": 1, "description": "学習に使った特徴量（windows.parquet の列名。speed_kmh を含む）" },
+        "quantile": { "type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1, "description": "しきい値の分位点の割合（config の model.anomaly_quantile。0.999 なら学習の窓の上位 0.1%）" },
+        "threshold": { "type": "number", "description": "学習に使った窓の score_if の quantile 分位点。speed_iforest の判定のしきい値" },
+        "n_train": { "type": "integer", "minimum": 1, "description": "Isolation Forest の学習に使った窓の数（GPS のある窓）" }
       }
     }
   }

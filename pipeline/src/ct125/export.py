@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from .gps import haversine_m
-from .model import ANOMALY_NONE, DEFAULT_Z_THRESHOLD, judge_anomalies
+from .model import ANOMALY_SPEED_IFOREST, DEFAULT_RULE, AnomalyRule, judge_anomalies
 
 SPARK_POINTS = 60
 WAVE_CHUNK_WINDOWS = 60  # 生波形の 1 ファイルに入れる窓の数（1 秒窓なので約 1 分）。web/src/lib/data.ts と合わせる
@@ -110,17 +110,17 @@ def sparkline(rms: pd.Series, points: int = SPARK_POINTS) -> list:
 
 
 # ------------------------------------------------------------------ 書き出し
-def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = None, z_threshold: float = DEFAULT_Z_THRESHOLD) -> tuple[dict, dict]:
+def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = None, rule: AnomalyRule = DEFAULT_RULE) -> tuple[dict, dict]:
     """1 走行分の (一覧用の要約, 窓の列データ) を作る。df は scored.parquet。
 
     「いつもと違う振動」の判定は model.judge_anomalies に任せ、その方法・しきい値・モデルの版を一緒に書き出す。
-    画面は判定（anomaly 列）と方法の名前だけを読むので、モデルを差し替えても画面を直さずに済む。
-    z_threshold は点数付けに使った値（config の model.z_threshold）を渡す。
+    画面は判定（anomaly 列）と方法の名前・しきい値だけを読むので、モデルを差し替えても画面を直さずに済む。
+    rule は判定の決め方（model.anomaly_rule で config と今使うモデルから作る）。
     """
     df = df.sort_values("win").reset_index(drop=True)
     rid = str(df["ride_id"].iloc[0])
     located = without_gps_coordinates(df)
-    method, flag, score = judge_anomalies(df)
+    method, flag, score, threshold = judge_anomalies(df, rule)
     drawable = located["lat"].notna()
     cls = np.full(len(df), -1)
     if drawable.any():
@@ -137,7 +137,9 @@ def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = N
     cols["t_abs_ms"] = t_abs_ms
     cols["cls"] = cls.tolist()
     cols["anomaly"] = flag.tolist()
-    cols["anomaly_score"] = _round_list(pd.Series(score), 2)
+    # 判定に使ったスコアは、元の列（z か score_if）と同じ桁で丸める
+    score_digits = WINDOW_COLUMNS["score_if"][1] if method == ANOMALY_SPEED_IFOREST else WINDOW_COLUMNS["z"][1]
+    cols["anomaly_score"] = _round_list(pd.Series(score), score_digits)
 
     fix_ratio = float(df["has_gps"].mean())
     speed = df.loc[df["has_gps"], "speed_kmh"]
@@ -160,7 +162,7 @@ def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = N
         "spark": sparkline(df["rms"]),
         "memo": memo,
     }
-    anomaly = {"method": method, "threshold": None if method == ANOMALY_NONE else float(z_threshold), "model_version": model_version}
+    anomaly = {"method": method, "threshold": None if threshold is None else round(float(threshold), 4), "model_version": model_version}
     payload = {"id": rid, "n": int(len(df)), "has_abs_time": bool(has_abs), "anomaly": anomaly, "columns": cols}
     return summary, payload
 
@@ -225,7 +227,7 @@ def dump_json(obj) -> bytes:
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
 
 
-def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "", model_version: str | None = None, z_threshold: float = DEFAULT_Z_THRESHOLD) -> tuple[dict, dict[str, bytes]]:
+def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "", model_version: str | None = None, rule: AnomalyRule = DEFAULT_RULE) -> tuple[dict, dict[str, bytes]]:
     """1 走行分の (rides.json に載せる要約, {ファイル名: 中身})。ファイルには書かない。
 
     scored は点数付きの窓、accel はクリーニング後の加速度（t_rel・ax_g・ay_g・az_g）。
@@ -234,7 +236,7 @@ def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "",
     from . import spectro
 
     df = scored.sort_values("win").reset_index(drop=True)
-    summary, payload = ride_payload(df, memo, model_version, z_threshold)
+    summary, payload = ride_payload(df, memo, model_version, rule)
     ride_id = summary["id"]
     files = {f"ride_{ride_id}.json": dump_json(payload)}
     if accel is not None:
