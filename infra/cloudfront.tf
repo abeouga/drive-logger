@@ -1,4 +1,4 @@
-# Web アプリの配信：https://<app_domain>/ を CloudFront で配る。
+# Web アプリの配信：https://<local.app_domain>/ を CloudFront で配る。
 #   /*      → S3 の webapp/（React のビルド結果。走行データは入っていない）。バケットは非公開のまま、OAC で CloudFront だけが読める
 #   /api/*  → API Gateway（データ API。ログインが必要）
 
@@ -21,7 +21,7 @@ data "aws_cloudfront_response_headers_policy" "security_headers" {
 }
 
 resource "aws_cloudfront_origin_access_control" "webapp" {
-  name                              = "ct125-webapp"
+  name                              = "${local.name_prefix}-webapp"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
@@ -34,8 +34,8 @@ locals {
 
 resource "aws_cloudfront_distribution" "app" {
   enabled             = true
-  comment             = "CT125 走行データ Web アプリ"
-  aliases             = [var.app_domain]
+  comment             = local.is_prod ? "CT125 走行データ Web アプリ" : "CT125 走行データ Web アプリ（${var.env}）"
+  aliases             = [local.app_domain]
   default_root_object = "index.html"
   is_ipv6_enabled     = true
   http_version        = "http2and3"

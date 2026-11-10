@@ -11,6 +11,8 @@ rides          ：走行の台帳を表で見る
 evaluate       ：判定の確かめ。学習に使う走行を 1 本ずつ抜いて学習し、抜いた走行に点数を付ける（読むだけ。どこにも書かない）
 upload-sd      ：PC から SD の走行を送る（ESP32 と同じデバイス API を通す。同じ走行は 2 回受け付けない）
 register-device / revoke-device：ESP32・PC の機器トークンの登録と取り消し
+
+向き先（本番 prod・test）は --env か環境変数 CT125_ENV で選ぶ（既定は config の aws.env。docs/test_environment.md）。
 """
 from __future__ import annotations
 
@@ -25,6 +27,7 @@ from .config import load_config
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="ct125", description="CT125 走行データの解析パイプライン")
     p.add_argument("--root", default=None, help=argparse.SUPPRESS)
+    p.add_argument("--env", default=None, help="向き先の環境（prod か test）。省くと CT125_ENV、無ければ config の aws.env")
     sub = p.add_subparsers(dest="cmd", required=True)
     sp = sub.add_parser("process", help="走行を処理する（S3 の生データ → 作業用に結果と記録。公開はしない）")
     sp.add_argument("--ride", action="append", required=True, help="走行 ID（複数指定可）")
@@ -52,8 +55,9 @@ def main(argv: list[str] | None = None) -> int:
     rv.add_argument("--id", required=True)
     args = p.parse_args(argv)
 
-    cfg = load_config(args.root) if args.root else load_config()
+    cfg = load_config(args.root, env=args.env) if args.root else load_config(env=args.env)
     acfg = aws_settings(cfg)
+    print(f"向き先：{cfg['_env']}", file=sys.stderr)
 
     if args.cmd in ("process", "retrain"):
         pipeline = local_pipeline(cfg, acfg)
@@ -72,11 +76,12 @@ def main(argv: list[str] | None = None) -> int:
         from . import devices
 
         ssm = make_session(acfg, admin=True).client("ssm")
+        prefix = acfg.get("device_parameter_prefix") or devices.PARAMETER_PREFIX
         if args.cmd == "revoke-device":
-            devices.revoke(ssm, args.id)
+            devices.revoke(ssm, args.id, prefix=prefix)
             print(f"{args.id} の登録を消しました（もう送れません）")
             return 0
-        token = devices.register(ssm, args.id, rotate=args.rotate)
+        token = devices.register(ssm, args.id, rotate=args.rotate, prefix=prefix)
         if args.token_file:
             Path(args.token_file).write_text(token, encoding="ascii")
             print(f"{args.id} を登録しました。トークンは {args.token_file} に書きました（画面には出していません）")
@@ -87,8 +92,8 @@ def main(argv: list[str] | None = None) -> int:
 
 # ------------------------------------------------------------------ AWS の設定
 def aws_settings(cfg: dict) -> dict:
-    """config/default.yaml の aws に、config/local.yaml の aws を重ねたもの。"""
-    return {**cfg.get("aws", {}), **((cfg.get("local") or {}).get("aws") or {})}
+    """向き先の環境の aws の設定（default.yaml・environments・local.yaml を重ねたもの。config.py の with_environment）。"""
+    return dict(cfg.get("aws") or {})
 
 
 def make_session(acfg: dict, admin: bool = False):

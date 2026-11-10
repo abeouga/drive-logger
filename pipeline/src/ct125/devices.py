@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """ESP32 の機器登録（C：機器から S3 へ直接送る）。
 
-- トークンはここで作り、**ハッシュ（SHA-256 の 16 進）だけ**を SSM に置く：/ct125/devices/<機器ID>/token-sha256
+- トークンはここで作り、**ハッシュ（SHA-256 の 16 進）だけ**を SSM に置く：<prefix><機器ID>/token-sha256
+  （prefix は本番 /ct125/devices/、test /ct125-test/devices/。config の aws.device_parameter_prefix）
 - トークンそのものは呼んだ人に 1 回だけ渡す（ESP32 の NVS に書き込む）。サーバー側には残らない
 - 確かめる側はデータ API の ct125_api/services/device_authenticator.py（同じハッシュの作り方）
 """
@@ -11,7 +12,7 @@ import hashlib
 import re
 import secrets
 
-PARAMETER_PREFIX = "/ct125/devices/"
+PARAMETER_PREFIX = "/ct125/devices/"  # 本番の場所（既定）
 DEVICE_ID_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,31}")
 
 
@@ -19,13 +20,13 @@ class DeviceAlreadyRegisteredError(RuntimeError):
     """登録済み。作り直すなら rotate=True。"""
 
 
-def register(ssm_client, device_id: str, rotate: bool = False) -> str:
+def register(ssm_client, device_id: str, rotate: bool = False, prefix: str = PARAMETER_PREFIX) -> str:
     """新しいトークンを作り、そのハッシュを登録して、トークンを返す。"""
     _check_device_id(device_id)
     token = secrets.token_urlsafe(32)
     try:
         ssm_client.put_parameter(
-            Name=parameter_name(device_id),
+            Name=parameter_name(device_id, prefix),
             Value=hash_token(token),
             Type="SecureString",
             Overwrite=rotate,
@@ -36,13 +37,13 @@ def register(ssm_client, device_id: str, rotate: bool = False) -> str:
     return token
 
 
-def revoke(ssm_client, device_id: str) -> None:
+def revoke(ssm_client, device_id: str, prefix: str = PARAMETER_PREFIX) -> None:
     _check_device_id(device_id)
-    ssm_client.delete_parameter(Name=parameter_name(device_id))
+    ssm_client.delete_parameter(Name=parameter_name(device_id, prefix))
 
 
-def parameter_name(device_id: str) -> str:
-    return f"{PARAMETER_PREFIX}{device_id}/token-sha256"
+def parameter_name(device_id: str, prefix: str = PARAMETER_PREFIX) -> str:
+    return f"{prefix}{device_id}/token-sha256"
 
 
 def hash_token(token: str) -> str:

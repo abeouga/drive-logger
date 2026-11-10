@@ -68,6 +68,7 @@ S3 には繋がない（記憶の上の置き場所で、処理の流れを端�
 ### ローカルで流す
 
 S3 から生データを読み、作業用の場所に書く（手元にデータのフォルダーは置かない）。プロファイルは `config/default.yaml` の `aws`（`config/local.yaml` で上書き）。
+向き先は本番（prod）が既定で、`--env test`（または環境変数 `CT125_ENV=test`）で test の環境に向く。どの命令も最初に向き先を出す（docs/test_environment.md）。
 
 ```bash
 .venv/Scripts/python.exe -m ct125 process --ride ride_20261108_011304

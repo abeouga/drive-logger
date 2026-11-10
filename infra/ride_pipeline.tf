@@ -9,7 +9,7 @@
 #   terraform apply
 
 locals {
-  pipeline_name = "ct125-ride-pipeline"
+  pipeline_name = "${local.name_prefix}-ride-pipeline"
 }
 
 # ---------------------------------------------------------------- ECR（コンテナの置き場所）
@@ -24,14 +24,14 @@ resource "aws_ecr_repository" "pipeline" {
   }
 }
 
-# 古いイメージは 5 個まで残す
+# 古いイメージは本番 5 個・test 2 個まで残す（local.pipeline_images_to_keep）
 resource "aws_ecr_lifecycle_policy" "pipeline" {
   repository = aws_ecr_repository.pipeline.name
   policy = jsonencode({
     rules = [{
       rulePriority = 1
-      description  = "keep last 5 images"
-      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = 5 }
+      description  = "keep last ${local.pipeline_images_to_keep} images"
+      selection    = { tagStatus = "any", countType = "imageCountMoreThan", countNumber = local.pipeline_images_to_keep }
       action       = { type = "expire" }
     }]
   })
@@ -122,14 +122,18 @@ resource "aws_lambda_function" "pipeline" {
   }
 
   environment {
-    variables = {
-      RAW_BUCKET    = aws_s3_bucket.role["raw"].bucket
-      RAW_PREFIX    = ""
-      WORK_BUCKET   = aws_s3_bucket.role["work"].bucket
-      WORK_PREFIX   = ""
-      PUBLIC_BUCKET = aws_s3_bucket.role["public"].bucket
-      PUBLIC_PREFIX = "${local.public_dataset_prefix}shared/"
-    }
+    # test には CT125_ENV を足す（処理の記録に残る設定を test の値にする。本番の Lambda の設定は変えない）
+    variables = merge(
+      {
+        RAW_BUCKET    = aws_s3_bucket.role["raw"].bucket
+        RAW_PREFIX    = ""
+        WORK_BUCKET   = aws_s3_bucket.role["work"].bucket
+        WORK_PREFIX   = ""
+        PUBLIC_BUCKET = aws_s3_bucket.role["public"].bucket
+        PUBLIC_PREFIX = "${local.public_dataset_prefix}shared/"
+      },
+      local.is_prod ? {} : { CT125_ENV = var.env },
+    )
   }
 
   logging_config {
@@ -141,6 +145,11 @@ resource "aws_lambda_function" "pipeline" {
     precondition {
       condition     = var.pipeline_image_uri != null
       error_message = "pipeline_image_uri がありません。先に pipeline/ の scripts/build-pipeline-image.ps1 でイメージを上げてください。"
+    }
+    # 別の環境の ECR のイメージを使わない（test で -var-file=pipeline_image.test.tfvars を忘れると、本番のイメージを指してしまう）
+    precondition {
+      condition     = try(strcontains(var.pipeline_image_uri, "/${local.pipeline_name}@"), true) # null は上で止める
+      error_message = "pipeline_image_uri が、この環境の ECR（${local.pipeline_name}）のイメージではありません。test は -var-file=pipeline_image.test.tfvars を付けてください。"
     }
   }
 

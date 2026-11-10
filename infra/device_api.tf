@@ -1,11 +1,11 @@
 # デバイス API：ESP32 が生データを生データのバケット（buckets.tf の raw）に直接置くための受付（C）。
 #   POST /api/device/uploads                    → 走行名とファイルごとの PUT 用 URL（15 分）
-#   POST /api/device/uploads/{ride_id}/complete → 大きさを確かめて <走行>/upload_complete.json を置く（→ ct125-ride-pipeline）
-# 認証は機器トークン（ハッシュは SSM の /ct125/devices/<機器ID>/token-sha256。pipeline/ の register-device で登録）。
+#   POST /api/device/uploads/{ride_id}/complete → 大きさを確かめて <走行>/upload_complete.json を置く（→ 処理の Lambda）
+# 認証は機器トークン（ハッシュは SSM の <local.device_parameter_prefix><機器ID>/token-sha256。本番は /ct125/devices/、test は /ct125-test/devices/。pipeline/ の register-device で登録）。
 # コードは画面用のデータ API と同じ zip（api/）。ハンドラーと権限だけが違う。
 
 locals {
-  device_api_name = "ct125-device-api"
+  device_api_name = "${local.name_prefix}-device-api"
   raw_prefix      = "" # 生データのバケットの直下に <走行>/ を置く
   raw_bucket      = aws_s3_bucket.role["raw"]
 }
@@ -44,7 +44,7 @@ data "aws_iam_policy_document" "device_api" {
   statement {
     sid       = "ReadDeviceTokenHashes"
     actions   = ["ssm:GetParameter"]
-    resources = ["arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/ct125/devices/*"]
+    resources = ["arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${local.device_parameter_prefix}*"]
   }
   statement {
     sid       = "DecryptDeviceTokenHashes"
@@ -86,7 +86,7 @@ resource "aws_lambda_function" "device_api" {
     variables = {
       RAW_BUCKET                    = local.raw_bucket.bucket
       RAW_PREFIX                    = local.raw_prefix
-      DEVICE_TOKEN_PARAMETER_PREFIX = "/ct125/devices/"
+      DEVICE_TOKEN_PARAMETER_PREFIX = local.device_parameter_prefix
       UPLOAD_URL_SECONDS            = "900"
     }
   }

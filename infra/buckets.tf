@@ -15,7 +15,7 @@ locals {
 
 resource "aws_s3_bucket" "role" {
   for_each = local.data_roles
-  bucket   = "${var.bucket_prefix}-${each.key}-${data.aws_caller_identity.current.account_id}"
+  bucket   = "${local.bucket_prefix}-${each.key}-${data.aws_caller_identity.current.account_id}"
   # 中身があるバケットは terraform destroy でも消えない（生データを誤って消さないため。ほかの 2 つも同じにそろえる）
   force_destroy = false
 

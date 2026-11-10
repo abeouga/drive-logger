@@ -11,15 +11,15 @@ variable "aws_region" {
 }
 
 variable "bucket_prefix" {
-  description = "バケット名の先頭。後ろにアカウント ID を付けて一意にする"
+  description = "バケット名の先頭。後ろにアカウント ID を付けて一意にする。test は後ろに -test が付く（environment.tf）"
   type        = string
   default     = "ct125-logger"
 }
 
 variable "app_domain" {
-  description = "Web アプリを公開するドメイン（DNS は Cloudflare。プロキシはオフにする）"
+  description = "Web アプリを公開するドメイン（DNS は Cloudflare。プロキシはオフにする）。null なら本番 drive.herdio-system.com、test drive-test.herdio-system.com"
   type        = string
-  default     = "drive.herdio-system.com"
+  default     = null
 }
 
 variable "app_users" {
@@ -41,9 +41,9 @@ variable "app_user_passwords" {
 }
 
 variable "cognito_domain_prefix" {
-  description = "Cognito のログイン画面の URL の先頭（<prefix>.auth.<region>.amazoncognito.com）。世界で一意"
+  description = "Cognito のログイン画面の URL の先頭（<prefix>.auth.<region>.amazoncognito.com）。世界で一意。null なら本番 ct125-drive-login、test ct125-drive-login-test"
   type        = string
-  default     = "ct125-drive-login"
+  default     = null
 }
 
 variable "data_api_zip" {

@@ -1,14 +1,26 @@
 ﻿# 走行データ処理の Lambda 用コンテナを作り、ECR に上げる。
 #   1. docker build（deploy/lambda/Dockerfile、linux/amd64）
 #   2. ECR にログインして push
-#   3. 上げたイメージの digest を Terraform の変数ファイル（pipeline_image.auto.tfvars）に書く
-# その後 `terraform -chdir=infra apply` で Lambda が新しいイメージに切り替わる。
+#   3. 上げたイメージの digest を Terraform の変数ファイル（本番 pipeline_image.auto.tfvars、test pipeline_image.test.tfvars）に書く
+# その後 infra で apply すると、Lambda が新しいイメージに切り替わる。
 # 前提：Docker Desktop が起動していること、Terraform で ECR リポジトリを作ってあること（terraform output pipeline_repository_url）
+#   -Env test : test の ECR に上げる（Terraform の workspace の test を読む。docs/test_environment.md）
+param([Alias("Env")][ValidateSet("prod", "test")][string]$Environment = "prod")
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $terraformDir = if ($env:CT125_TERRAFORM_DIR) { $env:CT125_TERRAFORM_DIR } else { Join-Path (Split-Path -Parent $root) "infra" }
+# 選んでいる workspace に関わらず、-Env の環境の出力を読む（本番は default）。終わったら元に戻す
+$previousWorkspace = $env:TF_WORKSPACE
+$env:TF_WORKSPACE = if ($Environment -eq "prod") { "default" } else { $Environment }
 $awsProfile = "ct125-logger"
 $tag = Get-Date -Format "yyyyMMdd-HHmmss"
+
+function Assert-Env {
+    $actual = terraform "-chdir=$terraformDir" output -raw env 2>$null
+    # env の出力が無い（古い state）のは本番だけ
+    if ($LASTEXITCODE -ne 0 -or -not $actual) { $actual = "prod" }
+    if ($actual -ne $Environment) { throw "Terraform の出力の環境（$actual）が -Env（$Environment）と違います" }
+}
 
 function Get-RepositoryUrl {
     $url = terraform "-chdir=$terraformDir" output -raw pipeline_repository_url
@@ -42,14 +54,15 @@ function Invoke-Checked([scriptblock]$command, [string]$message) {
     if ($LASTEXITCODE -ne 0) { throw $message }
 }
 
-Assert-NewBuckets
-$repositoryUrl = Get-RepositoryUrl
-$commit = Get-Commit
-$registry = $repositoryUrl.Split("/")[0]
-$image = "$($repositoryUrl):$tag"
-
 Push-Location $root
 try {
+    Assert-Env
+    Assert-NewBuckets
+    $repositoryUrl = Get-RepositoryUrl
+    $commit = Get-Commit
+    $registry = $repositoryUrl.Split("/")[0]
+    $image = "$($repositoryUrl):$tag"
+
     Invoke-Checked { docker build --platform linux/amd64 --provenance=false --build-arg "GIT_COMMIT=$commit" -f deploy/lambda/Dockerfile -t $image . } "docker build に失敗しました（Docker Desktop が起動しているか確認）"
     # PowerShell 5.1 のパイプは文字コードを変えてしまい ECR が 400 を返すので、cmd のパイプで渡す（トークンは画面に出さない）
     Invoke-Checked { cmd /c "aws ecr get-login-password --profile $awsProfile | docker login --username AWS --password-stdin $registry" } "ECR にログインできません"
@@ -57,12 +70,20 @@ try {
     $digest = docker inspect --format "{{index .RepoDigests 0}}" $image
     if ($LASTEXITCODE -ne 0 -or -not $digest) { throw "イメージの digest を取れません" }
 
-    $tfvars = Join-Path $terraformDir "pipeline_image.auto.tfvars"
-    $lines = @("# scripts/build-pipeline-image.ps1 が書く。手で直さない", "pipeline_image_uri = `"$digest`"")
+    if ($Environment -eq "prod") {
+        $tfvars = Join-Path $terraformDir "pipeline_image.auto.tfvars"
+        $lines = @("# scripts/build-pipeline-image.ps1 が書く。手で直さない", "pipeline_image_uri = `"$digest`"")
+        $next = "terraform -chdir=$terraformDir apply"
+    } else {
+        $tfvars = Join-Path $terraformDir "pipeline_image.$Environment.tfvars"
+        $lines = @("# scripts/build-pipeline-image.ps1 -Env $Environment が書く。手で直さない", "pipeline_image_uri = `"$digest`"")
+        $next = "terraform -chdir=$terraformDir workspace select $Environment; terraform -chdir=$terraformDir apply -var-file=$Environment.tfvars -var-file=pipeline_image.$Environment.tfvars"
+    }
     [IO.File]::WriteAllLines($tfvars, $lines, [Text.UTF8Encoding]::new($false))
-    Write-Host "上げました：$digest"
-    Write-Host "次に：terraform -chdir=$terraformDir apply"
+    Write-Host "上げました（$Environment）：$digest"
+    Write-Host "次に：$next"
 }
 finally {
     Pop-Location
+    $env:TF_WORKSPACE = $previousWorkspace
 }
