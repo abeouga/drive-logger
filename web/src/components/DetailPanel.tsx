@@ -1,7 +1,7 @@
-// 詳細パネル：何も選んでいないときは見どころの一覧、選んだら その 1 秒の値
+// 詳細パネル：何も選んでいないときは基準を超えた振動の一覧、選んだら その 1 秒の値
 import type { RideData, Waveform } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
-import { SCORE_LABEL, anomalyBasisText, type Selection } from "../lib/series";
+import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, isJudged, type Selection } from "../lib/series";
 import WaveChart from "./WaveChart";
 
 interface Props {
@@ -59,11 +59,20 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
   if (selected === null) {
     return (
       <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">見どころ</h2>
-        <p className="text-xs leading-relaxed text-ink-2">{anomalyBasisText(data)}。地図の線やグラフをクリックすると、その 1 秒の値をここに表示します。</p>
-        {ranked.length === 0 ? (
-          <p className="text-xs text-muted">この走行には見どころがありません（記録が短く、先頭・末尾 60 秒を除くと残らないため）。</p>
+        <h2 className="text-sm font-semibold">基準を超えた振動</h2>
+        {!isJudged(data) ? (
+          <p className="text-xs leading-relaxed text-ink-2">{anomalyBasisText(data)}。</p>
         ) : (
+          <>
+            <p className="text-xs leading-relaxed text-ink-2">
+              {anomalyBasisText(data)}{ranked.length > 0 && `（${ranked.length} か所。番号はスコアの高い順）`}。路面または車両に起因する振動の変化を示します。
+              {data.anomaly.model_version && <span className="text-muted">（モデルの版 {data.anomaly.model_version}）</span>}
+            </p>
+            {ranked.length === 0 && <p className="text-xs text-muted">{anomalyEmptyText(data)}。</p>}
+          </>
+        )}
+        <p className="text-xs leading-relaxed text-ink-2">地図の線やグラフをクリックすると、その 1 秒の値をここに表示します。</p>
+        {ranked.length > 0 && (
           <ol className="flex flex-col">
             {ranked.map((i, k) => (
               <li key={i}>
@@ -94,11 +103,11 @@ export default function DetailPanel({ data, selected, ranked, waves, onSelect }:
     <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-xs text-ink-2">選んだ 1 秒{rank >= 0 && `（見どころ ${rank + 1} 位）`}</div>
+          <div className="text-xs text-ink-2">選んだ 1 秒{rank >= 0 && `（基準を超えた振動 ${rank + 1} 番目）`}</div>
           <div className="tabular text-lg font-semibold">{when(data, i)}</div>
         </div>
         <button onClick={() => onSelect(null)} className="btn btn-secondary btn-compact shrink-0">
-          見どころ一覧へ
+          一覧へ
         </button>
       </div>
       <div>

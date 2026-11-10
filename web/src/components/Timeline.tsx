@@ -10,7 +10,7 @@ import { GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, 
 import { CanvasRenderer } from "echarts/renderers";
 import type { RideData } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
-import { nearestIndex, runs, xValues, type Selection } from "../lib/series";
+import { nearestIndex, runs, xValues, zThreshold, type Selection } from "../lib/series";
 import { cssVar } from "../lib/theme";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, AxisPointerComponent, CanvasRenderer]);
@@ -50,8 +50,8 @@ export default function Timeline({ data, hover, selected, ranked, onHover, onSel
     if (gps) {
       p.push({ key: "speed", name: "速度", unit: "km/h", values: c.speed, digits: 1 });
       // 停止中（5 km/h 未満）はアイドリングの窓ばかりで MAD が極端に小さく、z が ±20 を超える針になる。
-      // 見どころの判定と同じく、走行中の窓だけを描く
-      p.push({ key: "z", name: "z_speed（走行中のみ）", unit: "", values: c.z.map((v, i) => (c.is_stopped[i] ? null : v)), threshold: 3, digits: 2 });
+      // 基準を超えた振動の判定と同じく、走行中の窓だけを描く。しきい値の線は画面用データの値を使う
+      p.push({ key: "z", name: "z_speed（走行中のみ）", unit: "", values: c.z.map((v, i) => (c.is_stopped[i] ? null : v)), threshold: zThreshold(data), digits: 2 });
     } else {
       p.push({ key: "score_if", name: "score_if（Isolation Forest）", unit: "", values: c.score_if, digits: 3 });
     }
@@ -148,7 +148,7 @@ export default function Timeline({ data, hover, selected, ranked, onHover, onSel
         markLine: p.threshold !== undefined
           ? { silent: true, symbol: "none", lineStyle: { color: muted, type: "dashed" }, label: { formatter: `${p.threshold}`, color: muted }, data: [{ yAxis: p.threshold }] }
           : undefined,
-        // 見どころの番号（最上段の rms の上）
+        // 基準を超えた振動の番号（最上段の rms の上。地図・一覧と同じ番号）
         markPoint: k === 0
           ? {
               symbol: "circle",
