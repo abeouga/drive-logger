@@ -43,7 +43,7 @@ function SpecNote() {
     <p className="px-2 pb-1 text-xs leading-relaxed text-ink-2">
       濃いところほど、その周波数の振動が強いことを示します（この走行の中での相対値）。停車中に 20〜26 Hz 付近に出る横の帯は、
       アイドリング中のエンジンの振動と考えられます（1 回転に 1 回の振動とみなすと約 1,300〜1,500 rpm 相当。公称値とは未照合）。
-      ロガーは置いただけの暫定の固定なので、置き方による揺れ（共振）も含みます。
+      ロガーの取り付け方による揺れ（共振）が含まれることもあります。
     </p>
   );
 }
@@ -192,7 +192,7 @@ export default function Ride({ id }: { id: string }) {
           onChange={setChartTab}
         />
         <span className="text-xs text-ink-2">
-          横軸：{data.has_abs_time ? "時刻（日本時間）" : "記録開始からの時間（GPS がないため時刻は不明）"}
+          横軸：{data.has_abs_time ? "時刻" : "記録開始からの時間（GPS がないため時刻は不明）"}
         </span>
       </div>
       {chartTab === "timeline" || !spec ? (
@@ -202,7 +202,6 @@ export default function Ride({ id }: { id: string }) {
               <span className="inline-block h-3 w-4 rounded-sm" style={{ background: "rgba(137,135,129,0.18)" }} />
               停止中{hasGps && "／GPS なし（濃い灰）"}
             </span>
-            <span>ホイール・ピンチで拡大、下のバーで範囲を選ぶと地図がその区間に寄ります</span>
           </div>
           <div className={hasGps ? "h-[460px]" : "h-[340px]"}>
             <Timeline data={data} ranked={ranked} onRange={setRange} {...shared} />
