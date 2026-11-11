@@ -30,7 +30,8 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 
 | キー | 型 | 意味 |
 |---|---|---|
-| `id` | string | 走行 ID（`ride_004`） |
+| `id` | string | 走行 ID（`ride_004`）。URL・並べ替えのキー |
+| `name` | string | 見出しに出す名前（`2026/11/02の走行`、同じ日の 2 本目から `(1)`・`(2)`）。台帳の `name` を公開するときに足す（処理の結果の `summary.json` には無い）。並べ替えには使わない |
 | `start_ms` | number \| null | 記録開始の UNIX ミリ秒。GPS なしは null |
 | `duration_s` | number | 記録の長さ（秒） |
 | `distance_km` | number | GPS のある窓をつないだ距離 |

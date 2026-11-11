@@ -40,7 +40,7 @@ export default function RideCard({ ride }: { ride: RideSummary }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="text-sm text-ink-2">{when}</div>
-          <div className="font-semibold">{ride.id}</div>
+          <div className="font-semibold">{ride.name}</div>
         </div>
         <div className="flex flex-wrap justify-end gap-1">
           <Badge tone={ride.gps === "none" ? "muted" : "accent"}>{GPS_LABEL[ride.gps]}</Badge>

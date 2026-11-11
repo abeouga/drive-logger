@@ -4,6 +4,7 @@
   "rides": {
     "ride_20261108_011304": {
       "ride_id": "ride_20261108_011304",
+      "name": "2026/11/08の走行",
       "original_name": null,
       "device_id": "d01",
       "local_session": "ride_013",
@@ -19,6 +20,7 @@
     },
     "ride_20261109_020000": {
       "ride_id": "ride_20261109_020000",
+      "name": "2026/11/02の走行",
       "original_name": "ride_004",
       "device_id": "pc01",
       "local_session": "ride_004",

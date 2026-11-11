@@ -300,6 +300,57 @@ def test_use_model_rescores_every_ride_with_the_chosen_version(cfg, stores):
         local_pipeline(cfg, stores, clock).use_model(first["model_version"])
 
 
+# ------------------------------------------------------------------ 走行の名前（#96）
+NAMED = {  # 3 本とも 2026-11-02 14:00（日本時間）に走り始めた走行（sd_sessions の GPS の時刻）。同じ時刻なので走行 ID の順
+    "ride_20261109_010000": "2026/11/02の走行",
+    "ride_20261109_011000": "2026/11/02の走行(1)",
+    "ride_20261109_012000": "2026/11/02の走行(2)",
+}
+
+
+def ledger_names(work: MemoryStore) -> dict[str, str]:
+    return {ride_id: entry["name"] for ride_id, entry in read(work, LEDGER)["rides"].items()}
+
+
+def test_rides_are_named_once_and_the_names_go_to_the_screen(cfg, stores):
+    raw, work, public = stores
+    clock = Clock()
+    lambda_pipeline(cfg, stores, clock).retrain(publish=True)
+    assert ledger_names(work) == NAMED
+    rides = read(public, "datasets/shared/rides.json")
+    assert [(ride["id"], ride["name"]) for ride in rides["rides"]] == [("ride_20261109_010000", "2026/11/02の走行"), ("ride_20261109_011000", "2026/11/02の走行(1)")]
+
+    # 後から届いた走行（同じ 11/02 に走った）は続きの番号。処理し直し・学習し直し・モデルの切り替えでも、どの名前も変わらない
+    put_ride(raw, "", "ride_20261110_090000", "ride", seed=5)
+    pipeline = lambda_pipeline(cfg, stores, clock)
+    pipeline.process(["ride_20261110_090000"], publish=True)
+    assert ledger_names(work) == {**NAMED, "ride_20261110_090000": "2026/11/02の走行(3)"}
+    pipeline.process(pipeline.ride_ids(), publish=True)
+    version = pipeline.retrain(publish=True)["model_version"]
+    pipeline.use_model(version)
+    validator("records/ledger.schema.json").validate(read(work, LEDGER))
+    assert ledger_names(work) == {**NAMED, "ride_20261110_090000": "2026/11/02の走行(3)"}
+    assert read(public, "datasets/shared/rides.json")["rides"][-1]["name"] == "2026/11/02の走行(3)"
+
+
+def test_publish_names_rides_in_a_ledger_made_before_names(cfg, stores):
+    raw, work, public = stores
+    clock = Clock()
+    lambda_pipeline(cfg, stores, clock).retrain(publish=True)
+    ledger = read(work, LEDGER)
+    for entry in ledger["rides"].values():  # 名前を足す前の台帳（本番の今の走行）にする
+        del entry["name"]
+    work.put(LEDGER, json.dumps(ledger).encode("utf-8"), "application/json")
+
+    lambda_pipeline(cfg, stores, clock).publish()
+
+    validator("records/ledger.schema.json").validate(read(work, LEDGER))
+    assert ledger_names(work) == NAMED
+    rides = read(public, "datasets/shared/rides.json")
+    validator("app/rides.schema.json").validate(rides)
+    assert [ride["name"] for ride in rides["rides"]] == ["2026/11/02の走行", "2026/11/02の走行(1)"]
+
+
 # ------------------------------------------------------------------ 速度を足した Isolation Forest（#81）
 def test_retrain_saves_the_forest_threshold_in_model_json(cfg, stores):
     raw, work, public = stores

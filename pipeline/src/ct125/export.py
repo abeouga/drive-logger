@@ -214,9 +214,13 @@ def ride_output_files(ride_id: str, names: list[str]) -> list[str]:
     return [name for name in names if is_ride_output(name, ride_id)]
 
 
-def rides_document(summaries: list[dict], generated_at_ms: int | None = None) -> dict:
-    """rides.json の中身。走行は ID 順に並べる。"""
-    ordered = sorted(summaries, key=lambda s: s["id"])
+def rides_document(summaries: list[dict], names: dict[str, str], generated_at_ms: int | None = None) -> dict:
+    """rides.json の中身。走行は ID 順に並べる。
+
+    summaries は処理の結果の要約（summary.json）、names は台帳の名前（走行 ID → 名前）。
+    名前は処理の後に台帳で付けるので、要約には入れず、公開するときにここで足す（走行 ID の次に置く）。
+    """
+    ordered = [{"id": s["id"], "name": names[s["id"]], **s} for s in sorted(summaries, key=lambda s: s["id"])]
     if generated_at_ms is None:
         generated_at_ms = int(pd.Timestamp.now(tz="UTC").value // 1_000_000)
     return {"generated_at_ms": generated_at_ms, "rides": ordered}

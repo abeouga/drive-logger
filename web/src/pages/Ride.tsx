@@ -134,8 +134,10 @@ export default function Ride({ id }: { id: string }) {
             {summary.start_ms !== null ? `${fmtDate(summary.start_ms)} ${fmtTime(summary.start_ms)}` : "日時不明（GPS なし）"}
           </div>
           <h1 className={pageTitleClass}>
-            {summary.id}
+            {summary.name}
           </h1>
+          {/* 走行 ID は小さく残す（問い合わせと、ゴミ箱の「完全に削除」で打ち込んで確かめるため） */}
+          <div className="text-xs text-ink-2">走行 ID {summary.id}</div>
           {summary.memo && <div className="mt-0.5 text-sm text-ink-2">{summary.memo}</div>}
         </div>
         <div className="tabular flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
