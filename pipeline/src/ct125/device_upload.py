@@ -4,6 +4,7 @@
 手順（ESP32 の firmware も同じ。contracts/upload/upload.json）：
   1. POST /api/device/uploads                    送るファイルと大きさ → 走行 ID とファイルごとの PUT 用 URL
      同じ SD の走行を送り終えていれば status=already_uploaded（送るファイルは無い。#14）
+     送り終えていても、走行メモ（notes.md など）が S3 と違えば status=memo_added でメモの分だけ URL が出る（#100）
   2. 各 URL に HTTP PUT                          ファイルを流しながら送る
   3. POST /api/device/uploads/<走行 ID>/complete 大きさを確かめ、AWS 側の処理が始まる
 途中で切れたら、1 を「前回の走行 ID」付きで呼び直すと URL が出し直される（resume）。
@@ -29,9 +30,9 @@ class UploadError(RuntimeError):
 class UploadResult:
     local_session: str
     ride_id: str
-    status: str            # new・resumed・already_uploaded
-    sent: tuple[str, ...]  # 送ったファイル（already_uploaded なら空）
-    completed: str         # complete（今回完了）・already_complete（前に完了済み）
+    status: str            # new・resumed・already_uploaded・memo_added
+    sent: tuple[str, ...]  # 送ったファイル（already_uploaded なら空、memo_added ならメモだけ）
+    completed: str         # complete（今回完了）・already_complete（前に完了済み）・memo_added（メモを足した）
 
 
 def session_folders(path: Path) -> list[Path]:

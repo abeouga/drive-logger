@@ -14,6 +14,8 @@ from .exceptions import InvalidUploadRequestError
 # 送信の約束（contracts/upload/upload.json・contracts/common.json）。合っているかは tests/test_contracts.py で確かめる
 # 受け付けるファイル（ESP32 が SD の /sessions/ride_NNN/ に書くものと、走行メモ。memo.txt・readme.txt は走行メモの古い名前）
 ALLOWED_FILES = ("accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt")
+# 走行メモ（PC で後から書く）。送り終えた走行にも、これだけは後から足せる（#100）
+MEMO_FILES = ("notes.md", "memo.txt", "readme.txt")
 # これが無いと処理できない
 REQUIRED_FILES = ("accel.csv", "gps.csv", "meta.json")
 # 1 ファイルの上限（1 時間で約 55MB。余裕を見て）
@@ -80,6 +82,11 @@ def ride_id_candidates(now: datetime, attempts: int = 5) -> list[str]:
     return [base] + [f"{base}_{n}" for n in range(2, attempts + 1)]
 
 
+def memo_changes(files: tuple[RawFile, ...], stored_size) -> tuple[RawFile, ...]:
+    """送られてきた走行メモのうち、置き場所に無いもの・大きさが違うもの（stored_size(名前) → 大きさか None）。"""
+    return tuple(file for file in files if file.name in MEMO_FILES and stored_size(file.name) != file.size)
+
+
 @dataclass(frozen=True)
 class UploadSession:
     """1 回の受け付け：どの機器の、SD のどの走行を、どのファイルで送るか。"""
@@ -106,3 +113,39 @@ class UploadSession:
     def from_dict(cls, data: dict) -> "UploadSession":
         files = tuple(RawFile(name=f["name"], size=int(f["size"])) for f in data["files"])
         return cls(data["ride_id"], data["device_id"], data["local_session"], files, data["created_at"])
+
+
+@dataclass(frozen=True)
+class MemoAddition:
+    """送り終えた走行に、後から走行メモを足す受け付け（#100）。applied_at が None ならまだ足し終えていない。"""
+
+    ride_id: str
+    device_id: str
+    local_session: str
+    files: tuple[RawFile, ...]
+    created_at: str
+    applied_at: str | None = None
+
+    def belongs_to(self, device_id: str) -> bool:
+        return self.device_id == device_id
+
+    def is_pending(self) -> bool:
+        return self.applied_at is None
+
+    def applied(self, when: str) -> "MemoAddition":
+        return MemoAddition(self.ride_id, self.device_id, self.local_session, self.files, self.created_at, when)
+
+    def to_dict(self) -> dict:
+        return {
+            "ride_id": self.ride_id,
+            "device_id": self.device_id,
+            "local_session": self.local_session,
+            "files": [{"name": f.name, "size": f.size} for f in self.files],
+            "created_at": self.created_at,
+            "applied_at": self.applied_at,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "MemoAddition":
+        files = tuple(RawFile(name=f["name"], size=int(f["size"])) for f in data["files"])
+        return cls(data["ride_id"], data["device_id"], data["local_session"], files, data["created_at"], data.get("applied_at"))

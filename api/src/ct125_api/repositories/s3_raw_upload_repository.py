@@ -3,6 +3,7 @@
 raw/<走行>/upload_session.json   受け付けの記録（どの機器・どのファイル）
 raw/<走行>/<ファイル>             機器が PUT 用 URL で直接置く
 raw/<走行>/upload_complete.json  完了の合図（AWS 側の自動処理 ct125-ride-pipeline が動く）
+raw/<走行>/upload_addition.json  送り終えた走行に走行メモを足す受け付け（#100）
 _uploads/<印>.json               送り終えた走行の印（同じ SD の走行を 2 回受け付けないため。#14）
 """
 
@@ -13,10 +14,11 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-from ..domain.raw_upload import UploadSession
+from ..domain.raw_upload import MemoAddition, UploadSession
 
 SESSION_FILE = "upload_session.json"
 COMPLETE_MARKER = "upload_complete.json"
+ADDITION_FILE = "upload_addition.json"
 FINGERPRINT_FOLDER = "_uploads"  # 走行 ID の形でないので、処理（pipeline）は走行として数えない
 NOT_FOUND_CODES = {"NoSuchKey", "404", "NotFound"}
 ALREADY_EXISTS_CODES = {"PreconditionFailed", "ConditionalRequestConflict"}
@@ -77,6 +79,20 @@ class S3RawUploadRepository:
             "local_session": session.local_session,
         }
         self._put_json(self._key(session.ride_id, COMPLETE_MARKER), marker)
+
+    def save_addition(self, addition: MemoAddition) -> None:
+        self._put_json(self._key(addition.ride_id, ADDITION_FILE), addition.to_dict())
+
+    def find_addition(self, ride_id: str) -> MemoAddition | None:
+        data = self._get_json(self._key(ride_id, ADDITION_FILE))
+        return MemoAddition.from_dict(data) if data else None
+
+    def mark_memo_added(self, ride_id: str, file_names: tuple[str, ...], when: str) -> None:
+        key = self._key(ride_id, COMPLETE_MARKER)
+        marker = self._get_json(key) or {"ride_id": ride_id, "files": [], "uploaded_at": when}
+        marker["files"] = list(marker.get("files", [])) + [name for name in file_names if name not in marker.get("files", [])]
+        marker["memo_added_at"] = when
+        self._put_json(key, marker)
 
     def find_fingerprint(self, fingerprint: str) -> str | None:
         data = self._get_json(self._key(FINGERPRINT_FOLDER, f"{fingerprint}.json"))

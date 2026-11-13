@@ -15,6 +15,7 @@ class FakeDeviceApi(BaseHTTPRequestHandler):
 
     received: dict = {}
     duplicate = False
+    memo_added = False
 
     def do_POST(self):  # noqa: N802
         body = json.loads(self.rfile.read(int(self.headers["Content-Length"])) or b"{}")
@@ -25,10 +26,14 @@ class FakeDeviceApi(BaseHTTPRequestHandler):
             if FakeDeviceApi.duplicate:
                 return self._json(200, {"ride_id": "ride_20261109_010000", "expires_in": 900, "uploads": [], "status": "already_uploaded"})
             host = f"http://127.0.0.1:{self.server.server_port}"
+            if FakeDeviceApi.memo_added:
+                uploads = [{"name": "notes.md", "url": f"{host}/put/notes.md"}]
+                return self._json(200, {"ride_id": "ride_20261109_010000", "expires_in": 900, "uploads": uploads, "status": "memo_added"})
             uploads = [{"name": f["name"], "url": f"{host}/put/{f['name']}"} for f in body["files"]]
             return self._json(200, {"ride_id": "ride_20261109_020000", "expires_in": 900, "uploads": uploads, "status": "new"})
         if self.path.endswith("/complete"):
-            return self._json(200, {"ride_id": self.path.split("/")[-2], "status": "already_complete" if FakeDeviceApi.duplicate else "complete"})
+            status = "already_complete" if FakeDeviceApi.duplicate else "memo_added" if FakeDeviceApi.memo_added else "complete"
+            return self._json(200, {"ride_id": self.path.split("/")[-2], "status": status})
         return self._json(404, {})
 
     def do_PUT(self):  # noqa: N802
@@ -52,6 +57,7 @@ class FakeDeviceApi(BaseHTTPRequestHandler):
 def api():
     FakeDeviceApi.received = {}
     FakeDeviceApi.duplicate = False
+    FakeDeviceApi.memo_added = False
     server = HTTPServer(("127.0.0.1", 0), FakeDeviceApi)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -82,6 +88,14 @@ def test_already_uploaded_ride_sends_nothing(api, tmp_path):
     result = upload_session(api, "pc01", "secret", _sd(tmp_path))
     assert result.status == "already_uploaded" and result.sent == () and result.completed == "already_complete"
     assert "put" not in FakeDeviceApi.received
+
+
+def test_memo_written_later_is_added_to_the_sent_ride(api, tmp_path):
+    FakeDeviceApi.memo_added = True
+    result = upload_session(api, "pc01", "secret", _sd(tmp_path))
+    assert result.status == "memo_added" and result.sent == ("notes.md",) and result.completed == "memo_added"
+    assert list(FakeDeviceApi.received["put"]) == ["notes.md"]
+    assert "notes.md" in {f["name"] for f in FakeDeviceApi.received["start"]["files"]}
 
 
 def test_rejected_token_is_an_error(api, tmp_path):
