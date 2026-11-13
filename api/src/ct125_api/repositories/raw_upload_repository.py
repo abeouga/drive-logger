@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from ..domain.raw_upload import UploadSession
+from ..domain.raw_upload import MemoAddition, UploadSession
 
 
 class RawUploadRepository(Protocol):
@@ -34,4 +34,14 @@ class RawUploadRepository(Protocol):
 
     def save_fingerprint(self, fingerprint: str, session: UploadSession) -> None:
         """送り終えた走行の印を残す（次に同じ走行が来たら、新しく作らない）。"""
+        ...
+
+    def save_addition(self, addition: MemoAddition) -> None:
+        """走行メモを足す受け付けを記録する（その走行の分は 1 つ。前のものは置き換える）。"""
+        ...
+
+    def find_addition(self, ride_id: str) -> MemoAddition | None: ...
+
+    def mark_memo_added(self, ride_id: str, file_names: tuple[str, ...], when: str) -> None:
+        """完了の合図に足した走行メモを書き足して置き直す（これで処理がもう一度動く）。"""
         ...

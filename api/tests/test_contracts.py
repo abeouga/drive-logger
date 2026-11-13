@@ -102,6 +102,22 @@ def test_session_and_marker_files_match_schemas():
     validator("upload/upload_complete.schema.json").validate(s3.body)
 
 
+def test_memo_addition_files_match_schemas():
+    from ct125_api.domain.raw_upload import MemoAddition, RawFile
+
+    upload = load("upload/upload.json")
+    assert s3_raw_upload_repository.ADDITION_FILE == upload["raw_files"]["addition"]["name"]
+    assert list(raw_upload.MEMO_FILES) == upload["files"]["memo"]
+    addition = MemoAddition("ride_20261108_153012", "pc01", "ride_012", (RawFile("notes.md", 20),), NOW.isoformat())
+    validator("upload/upload_addition.schema.json").validate(addition.to_dict())
+    validator("upload/upload_addition.schema.json").validate(addition.applied(NOW.isoformat()).to_dict())
+
+    marker = {"ride_id": "ride_20261108_153012", "files": ["accel.csv", "notes.md"], "uploaded_at": NOW.isoformat(), "source": "device", "device_id": "d01", "local_session": "ride_012", "memo_added_at": NOW.isoformat()}
+    validator("upload/upload_complete.schema.json").validate(marker)
+    validator("upload/complete_response.schema.json").validate({"ride_id": "ride_20261108_153012", "status": "memo_added"})
+    validator("upload/start_response.schema.json").validate({"ride_id": "ride_20261108_153012", "expires_in": 900, "uploads": [], "status": "memo_added"})
+
+
 # ------------------------------------------------------------------ 走行の台帳（#16・#17）
 def test_ledger_rules_match_common_and_records():
     from ct125_api.domain import ledger

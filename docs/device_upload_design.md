@@ -108,6 +108,7 @@ sequenceDiagram
 | 走行名 | サーバーが付ける：`ride_<受け付けた日時 JST>`（例 ride_20261108_1530）。重なったら末尾に番号 |
 | 受け付ける中身 | ファイル名は accel.csv・gps.csv・events.csv・status.csv・meta.json・memo.txt だけ。大きさの上限（1 ファイル 200MB） |
 | 完了の確認 | S3 の大きさが申告と一致したら `upload_complete.json` を置く（B が動く）。一致しなければ 409 を返し、機器はやり直す |
+| 後から書いた走行メモ（#100） | 送り終えた走行でも、送ってきた走行メモ（notes.md・memo.txt・readme.txt）が S3 に無いか大きさが違えば、start は `status=memo_added` でメモの分だけ URL を返し、`upload_addition.json` に記録する。メモを足した機器が complete を呼ぶと大きさを確かめ、`upload_complete.json` の files にメモを足して `memo_added_at` を付けて置き直す（B がもう一度動き、メモが画面と台帳に出る）。最初に送った機器でなくてよい（ESP32 で送り、PC で書いたメモを `upload-sd` で足す）。メモ以外のファイルは上書きできないまま。大きさで見分けるので、大きさが同じまま中身だけ変えたメモは足せない |
 | 機器の登録 | `python -m ct125 register-device --id d01`：トークンを作り、ハッシュを SSM に置き、トークンは画面に 1 回だけ出す（本人がシリアルで機器に入れる） |
 | 無効化 | SSM のパラメーターを消せば、その機器は送れなくなる |
 | Terraform | Lambda・IAM（raw/ への PutObject と大きさの確認だけ）・API Gateway のルート `POST /api/device/{proxy+}`（JWT なし、秒間 2 件まで）・CloudFront の `/api/*` で POST を許す |
