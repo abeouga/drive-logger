@@ -14,8 +14,8 @@ export default defineConfig(({ mode, command, isPreview }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const localApi = mode === "localapi";
   const apiOrigin = localApi ? env.LOCAL_API_ORIGIN || "http://localhost:8000" : env.API_ORIGIN;
-  // 中継先が無いまま dev サーバーを起動しない（ビルドと preview は中継を使わないので止めない）
-  if (command === "serve" && !isPreview && !apiOrigin) {
+  // 中継先が無いまま dev サーバーを起動しない（ビルド・preview・vitest（mode test）は中継を使わないので止めない）
+  if (command === "serve" && !isPreview && mode !== "test" && !apiOrigin) {
     throw new Error(
       `API_ORIGIN がありません（mode ${mode}）。scripts/start-dev.ps1 で Terraform の出力から .env.${mode}.local を作るか、.env.example を見本に手で書いてください`,
     );
