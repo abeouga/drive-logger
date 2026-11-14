@@ -3,13 +3,12 @@
 #   2. npm run build（hosted 版。走行データは入らない。データはログイン後に /api/data/ から取る）
 #   3. S3 の webapp/ に上げる（index.html はキャッシュさせない、assets/ は長くキャッシュ）
 #   4. CloudFront のキャッシュを消す
-# 前提：infra で terraform apply 済み、AWS プロファイル ct125-logger でログイン済み
+# 前提：infra で terraform apply 済み、管理者の AWS のプロファイル（Terraform の aws_profile。infra/terraform.tfvars）でログイン済み
 #   -Env test : test の環境に出す（Terraform の workspace の test を読む。docs/test_environment.md）
 param([Alias("Env")][ValidateSet("prod", "test")][string]$Environment = "prod")
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $terraformDir = if ($env:CT125_TERRAFORM_DIR) { $env:CT125_TERRAFORM_DIR } else { Join-Path (Split-Path -Parent $root) "infra" }
-$awsProfile = "ct125-logger"
 $isProd = $Environment -eq "prod"
 
 function Get-TerraformOutputs {
@@ -32,9 +31,11 @@ function Get-TerraformOutputs {
 
 function Write-AuthEnv($outputs) {
     $path = Join-Path $root ".env.production.local"
-    Write-AuthEnvFile $path "# scripts/deploy.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない）" $outputs
-    # dev 用にコミットしてある .env.development（本番の値）も、Terraform の出力とずれていれば直す
-    if ($isProd) { Sync-CommittedAuthEnv $root $outputs }
+    Write-AuthEnvFile $path "# scripts/deploy.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない。コミットしない）" $outputs
+    # 本番の dev サーバーの設定（.env.development.local。コミットしない）も、公開したものと同じ値にそろえる
+    if ($isProd) {
+        Write-AuthEnvFile (Join-Path $root ".env.development.local") "# scripts/deploy.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない。コミットしない）" $outputs -WithApiOrigin
+    }
 }
 
 function Invoke-Build {
@@ -60,6 +61,9 @@ function Clear-CdnCache($distributionId) {
 Push-Location $root
 try {
     $outputs = Get-TerraformOutputs
+    # S3 と CloudFront を触るプロファイルは、Terraform と同じもの（出力の aws_profile）
+    $script:awsProfile = $outputs.aws_profile.value
+    if (-not $awsProfile) { throw "Terraform の出力に aws_profile がありません" }
     Write-AuthEnv $outputs
     Invoke-Build
     Publish-Files $outputs.webapp_s3_uri.value

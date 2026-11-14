@@ -8,7 +8,7 @@
 4. 生データのバケットの古い ride_NNN/ を消す（新しい走行に同じ中身がある。バケットは古い版を 30 日残す）
 5. 処理の Lambda に学習し直しを頼む（新しい走行 ID で学習し、公開し直す）
 
-使い方（pipeline/ で。管理者のプロファイル ct125-logger と、PC の機器のトークン config/pc01.token が要る）：
+使い方（pipeline/ で。管理者のプロファイル（config/local.yaml の aws.profile）と、PC の機器のトークン config/pc01.token が要る）：
     .venv/Scripts/python.exe tools/reupload_legacy.py           何をするかを表示するだけ
     .venv/Scripts/python.exe tools/reupload_legacy.py --run     実行する
 """
@@ -49,7 +49,10 @@ def main(argv: list[str] | None = None) -> int:
     raw = Area(S3Store(s3, names["raw"]), acfg.get("raw_prefix", ""), "raw")
     work = Area(S3Store(s3, names["work"]), acfg.get("work_prefix", ""), "work")
     ucfg = cfg["upload"]
-    token = (ROOT / ucfg["token_file"]).read_text(encoding="ascii").strip()
+    if not ucfg.get("base_url"):
+        print("送り先の URL が要ります（config/local.yaml の upload.base_url）", file=sys.stderr)
+        return 2
+    token =(ROOT / ucfg["token_file"]).read_text(encoding="ascii").strip()
 
     legacy = [name for name in raw.folders() if LEGACY.fullmatch(name)]
     print(f"上げ直す走行：{', '.join(legacy) or 'なし'}（送り先 {ucfg['base_url']}、機器 {ucfg['device_id']}）")

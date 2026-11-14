@@ -1,10 +1,11 @@
-# 設定の既定値（根拠は docs/data_schema.md 6.）。PC ごとの値（AWS のバケット名など）は config/local.yaml（コミットしない）に置く。
+# 設定の既定値（根拠は docs/data_schema.md 6.）。PC や置き場所に依る値（送り先の URL・AWS のプロファイルなど）は書かず、
+# config/local.yaml（コミットしない。見本は config/local.example.yaml）に置く。ここで null の値は local.yaml で埋める。
 window_sec: 1.0          # 1 秒窓、重なりなし（docs/analysis_policy.md 2.1）
 edge_sec: 60             # 走行の先頭・末尾を is_edge=True にする秒数
 clip_g: 15.9             # ADXL345 FULL_RES ±16g の上限（15.97 g）手前。これ以上は is_clipped
 stop_speed_kmh: 5        # 停止判定（停止中でも GPS 速度が 0〜4 km/h 出る）。contracts/common.json と同じ値（firmware も使う）
 upload:                  # PC から SD の走行を送る（python -m ct125 upload-sd。ESP32 と同じデバイス API を通す）
-  base_url: https://drive.herdio-system.com
+  base_url: null          # 送り先（画面の URL）。local.yaml の upload.base_url（test は environments.test.upload.base_url）
   device_id: pc01
   token_file: config/pc01.token   # register-device --id pc01 --token-file config/pc01.token で作る（*.token はコミットしない）
 classify:                # 走行の分類（docs/data_flow_design.md 9.）。変えたら全走行を分類し直す（retrain）
@@ -33,8 +34,8 @@ model:
   random_state: 0
 aws:
   env: prod                 # 向き先の環境（prod か test）。--env、環境変数 CT125_ENV、config/local.yaml の aws.env の順に優先。test の値は下の environments
-  profile: ct125-logger     # 管理者のプロファイル（機器の登録・公開を Lambda に頼む）。リージョンはプロファイルのもの（ap-northeast-1）
-  pipeline_profile: null    # ローカルの処理に使うプロファイル（公開用に書けないロール。docs/data_flow_design.md 11.）。null なら profile
+  profile: null             # 管理者のプロファイル（機器の登録・公開を Lambda に頼む）。local.yaml に書く。null なら AWS_PROFILE か既定の認証情報。リージョンはプロファイルのもの
+  pipeline_profile: null    # ローカルの処理に使うプロファイル（公開用に書けないロール。docs/data_flow_design.md 11.）。local.yaml に書く。null なら profile
   region: null              # null＝プロファイルの region。明示するならここ
   bucket_name: "ct125-logger-{role}-{account_id}"  # 生データ（raw）・作業用（work）・公開用（public）のバケット名の決まり（infra と同じ）
   raw_prefix: ""
@@ -42,15 +43,13 @@ aws:
   public_prefix: "datasets/shared/"
   pipeline_function: ct125-ride-pipeline  # 公開を頼む Lambda
   device_parameter_prefix: /ct125/devices/  # 機器トークンのハッシュを置く SSM の場所（infra の device_token_parameter_prefix と同じ）
-environments:            # aws.env が prod 以外のとき、aws と upload に重ねる値（infra/environment.tf の名前の決まりと同じ）
-  test:
+environments:            # aws.env が prod 以外のとき、aws と upload に重ねる値（infra/environment.tf の名前の決まりと同じ）。
+  test:                  # プロファイルと送り先は PC に依るので、local.yaml の environments.test に書く
     aws:
-      pipeline_profile: ct125-test-local-pipeline   # test のバケットだけに届くロール（~/.aws/config に作る。docs/test_environment.md）
       bucket_name: "ct125-logger-test-{role}-{account_id}"
       pipeline_function: ct125-test-ride-pipeline
       device_parameter_prefix: /ct125-test/devices/
     upload:
-      base_url: https://drive-test.herdio-system.com
       token_file: config/pc01.test.token
 bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
   band_1_5: [1, 5]

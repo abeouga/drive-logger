@@ -1,5 +1,22 @@
-# PC ごとの設定。このファイルをコピーして config/local.yaml を作る（local.yaml は .gitignore でコミットされない）。
+# PC ごとの設定の見本（値は伏せてある）。このファイルをコピーして config/local.yaml を作る（local.yaml は .gitignore でコミットされない）。
+# 本番（prod）では aws・upload を config/default.yaml に重ねる。test では aws・upload は使わず、environments.test を重ねる（src/ct125/config.py）。
 aws:
-  pipeline_profile: ct125-local-pipeline   # ローカルの処理に使うプロファイル（公開用に書けないロールを引き受ける）
+  profile: <管理者のプロファイル>                 # 機器の登録・公開を Lambda に頼むときに使う（infra の aws_profile と同じ）
+  pipeline_profile: <処理のロールのプロファイル>  # ローカルの処理に使うプロファイル（公開用に書けないロールを引き受ける。infra/README.md）
   # バケット名を決まりと違うものにするときだけ書く
   # raw_bucket: ct125-logger-raw-<アカウントID>
+upload:
+  base_url: https://<画面のドメイン>             # upload-sd の送り先（Terraform の出力の app_url）
+
+environments:
+  test:
+    aws:
+      profile: <管理者のプロファイル>
+      pipeline_profile: <test の処理のロールのプロファイル>  # test のバケットだけに届くロール（docs/test_environment.md）
+    upload:
+      base_url: https://<test の画面のドメイン>
+
+# notebooks/01_inspect.ipynb で「記録した地域の箱に入るか」を見るための、緯度・経度のおおまかな範囲（10 進の度）。書かなければその判定を飛ばす
+# area_bbox:
+#   lat: [<南>, <北>]
+#   lon: [<西>, <東>]

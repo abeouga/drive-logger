@@ -391,3 +391,22 @@ def test_http_memo_addition(device_client):
     repository.put(first["ride_id"], [("notes.md", 20)])
     done = client.post(f"/api/device/uploads/{first['ride_id']}/complete", headers=headers).json()
     assert done == {"ride_id": first["ride_id"], "status": "memo_added"}
+
+
+def test_device_settings_need_the_parameter_prefix(monkeypatch):
+    # SSM の場所は環境ごとに違うので、既定の値で本番の場所を読まない（Terraform が渡す）
+    monkeypatch.setenv("RAW_BUCKET", "bucket")
+    monkeypatch.delenv("DEVICE_TOKEN_PARAMETER_PREFIX", raising=False)
+    with pytest.raises(RuntimeError, match="DEVICE_TOKEN_PARAMETER_PREFIX"):
+        DeviceSettings.from_env()
+
+
+def test_region_comes_from_aws_region_or_the_profile(monkeypatch):
+    from ct125_api import device_dependencies
+
+    monkeypatch.setenv("AWS_REGION", "region-x")
+    assert device_dependencies._region() == "region-x"
+    monkeypatch.delenv("AWS_REGION")
+    monkeypatch.setattr(device_dependencies.boto3.session, "Session", lambda: type("S", (), {"region_name": None})())
+    with pytest.raises(RuntimeError, match="AWS_REGION"):
+        device_dependencies._region()
