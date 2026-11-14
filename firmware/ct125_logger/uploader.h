@@ -1,4 +1,5 @@
-// SD の走行を、Wi-Fi で S3 に送る（C）。手順は ct125-logger/tools/device_upload_simulator.py と同じ：
+// SD の走行を、Wi-Fi で S3 に送る（docs/device_upload_design.md の「4.2 機器（ファームウェア）」）。
+// 手順は PC から機器として送る pipeline/src/ct125/device_upload.py と同じ：
 //   1. POST <api>/api/device/uploads           送るファイルと大きさ → 走行名とファイルごとの PUT 用 URL（15 分）
 //   2. 各 URL に HTTP PUT                       SD から流しながら送る
 //   3. POST <api>/api/device/uploads/<走行名>/complete  サーバーが大きさを確かめ、AWS の自動処理が始まる

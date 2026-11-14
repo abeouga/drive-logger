@@ -1,5 +1,5 @@
 ﻿# ESP32 に Wi-Fi と機器トークンを書き込む（ESP32 の内部フラッシュ NVS に入る。SD やソースには残らない）。
-#   例：./scripts/provision-device.ps1 -Port COM5 -Ssid <家の 2.4GHz の SSID> -DeviceId d01 -TokenFile config/d01.token
+#   例：./scripts/provision-device.ps1 -Port <ポート> -Ssid <2.4GHz の SSID> -DeviceId d01 -TokenFile config/d01.token
 # Wi-Fi のパスワードはこの画面で入力する（表示されない・どこにも保存しない）。
 # トークンのファイルは、書き込みが確認できたら消す（必要になったら register-device --rotate で作り直す）。
 # 前提：V3 のファームウェアを書き込み済み、ESP32 を USB でつないでいる、シリアルモニターなどほかでポートを開いていない。

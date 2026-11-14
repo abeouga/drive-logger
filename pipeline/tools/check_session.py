@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""SDカードの記録（/sessions/ride_NNN）を確認する。データ仕様.md v2 の形式用。
+"""SDカードの記録（/sessions/ride_NNN）を確認する。docs/data_spec_v2.md の形式用。
 
 usage: python check_session.py <ride_NNNフォルダー> [...]
-       python check_session.py E:/sessions          （中のセッションを全部）
+       python check_session.py <SD の sessions フォルダー>    （中のセッションを全部）
 
 確認すること：記録時間、加速度の実測周波数、サンプル番号と時刻の飛び、
 GPS の有効率と UTC 開始時刻、t_us と UTC の対応のばらつき、events.csv の件数。

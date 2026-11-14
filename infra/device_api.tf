@@ -1,4 +1,4 @@
-# デバイス API：ESP32 が生データを生データのバケット（buckets.tf の raw）に直接置くための受付（C）。
+# デバイス API：ESP32 が生データを生データのバケット（buckets.tf の raw）に直接置くための受付（docs/device_upload_design.md の「4.3 サーバー（AWS）」）。
 #   POST /api/device/uploads                    → 走行名とファイルごとの PUT 用 URL（15 分）
 #   POST /api/device/uploads/{ride_id}/complete → 大きさを確かめて <走行>/upload_complete.json を置く（→ 処理の Lambda）
 # 認証は機器トークン（ハッシュは SSM の <local.device_parameter_prefix><機器ID>/token-sha256。本番は /ct125/devices/、test は /ct125-test/devices/。pipeline/ の register-device で登録）。

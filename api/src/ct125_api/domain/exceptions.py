@@ -17,7 +17,7 @@ class NotAuthenticatedError(DomainError):
     """ログインしたユーザーの情報がない。"""
 
 
-# ------------------------------------------------------------------ 機器からのアップロード（C）
+# ------------------------------------------------------------------ 機器からのアップロード（docs/device_upload_design.md）
 class InvalidDeviceCredentialError(DomainError):
     """機器のトークンが無い・形が違う・登録と一致しない。"""
 

@@ -17,7 +17,7 @@ void listSessions() {
     if (!d.isDirectory()) continue;
     String base = String("/sessions/") + d.name();
     File a = SD.open(base + "/accel.csv"), g = SD.open(base + "/gps.csv");
-    if (!a) a = SD.open(base + "/sensors.csv");   // V1 の記録
+    if (!a) a = SD.open(base + "/sensors.csv");   // 古い形（V1）の記録を一覧に出すため
     Serial.printf("  %s accel=%u gps=%u bytes\n", d.name(), a ? (unsigned)a.size() : 0, g ? (unsigned)g.size() : 0);
     if (a) a.close();
     if (g) g.close();

@@ -18,7 +18,7 @@ const float ACCEL_HZ = 400.0f;       // BW_RATE=0x0C
 const uint32_t FLUSH_MS = 1000;
 const uint32_t STATUS_MS = 10000;
 
-// 送信のきっかけ（設計書 3.1）
+// 送信のきっかけ（docs/device_upload_design.md の「3.1 いつ送るか」）
 const float QUIET_STD_G = 0.02f;        // 1 秒間の合成加速度のばらつきがこれ未満なら「静か」（エンジン停止。静止時の雑音は約 0.008g）
 const float MOVING_STD_G = 0.05f;       // これを超えたら「動いている」（アイドリングや走行）
 const float STOP_SPEED_KMH = 5.0f;      // GPS 速度がこれ未満なら止まっている（contracts/common.json。止まっていても 0〜4 km/h 出る）
