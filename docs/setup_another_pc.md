@@ -98,7 +98,7 @@ Lambda の zip を作り直したばかりだと、データ API とデバイス
 
 ## Terraform の state の置き場
 
-- S3 バケット `ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`（ap-northeast-1）
+- S3 バケット `ct125-logger-tfstate-<アカウントID>` の `infra/terraform.tfstate`（ap-northeast-1）
 - 非公開・SSE-S3・HTTPS のみ・バージョニングあり。壊れたら前の版に戻せる
 - このバケットは Terraform の外で AWS CLI から作った（state を置く場所を、その state 自身で管理することはできないため）。消さないこと
 - state にはユーザーのパスワードが入る。バケットを公開しない・ほかの人に読ませない

@@ -13,8 +13,8 @@ workspace と `env` が合っていないと plan の前に止まる。作り方
 
 ## state の置き場
 
-state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`、ap-northeast-1）に置き、S3 だけでロックする（`versions.tf` の `backend "s3"`）。test の state は同じバケットの `env:/test/infra/terraform.tfstate`。
-どの PC でも `terraform init` すれば同じ state を使う。バケットは Terraform の外で作った（非公開・SSE-S3・HTTPS のみ・バージョニング）。
+state は S3（`ct125-logger-tfstate-<アカウントID>` の `infra/terraform.tfstate`、ap-northeast-1）に置き、S3 だけでロックする（`versions.tf` の `backend "s3"`）。test の state は同じバケットの `env:/test/infra/terraform.tfstate`。
+`<アカウントID>` は `aws sts get-caller-identity --profile ct125-logger` で確かめる。どの PC でも `terraform init` すれば同じ state を使う。バケットは Terraform の外で作った（非公開・SSE-S3・HTTPS のみ・バージョニング）。
 別の PC での準備は [docs/setup_another_pc.md](../docs/setup_another_pc.md)。
 
 ## 作るもの
