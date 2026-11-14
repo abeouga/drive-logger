@@ -76,6 +76,7 @@ def test_session_definitions_exist():
     assert sent == set(upload["files"]["allowed"])
     assert {item["name"] for item in session["files"] if item["required"]} == set(upload["files"]["required"])
     assert set(session["memo_files"]) <= sent
+    assert upload["files"]["memo"] == session["memo_files"]
 
 
 def test_request_schema_lists_the_allowed_files():

@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "description": "機器（ESP32・PC のツール）から生データを送る手順。設計は docs/device_upload_design.md",
   "auth": {
     "header": "Authorization",
@@ -47,7 +47,13 @@
       "gps.csv",
       "meta.json"
     ],
-    "max_bytes": 209715200
+    "max_bytes": 209715200,
+    "memo": [
+      "notes.md",
+      "memo.txt",
+      "readme.txt"
+    ],
+    "memo_description": "走行メモ。送り終えた走行にも、これだけは後から足せる（same_ride.memo）"
   },
   "url_seconds": 900,
   "raw_files": {
@@ -60,6 +66,11 @@
       "name": "upload_complete.json",
       "definition": "upload_complete.schema.json",
       "description": "完了の印（raw/<走行>/ の最後に置く）"
+    },
+    "addition": {
+      "name": "upload_addition.json",
+      "definition": "upload_addition.schema.json",
+      "description": "送り終えた走行に走行メモを足す受け付け（デバイス API が raw/<走行>/ に置く。#100）"
     }
   },
   "device_rules": {
@@ -74,6 +85,7 @@
       "local_session",
       "required file sizes"
     ],
-    "record": "_uploads/<sha256>.json（生データのバケット。走行 ID の形でないので処理は走行として数えない）"
+    "record": "_uploads/<sha256>.json（生データのバケット。走行 ID の形でないので処理は走行として数えない）",
+    "memo": "送り終えた走行でも、送ってきた走行メモ（files.memo）が S3 に無いか大きさが違えば、start は status=memo_added でそのメモの分だけ URL を返す（upload_addition.json に記録）。メモを足した機器が complete を呼ぶと、大きさを確かめ、upload_complete.json の files にメモを足して memo_added_at を付けて置き直す（処理がもう一度動く）。最初に送った機器でなくてよい（#100）"
   }
 }

@@ -56,5 +56,4 @@ body:
       label: 書き残す先
       options:
         - label: docs/ の設計書（architecture.md など）に追記する
-        - label: CLAUDE.md の更新が必要か確認した
-        - label: docs/PROGRESS.md に記録する
+        - label: 決めたことを docs/ の該当する文書に書いた

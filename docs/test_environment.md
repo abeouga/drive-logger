@@ -15,7 +15,7 @@
 | Lambda・API・ECR・ロール | `ct125-ride-pipeline`・`ct125-data-api`・`ct125-device-api`・`ct125-local-pipeline` など | `ct125-test-ride-pipeline`・`ct125-test-data-api`・`ct125-test-device-api`・`ct125-test-local-pipeline` など |
 | ログインの利用者 | `ct125-app-users` | `ct125-test-app-users`（別の利用者とパスワード） |
 | 機器トークンの置き場所（SSM） | `/ct125/devices/` | `/ct125-test/devices/` |
-| 画面のドメイン | `drive.herdio-system.com` | `drive-test.herdio-system.com`（案。`test.tfvars` の `app_domain` で変えられる） |
+| 画面のドメイン | `drive.herdio-system.com` | `drive-test.herdio-system.com`（`test.tfvars` の `app_domain` で変えられる） |
 | ログイン画面の URL の先頭 | `ct125-drive-login` | `ct125-drive-login-test` |
 
 - 名前は `infra/environment.tf` の `locals` で、`env` から作る。本番（`env = "prod"`）は今の名前のままになる
@@ -47,7 +47,7 @@ test の費用の目安（ap-northeast-1、ふだんの使い方で月あたり�
 
 ## 3. 作る手順
 
-`terraform apply` は、本人の了承を取ってからする。コマンドはどれもリポジトリの直下で打つ。
+`terraform apply` は、作るものを plan で確かめてからする。コマンドはどれもリポジトリの直下で打つ。
 
 1. `infra/test.example.tfvars` をコピーして `infra/test.tfvars` を作り、test の利用者とパスワードを書く（本番と同じパスワードにしない。コミットしない）
 2. workspace の test を作る（2 回目からは `terraform -chdir=infra workspace select test`）

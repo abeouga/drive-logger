@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/upload/start_response.schema.json",
-  "version": 2,
+  "version": 3,
   "title": "POST /api/device/uploads の応答",
   "type": "object",
   "required": [
@@ -48,9 +48,10 @@
       "enum": [
         "new",
         "resumed",
-        "already_uploaded"
+        "already_uploaded",
+        "memo_added"
       ],
-      "description": "new＝新しい走行、resumed＝途中から、already_uploaded＝同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えている。uploads は空で、そのまま完了を報告すればよい（#14）"
+      "description": "new＝新しい走行、resumed＝途中から、already_uploaded＝同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えている。uploads は空で、そのまま完了を報告すればよい（#14）。memo_added＝同じ SD の走行を送り終えているが、走行メモ（notes.md など）が S3 に無いか大きさが違う。uploads はそのメモの分だけで、送ったら完了を報告する（#100）"
     }
   }
 }
