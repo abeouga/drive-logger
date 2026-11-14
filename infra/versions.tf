@@ -11,19 +11,20 @@ terraform {
   # key は本番（workspace の default）の場所。test（workspace の test）は env:/test/<key> になる（environment.tf）
   # バケットは Terraform の外で作った（非公開・SSE-S3・バージョニング・HTTPS のみ）。
   # use_lockfile：S3 だけでロックする（DynamoDB は使わない）。2 台が同時に apply しても止まる
+  # バケット名（アカウント ID が入る）・リージョン・プロファイルは backend.hcl（コミットしない。見本は backend.hcl.example）に書き、
+  #   terraform init -reconfigure -backend-config=backend.hcl で渡す
   backend "s3" {
-    bucket       = "ct125-logger-tfstate-535562976288"
     key          = "infra/terraform.tfstate"
-    region       = "ap-northeast-1"
-    profile      = "ct125-logger"
     encrypt      = true
     use_lockfile = true
   }
 }
 
+# allowed_account_ids：別のアカウントのプロファイルで plan・apply しても、何もせずに止める
 provider "aws" {
-  region  = var.aws_region
-  profile = var.aws_profile
+  region              = var.aws_region
+  profile             = var.aws_profile
+  allowed_account_ids = [var.aws_account_id]
 
   default_tags {
     # test にだけ Environment のタグを足す（本番のタグは変えない。費用を環境ごとに見られるように）
@@ -39,9 +40,10 @@ provider "aws" {
 
 # CloudFront に付ける証明書（ACM）は us-east-1 に作る決まり。それ以外には使わない
 provider "aws" {
-  alias   = "us_east_1"
-  region  = "us-east-1"
-  profile = var.aws_profile
+  alias               = "us_east_1"
+  region              = "us-east-1"
+  profile             = var.aws_profile
+  allowed_account_ids = [var.aws_account_id]
 
   default_tags {
     # test にだけ Environment のタグを足す（本番のタグは変えない。費用を環境ごとに見られるように）

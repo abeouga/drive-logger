@@ -14,6 +14,6 @@ app_user_passwords = {
   guest = "<8 文字以上、英小文字と数字を含む>"
 }
 
-# 画面のドメインとログイン画面の URL の先頭。書かなければ drive-test.herdio-system.com と ct125-drive-login-test
-# app_domain            = "drive-test.herdio-system.com"
+# 画面のドメインとログイン画面の URL の先頭。書かなければ drive-test.<base_domain> と ct125-drive-login-test
+# app_domain            = "drive-test.<base_domain>"
 # cognito_domain_prefix = "ct125-drive-login-test"

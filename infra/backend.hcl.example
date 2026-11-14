@@ -1,0 +1,6 @@
+# backend（state を置く S3）の設定の見本。コピーして backend.hcl を作る（backend.hcl はコミットしない）。
+#   terraform -chdir=infra init -reconfigure -backend-config=backend.hcl
+# state のバケットは Terraform の外で作ったもの（README の「state の置き場」）。<アカウントID> は aws sts get-caller-identity で確かめる
+bucket  = "ct125-logger-tfstate-<アカウントID>"
+region  = "<AWS の project の Region>"
+profile = "<管理者のプロファイル>"

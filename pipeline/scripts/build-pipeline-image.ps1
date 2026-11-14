@@ -1,7 +1,7 @@
 ﻿# 走行データ処理の Lambda 用コンテナを作り、ECR に上げる。
 #   1. docker build（deploy/lambda/Dockerfile、linux/amd64）
 #   2. ECR にログインして push
-#   3. 上げたイメージの digest を Terraform の変数ファイル（本番 pipeline_image.auto.tfvars、test pipeline_image.test.tfvars）に書く
+#   3. 上げたイメージの digest（sha256:…。ECR の住所は書かない）を Terraform の変数ファイル（本番 pipeline_image.auto.tfvars、test pipeline_image.test.tfvars）に書く
 # その後 infra で apply すると、Lambda が新しいイメージに切り替わる。
 # 前提：Docker Desktop が起動していること、Terraform で ECR リポジトリを作ってあること（terraform output pipeline_repository_url）
 #   -Env test : test の ECR に上げる（Terraform の workspace の test を読む。docs/test_environment.md）
@@ -74,16 +74,19 @@ try {
     # PowerShell 5.1 のパイプは文字コードを変えてしまい ECR が 400 を返すので、cmd のパイプで渡す（トークンは画面に出さない）
     Invoke-Checked { cmd /c "aws ecr get-login-password --profile $awsProfile | docker login --username AWS --password-stdin $registry" } "ECR にログインできません"
     Invoke-Checked { docker push $image } "docker push に失敗しました"
-    $digest = docker inspect --format "{{index .RepoDigests 0}}" $image
-    if ($LASTEXITCODE -ne 0 -or -not $digest) { throw "イメージの digest を取れません" }
+    # RepoDigests は <ECR の住所>@sha256:…。住所（アカウント ID とリージョンが入る）は Terraform がこの環境の ECR から組み立てるので、digest だけを書く
+    $repoDigest = docker inspect --format "{{index .RepoDigests 0}}" $image
+    if ($LASTEXITCODE -ne 0 -or -not $repoDigest) { throw "イメージの digest を取れません" }
+    $digest = ($repoDigest -split "@", 2)[1]
+    if ($digest -notmatch '^sha256:[0-9a-f]{64}$') { throw "イメージの digest の形が違います：$repoDigest" }
 
     if ($Environment -eq "prod") {
         $tfvars = Join-Path $terraformDir "pipeline_image.auto.tfvars"
-        $lines = @("# scripts/build-pipeline-image.ps1 が書く。手で直さない", "pipeline_image_uri = `"$digest`"")
+        $lines = @("# pipeline/scripts/build-pipeline-image.ps1 が書く。手で直さない（ECR の住所は書かない。この環境の ECR から組み立てる）", "pipeline_image_digest = `"$digest`"")
         $next = "terraform -chdir=$terraformDir apply"
     } else {
         $tfvars = Join-Path $terraformDir "pipeline_image.$Environment.tfvars"
-        $lines = @("# scripts/build-pipeline-image.ps1 -Env $Environment が書く。手で直さない", "pipeline_image_uri = `"$digest`"")
+        $lines = @("# pipeline/scripts/build-pipeline-image.ps1 -Env $Environment が書く。手で直さない（ECR の住所は書かない。この環境の ECR から組み立てる）", "pipeline_image_digest = `"$digest`"")
         $next = "terraform -chdir=$terraformDir workspace select $Environment; terraform -chdir=$terraformDir apply -var-file=$Environment.tfvars -var-file=pipeline_image.$Environment.tfvars"
     }
     [IO.File]::WriteAllLines($tfvars, $lines, [Text.UTF8Encoding]::new($false))

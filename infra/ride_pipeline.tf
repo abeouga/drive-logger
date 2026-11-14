@@ -10,6 +10,9 @@
 
 locals {
   pipeline_name = "${local.name_prefix}-ride-pipeline"
+  # イメージの住所は、この環境の ECR（アカウント ID とリージョンが入る）と、tfvars の digest から組み立てる。
+  # そのため、別の環境の ECR のイメージを指すことはない
+  pipeline_image_uri = var.pipeline_image_digest == null ? null : "${aws_ecr_repository.pipeline.repository_url}@${var.pipeline_image_digest}"
 }
 
 # ---------------------------------------------------------------- ECR（コンテナの置き場所）
@@ -103,6 +106,14 @@ resource "aws_iam_role_policy" "pipeline" {
 
 # ---------------------------------------------------------------- Lambda
 
+# digest が、この環境の ECR にあるイメージか、plan のときに確かめる（無ければここで止まる）。
+# test で -var-file=pipeline_image.test.tfvars を忘れると、本番の digest（pipeline_image.auto.tfvars）になるため
+data "aws_ecr_image" "pipeline" {
+  count           = var.pipeline_image_digest == null ? 0 : 1
+  repository_name = aws_ecr_repository.pipeline.name
+  image_digest    = var.pipeline_image_digest
+}
+
 resource "aws_cloudwatch_log_group" "pipeline" {
   name              = "/aws/lambda/${local.pipeline_name}"
   retention_in_days = 14
@@ -112,7 +123,7 @@ resource "aws_lambda_function" "pipeline" {
   function_name = local.pipeline_name
   role          = aws_iam_role.pipeline.arn
   package_type  = "Image"
-  image_uri     = var.pipeline_image_uri
+  image_uri     = local.pipeline_image_uri
   architectures = ["x86_64"] # Windows の Docker でそのまま作れる形
   memory_size   = 3008
   timeout       = 900 # 学習し直し（全走行）でも収まる上限
@@ -143,13 +154,8 @@ resource "aws_lambda_function" "pipeline" {
 
   lifecycle {
     precondition {
-      condition     = var.pipeline_image_uri != null
-      error_message = "pipeline_image_uri がありません。先に pipeline/ の scripts/build-pipeline-image.ps1 でイメージを上げてください。"
-    }
-    # 別の環境の ECR のイメージを使わない（test で -var-file=pipeline_image.test.tfvars を忘れると、本番のイメージを指してしまう）
-    precondition {
-      condition     = try(strcontains(var.pipeline_image_uri, "/${local.pipeline_name}@"), true) # null は上で止める
-      error_message = "pipeline_image_uri が、この環境の ECR（${local.pipeline_name}）のイメージではありません。test は -var-file=pipeline_image.test.tfvars を付けてください。"
+      condition     = var.pipeline_image_digest != null
+      error_message = "pipeline_image_digest がありません。先に pipeline/ の scripts/build-pipeline-image.ps1 でイメージを上げてください（test は -var-file=pipeline_image.test.tfvars も付ける）。"
     }
   }
 

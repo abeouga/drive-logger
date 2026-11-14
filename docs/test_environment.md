@@ -15,7 +15,7 @@
 | Lambda・API・ECR・ロール | `ct125-ride-pipeline`・`ct125-data-api`・`ct125-device-api`・`ct125-local-pipeline` など | `ct125-test-ride-pipeline`・`ct125-test-data-api`・`ct125-test-device-api`・`ct125-test-local-pipeline` など |
 | ログインの利用者 | `ct125-app-users` | `ct125-test-app-users`（別の利用者とパスワード） |
 | 機器トークンの置き場所（SSM） | `/ct125/devices/` | `/ct125-test/devices/` |
-| 画面のドメイン | `drive.herdio-system.com` | `drive-test.herdio-system.com`（`test.tfvars` の `app_domain` で変えられる） |
+| 画面のドメイン | `drive.<base_domain>`（`base_domain` は `terraform.tfvars`） | `drive-test.<base_domain>`（`test.tfvars` の `app_domain` で変えられる） |
 | ログイン画面の URL の先頭 | `ct125-drive-login` | `ct125-drive-login-test` |
 
 - 名前は `infra/environment.tf` の `locals` で、`env` から作る。本番（`env = "prod"`）は今の名前のままになる
@@ -115,7 +115,7 @@ aws lambda invoke --function-name ct125-test-ride-pipeline --payload "{\"action\
 aws s3 sync s3://ct125-logger-raw-<アカウントID>/ s3://ct125-logger-test-raw-<アカウントID>/ --exclude "*" --include "*/upload_complete.json" --profile ct125-logger
 ```
 
-この後、https://drive-test.herdio-system.com/ に test の利用者でログインすると、走行一覧が開ける。
+この後、test の画面（workspace の test の `terraform output app_url`）に test の利用者でログインすると、走行一覧が開ける。
 
 ## 5. test のロールが本番に届かないことを確かめる
 
