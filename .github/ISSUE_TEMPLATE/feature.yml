@@ -9,7 +9,7 @@ body:
     id: purpose
     attributes:
       label: 目的
-      description: このIssueで何を実現するのか、ゴール像（DEV_PLAN 1.1）のどこに当たるかを記載してください。
+      description: このIssueで何を実現するのか、README の「何をしているか」のどの段階に当たるかを記載してください。
       placeholder: 例）走行一覧から、窓の詳細（生波形・スペクトログラム）をスマホで見られるようにする
     validations:
       required: true
@@ -64,7 +64,7 @@ body:
     id: related
     attributes:
       label: 関連する設計・資料
-      placeholder: 例）docs/WEB_PLAN.md、docs/data_spec_v2.md
+      placeholder: 例）docs/data_flow_design.md、docs/data_spec_v2.md
 
   - type: textarea
     id: notes

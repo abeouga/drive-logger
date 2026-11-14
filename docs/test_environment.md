@@ -47,7 +47,7 @@ test の費用の目安（ap-northeast-1、ふだんの使い方で月あたり�
 
 ## 3. 作る手順
 
-`terraform apply` は、本人の了承を取ってからする。コマンドはどれもリポジトリの直下で打つ。
+`terraform apply` は、作るものを plan で確かめてからする。コマンドはどれもリポジトリの直下で打つ。
 
 1. `infra/test.example.tfvars` をコピーして `infra/test.tfvars` を作り、test の利用者とパスワードを書く（本番と同じパスワードにしない。コミットしない）
 2. workspace の test を作る（2 回目からは `terraform -chdir=infra workspace select test`）

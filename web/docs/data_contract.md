@@ -44,7 +44,7 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `n_clipped` | number | ±16 g に達したサンプルを含む窓数 |
 | `rms_median` | number | rms の中央値（g） |
 | `spark` | (number \| null)[] | rms を 60 区間に平均したもの（カードの小さなグラフ） |
-| `memo` | string | 本人のメモ（`memo.txt`・`readme.txt`） |
+| `memo` | string | 走行メモ（`memo.txt`・`readme.txt`） |
 
 ## `ride_<id>.json`
 

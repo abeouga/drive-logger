@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""スペクトログラムと生波形の書き出し（docs/WEB_PLAN.md 4.、Web アプリ版の 11/9 分）。
+"""スペクトログラムと生波形の書き出し（画面用データの形は web/docs/data_contract.md）。
 
 スペクトログラム
 - 走行の 1 秒窓（windows.parquet と同じ区切り）ごとに、3 軸それぞれの平均を引いて Hann 窓を掛けて FFT し、

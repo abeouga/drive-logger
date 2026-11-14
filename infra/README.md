@@ -43,8 +43,8 @@ state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`
   1. `terraform apply -target=aws_ecr_repository.pipeline`
   2. `pipeline/scripts/build-pipeline-image.ps1`（`pipeline_image.auto.tfvars` に digest を書く。書き換わったらコミットする）
   3. `terraform apply`
-- 自宅周辺のマスクはやめた（#13）。処理の Lambda の SSM を読む権限は外した。SSM の `/ct125/private-points` そのものは、本人の了承の後に消す
-- 作り直し（役割ごとのバケット・1 本の処理の流れ）を本番に入れる手順：[docs/migration_split_buckets.md](../docs/migration_split_buckets.md)
+- 自宅周辺のマスクはやめた（#13）。処理の Lambda の SSM を読む権限は外した。SSM の `/ct125/private-points` は使っていない
+- 役割ごとのバケットと 1 本の処理の流れの設計：[docs/data_flow_design.md](../docs/data_flow_design.md)
 - PC の処理のロールを使うプロファイル（`~/.aws/config`）：`[profile ct125-local-pipeline]` に `role_arn = <terraform output -raw local_pipeline_role_arn>`・`source_profile = ct125-logger`・`region = ap-northeast-1`
 - モデルの版：作業用のバケットの `models/current.json`（`{"version": "..."}`）。Lambda の retrain・publish が書き換える
 - DNS は Cloudflare（`herdio-system.com`）。次の 2 つの CNAME を **プロキシなし（DNS のみ）** で置く
@@ -65,7 +65,7 @@ terraform plan
 terraform apply
 ```
 
-apply の後、画面を出すのは `D:\ct125-app\scripts\deploy.ps1`（Terraform の出力からログイン設定を作り、ビルドして S3 に上げる）。
+apply の後、画面を出すのは `web/scripts/deploy.ps1`（Terraform の出力からログイン設定を作り、ビルドして S3 に上げる）。
 
 ## destroy して作り直すとき
 
@@ -76,4 +76,4 @@ apply の後、画面を出すのは `D:\ct125-app\scripts\deploy.ps1`（Terrafo
 ## 注意
 
 - state にはユーザーのパスワードとアカウント ID が入る。S3 のバケットを公開しない・コミットしない
-- パスワードの決まりは緩めてある（8 文字以上・英小文字と数字）。後で `cognito.tf` の `password_policy` を 12 文字以上・英大文字必須に戻し、パスワードも変える
+- パスワードの決まりは緩めてある（8 文字以上・英小文字と数字。`cognito.tf` の `password_policy`）。利用者が覚えやすいパスワードを使うため
