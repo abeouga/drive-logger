@@ -7,7 +7,7 @@ Terraform の state は S3 にあるので、PC ごとに持つ必要はあり�
 
 | ツール | 使うところ | 備考 |
 |---|---|---|
-| Git・GitHub CLI（`gh`） | 全部 | リポジトリは非公開。`gh auth login` でログインしてから clone |
+| Git・GitHub CLI（`gh`） | 全部 | リポジトリが非公開のときは、`gh auth login` でログインしてから clone |
 | AWS CLI v2 | 全部 | プロファイル名は **`ct125-logger`** に固定（Terraform の backend とスクリプトがこの名前を使う） |
 | uv | `api/`・`pipeline/` | Python も uv が入れる（api は 3.13、pipeline は 3.12） |
 | Node.js（LTS） | `web/` | |
@@ -50,9 +50,9 @@ aws sts get-caller-identity --profile ct125-logger
 | ファイル | 中身 | 作り方 |
 |---|---|---|
 | `infra/terraform.tfvars` | アプリのユーザーとパスワード（**秘密**） | `example.tfvars` をコピーし、**いま使っているパスワードと同じ値**を入れる。違う値を入れると apply でパスワードが変わる。値はパスワード管理ソフトなどで受け渡し、チャットや Git には書かない |
-| `pipeline/config/local.yaml` | AWS のプロファイルとバケット、マスクする地点 | `pipeline/config/local.example.yaml` をコピーして埋める |
+| `pipeline/config/local.yaml` | ローカルの処理に使う AWS のプロファイル（`pipeline_profile`）。バケット名を決まりと違うものにするときだけ、その名前 | `pipeline/config/local.example.yaml` をコピーして埋める |
 | `api/dist/lambda.zip` | データ API・デバイス API の Lambda | `api/scripts/build-lambda.ps1` で作る（Terraform が読む） |
-| `CLAUDE.md` | AI 向けの短い案内（開発用の文書のリポジトリを指す） | 開発用の文書のリポジトリ（abeouga/agorack-document、非公開）を `D:\agorack-document` にクローンし、`drive-logger/` の案内のとおりに置く |
+| `CLAUDE.md` | AI 向けの短い案内（開発用の文書のリポジトリを指す） | 開発用の文書のリポジトリ（abeouga/agorack-document、非公開）をクローンし、`drive-logger/` の案内のとおりに置く |
 | `.claude/launch.json` | 手元の開発サーバーの起動の設定（画面の `npm run dev` など） | 開発用の文書のリポジトリ（abeouga/agorack-document、非公開）の `drive-logger/` から写す |
 
 次のものは自動で作られるか、要りません。
