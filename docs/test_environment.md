@@ -158,17 +158,17 @@ $env:CT125_ENV = "test"
 
 - どの命令も、最初に「向き先：test」のように向き先を出す
 - test のときは、`config/local.yaml` の `aws`・`upload`（本番用に書いた値）は使わない。test だけの値は `config/local.yaml` の `environments.test` に書く
-- 向き先ごとの値（バケット名・プロファイル・Lambda・SSM の場所・送り先のドメイン）は `config/default.yaml` の `environments.test`
+- 名前の決まりで決まる値（バケット名・Lambda・SSM の場所）は `config/default.yaml` の `environments.test`。PC に依る値（プロファイル・送り先のドメイン）は `config/local.yaml` の `environments.test`（見本は `config/local.example.yaml`）
 - PC から SD の走行を test に送るときは、先に test の機器トークンを作る：`python -m ct125 --env test register-device --id pc01 --token-file config/pc01.test.token`
 
 ## 7. 画面を test に向ける
 
 | 起動 | 向き先 |
 |---|---|
-| `start.bat -Env test`（`web/scripts/start-dev.ps1 -Env test`） | `/api/*` は https://drive-test.herdio-system.com、ログインは test の Cognito。ログインの設定は Terraform（workspace の test）の出力から `web/.env.testenv.local` に作る |
+| `start.bat -Env test`（`web/scripts/start-dev.ps1 -Env test`） | `/api/*` は test の画面のドメイン、ログインは test の Cognito。どちらの設定も Terraform（workspace の test）の出力から `web/.env.testenv.local`（コミットしない）に作る |
 | `api/scripts/run-local.ps1 -Env test` と `npm run dev:local` | 手元のデータ API が、test のバケットと Lambda を使う（ログインなし、admin） |
 
-- `npm run dev:test` は `web/.env.testenv`（中継先）と `web/.env.testenv.local`（ログインの設定）を読む
+- `npm run dev:test` は `web/.env.testenv.local`（中継先とログインの設定）を読む
 - `api/scripts/run-local.ps1` は `-Env` を省くと本番を使う（今までの `web/docs/local_dev.md` の手順と同じ）
 
 ## 8. 消すとき

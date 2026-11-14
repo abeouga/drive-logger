@@ -12,7 +12,6 @@ $terraformDir = if ($env:CT125_TERRAFORM_DIR) { $env:CT125_TERRAFORM_DIR } else 
 # 選んでいる workspace に関わらず、-Env の環境の出力を読む（本番は default）。終わったら元に戻す
 $previousWorkspace = $env:TF_WORKSPACE
 $env:TF_WORKSPACE = if ($Environment -eq "prod") { "default" } else { $Environment }
-$awsProfile = "ct125-logger"
 $tag = Get-Date -Format "yyyyMMdd-HHmmss"
 
 function Assert-Env {
@@ -20,6 +19,13 @@ function Assert-Env {
     # env の出力が無い（古い state）のは本番だけ
     if ($LASTEXITCODE -ne 0 -or -not $actual) { $actual = "prod" }
     if ($actual -ne $Environment) { throw "Terraform の出力の環境（$actual）が -Env（$Environment）と違います" }
+}
+
+# ECR にログインするプロファイルは、Terraform と同じもの（出力の aws_profile。infra/terraform.tfvars に書く）
+function Get-AwsProfile {
+    $name = terraform "-chdir=$terraformDir" output -raw aws_profile
+    if ($LASTEXITCODE -ne 0 -or -not $name) { throw "Terraform の出力に aws_profile がありません（terraform apply 済みか確認）" }
+    return $name
 }
 
 function Get-RepositoryUrl {
@@ -59,6 +65,7 @@ try {
     Assert-Env
     Assert-NewBuckets
     $repositoryUrl = Get-RepositoryUrl
+    $awsProfile = Get-AwsProfile
     $commit = Get-Commit
     $registry = $repositoryUrl.Split("/")[0]
     $image = "$($repositoryUrl):$tag"

@@ -21,28 +21,65 @@ def _write_local(root: Path, text: str) -> None:
     (root / "config" / "local.yaml").write_text(text, encoding="utf-8")
 
 
-def test_default_is_prod_with_current_names(root):
+# PC に依る値は local.yaml にだけ書く。試験では本物と違う見本の値を使う
+LOCAL_YAML = """aws:
+  profile: admin-profile
+  pipeline_profile: prod-pipeline-profile
+upload:
+  base_url: https://app.example.test
+environments:
+  test:
+    aws:
+      profile: admin-profile
+      pipeline_profile: test-pipeline-profile
+    upload:
+      base_url: https://app-test.example.test
+"""
+TEST_NAMED = ("bucket_name", "pipeline_function", "device_parameter_prefix")
+
+
+def test_default_yaml_has_no_machine_values(root):
+    # 送り先とプロファイルは default.yaml に書かない（local.yaml が無ければ空）
     cfg = load_config(root)
     acfg = cli.aws_settings(cfg)
     assert cfg["_env"] == "prod"
-    assert acfg["bucket_name"] == "ct125-logger-{role}-{account_id}"
-    assert acfg["pipeline_function"] == "ct125-ride-pipeline"
-    assert acfg["device_parameter_prefix"] == "/ct125/devices/"
-    assert cfg["upload"]["base_url"] == "https://drive.herdio-system.com"
+    assert acfg["profile"] is None and acfg["pipeline_profile"] is None
+    assert cfg["upload"]["base_url"] is None
+    test = load_config(root, env="test")
+    assert test["upload"]["base_url"] is None
+    assert cli.aws_settings(test).get("pipeline_profile") is None
+
+
+def test_prod_takes_machine_values_from_local_yaml(root):
+    _write_local(root, LOCAL_YAML)
+    cfg = load_config(root)
+    acfg = cli.aws_settings(cfg)
+    assert acfg["profile"] == "admin-profile"
+    assert acfg["pipeline_profile"] == "prod-pipeline-profile"
+    assert cfg["upload"]["base_url"] == "https://app.example.test"
 
 
 def test_test_env_points_every_place_to_test(root):
-    cfg = load_config(root, env="test")
-    acfg = cli.aws_settings(cfg)
-    assert cfg["_env"] == "test" and acfg["env"] == "test"
-    assert acfg["bucket_name"] == "ct125-logger-test-{role}-{account_id}"
-    assert acfg["pipeline_function"] == "ct125-test-ride-pipeline"
-    assert acfg["pipeline_profile"] == "ct125-test-local-pipeline"
-    assert acfg["device_parameter_prefix"] == "/ct125-test/devices/"
-    assert cfg["upload"]["base_url"] == "https://drive-test.herdio-system.com"
-    assert cfg["upload"]["token_file"] == "config/pc01.test.token"
-    # 管理者のプロファイルとリージョンは本番と同じ（同じ AWS のプロジェクト）
-    assert acfg["profile"] == "ct125-logger"
+    _write_local(root, LOCAL_YAML)
+    prod = load_config(root)
+    test = load_config(root, env="test")
+    pacfg, tacfg = cli.aws_settings(prod), cli.aws_settings(test)
+    assert test["_env"] == "test" and tacfg["env"] == "test"
+    # 名前の決まり（infra/environment.tf と同じ）で、どの場所も本番と別の test のものを指す
+    for key in TEST_NAMED:
+        assert tacfg[key] != pacfg[key] and "test" in tacfg[key]
+    assert test["upload"]["token_file"] != prod["upload"]["token_file"]
+    # プロファイルと送り先は local.yaml の environments.test から
+    assert tacfg["pipeline_profile"] == "test-pipeline-profile"
+    assert tacfg["profile"] == "admin-profile"
+    assert test["upload"]["base_url"] == "https://app-test.example.test"
+
+
+def test_upload_sd_needs_base_url(root, tmp_path, capsys):
+    # 送り先が設定に無ければ、どこにも送らずに止まる
+    (root / "config" / "pc01.token").write_text("x", encoding="ascii")
+    assert cli.main(["--root", str(root), "upload-sd", str(tmp_path)]) == 2
+    assert "upload.base_url" in capsys.readouterr().err
 
 
 def test_env_variable_and_local_yaml_choose_the_env(root, monkeypatch):
@@ -58,15 +95,15 @@ def test_local_aws_values_are_not_used_for_test(root):
     # 本番用に local.yaml に書いたバケット名やプロファイルで、test を動かさない
     _write_local(
         root,
-        "aws:\n  pipeline_profile: ct125-local-pipeline\n  raw_bucket: ct125-logger-raw-123\n"
-        "environments:\n  test:\n    aws:\n      region: ap-northeast-1\n",
+        "aws:\n  pipeline_profile: prod-pipeline-profile\n  raw_bucket: raw-bucket-123\n"
+        "environments:\n  test:\n    aws:\n      region: region-x\n",
     )
     prod = cli.aws_settings(load_config(root))
-    assert prod["pipeline_profile"] == "ct125-local-pipeline" and prod["raw_bucket"] == "ct125-logger-raw-123"
+    assert prod["pipeline_profile"] == "prod-pipeline-profile" and prod["raw_bucket"] == "raw-bucket-123"
     test = cli.aws_settings(load_config(root, env="test"))
-    assert test["pipeline_profile"] == "ct125-test-local-pipeline"
+    assert test.get("pipeline_profile") is None
     assert "raw_bucket" not in test
-    assert test["region"] == "ap-northeast-1"
+    assert test["region"] == "region-x"
 
 
 def test_unknown_env_is_an_error(root):

@@ -57,7 +57,7 @@ src/ct125_api/
 ├── device_main.py            デバイス API の組み立て
 ├── lambda_handler.py         データ API の Lambda の入口（Mangum）
 ├── device_lambda_handler.py  デバイス API の Lambda の入口
-├── config.py                 設定（環境変数から読む。Settings と DeviceSettings）
+├── config.py                 設定（環境変数から読む。Settings と DeviceSettings。環境に依る値は既定を持たず、Terraform が渡す）
 ├── dependencies.py           データ API の部品の組み立て（Depends で注入する。テストで差し替える）
 ├── device_dependencies.py    デバイス API の部品の組み立て
 ├── errors.py                 業務上の失敗 → HTTP ステータスの対応表（両方のアプリで使う）
@@ -114,7 +114,7 @@ uv run pytest
 S3 の本物のデータでデータ API を動かすとき（ログインなしで「ローカルの開発者」として扱う）：
 
 ```powershell
-$env:AWS_PROFILE="ct125-logger"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:WORK_BUCKET="ct125-logger-work-<アカウントID>"; $env:PIPELINE_FUNCTION="ct125-ride-pipeline"; $env:RAW_BUCKET="ct125-logger-raw-<アカウントID>"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --port 8000 --app-dir src
+$env:AWS_PROFILE="<管理者のプロファイル>"; $env:DATA_BUCKET="ct125-logger-public-<アカウントID>"; $env:WORK_BUCKET="ct125-logger-work-<アカウントID>"; $env:PIPELINE_FUNCTION="ct125-ride-pipeline"; $env:RAW_BUCKET="ct125-logger-raw-<アカウントID>"; $env:ALLOW_LOCAL_USER="true"; uv run uvicorn ct125_api.main:app --reload --port 8000 --app-dir src
 ```
 
 http://localhost:8000/api/docs で説明書が開きます。`ALLOW_LOCAL_USER` は Lambda では設定しません。

@@ -66,7 +66,7 @@ S3 には繋がない（記憶の上の置き場所で、処理の流れを端�
 
 ### ローカルで流す
 
-S3 から生データを読み、作業用の場所に書く（手元にデータのフォルダーは置かない）。プロファイルは `config/default.yaml` の `aws`（`config/local.yaml` で上書き）。
+S3 から生データを読み、作業用の場所に書く（手元にデータのフォルダーは置かない）。プロファイルは `config/local.yaml` の `aws`（コミットしない。見本は `config/local.example.yaml`）。
 向き先は本番（prod）が既定で、`--env test`（または環境変数 `CT125_ENV=test`）で test の環境に向く。どの命令も最初に向き先を出す（docs/test_environment.md）。
 
 ```bash
@@ -115,7 +115,7 @@ terraform -chdir=infra apply
 .venv/Scripts/python.exe -m ct125 register-device --id d01 --token-file d01.token
 ```
 
-PC から SD の走行を送る（ESP32 と同じデバイス API を通す。走行 ID はサーバーが付ける）。PC の機器 ID とトークンは `config/default.yaml` の `upload`（既定は `pc01` と `config/pc01.token`。トークンはコミットしない）：
+PC から SD の走行を送る（ESP32 と同じデバイス API を通す。走行 ID はサーバーが付ける）。PC の機器 ID とトークンは `config/default.yaml` の `upload`（既定は `pc01` と `config/pc01.token`。トークンはコミットしない）。送り先の URL は `config/local.yaml` の `upload.base_url`（無ければ止まる。`--base-url` でも渡せる）：
 
 ```bash
 .venv/Scripts/python.exe -m ct125 register-device --id pc01 --token-file config/pc01.token
