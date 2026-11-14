@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/upload/upload_addition.schema.json",
+  "version": 1,
+  "title": "raw/<走行>/upload_addition.json（送り終えた走行に走行メモを足す受け付け。デバイス API が置く。#100）",
+  "type": "object",
+  "required": [
+    "ride_id",
+    "device_id",
+    "local_session",
+    "files",
+    "created_at",
+    "applied_at"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "ride_id": {
+      "type": "string",
+      "pattern": "^ride_[0-9]{8}_[0-9]{6}(_[0-9]{1,2})?$"
+    },
+    "device_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,31}$",
+      "description": "メモを足した機器（最初に送った機器でなくてよい）"
+    },
+    "local_session": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]{1,32}$"
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "size"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "enum": [
+              "notes.md",
+              "memo.txt",
+              "readme.txt"
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "applied_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time",
+      "description": "complete でメモを確かめて完了の印を置き直した時刻。null ならまだ"
+    }
+  }
+}

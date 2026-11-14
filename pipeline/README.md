@@ -4,11 +4,10 @@ ESP32 ロガー（ATGM336H GPS ＋ ADXL345 加速度 ＋ microSD）の走行記�
 前処理 → 1 秒窓の特徴量 → 異常スコア → 画面用データ（JSON・PNG）にする。
 同じコードを、ローカルの CLI と AWS の Lambda（コンテナ）の両方から使う。
 
-- 計画：[../docs/DEV_PLAN.md](../docs/DEV_PLAN.md)（表現上の制約 4. と作業ルール 7. を全成果物に適用）
+- 解析の決まり（言い方・特徴量・前処理・異常スコア）：[../docs/analysis_policy.md](../docs/analysis_policy.md)
 - データの実測スキーマ：[../docs/data_schema.md](../docs/data_schema.md)、データ仕様：[../docs/data_spec_v2.md](../docs/data_spec_v2.md)
 - 前処理の知見：[../docs/knowledge_preprocessing.md](../docs/knowledge_preprocessing.md)、構成：[../docs/architecture.md](../docs/architecture.md)
-- 作り直しの設計（S3 を中心にした 1 本の流れ）：[../docs/data_flow_design.md](../docs/data_flow_design.md)
-- 進捗：[../docs/PROGRESS.md](../docs/PROGRESS.md)
+- データの流れの設計（S3 を中心にした 1 本の流れ）：[../docs/data_flow_design.md](../docs/data_flow_design.md)
 
 ## 中身
 
@@ -123,7 +122,7 @@ PC から SD の走行を送る（ESP32 と同じデバイス API を通す。�
 ```
 
 ```bash
-.venv/Scripts/python.exe -m ct125 upload-sd E:/sessions
+.venv/Scripts/python.exe -m ct125 upload-sd <SD の sessions フォルダー>
 ```
 
 - 走行のフォルダー 1 つでも、`/sessions` のような親フォルダーでもよい（`accel.csv` のあるフォルダーを送る）

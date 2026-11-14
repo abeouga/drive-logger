@@ -178,6 +178,8 @@ def _upload_sd(cfg: dict, args) -> int:
             continue
         if result.status == "already_uploaded":
             print(f"{folder.name}: 送り終えている走行です（{result.ride_id}）。新しくは作りません")
+        elif result.status == "memo_added":
+            print(f"{folder.name}: 送り終えている走行 {result.ride_id} に走行メモを足しました（{', '.join(result.sent)}、{result.completed}）。AWS 側で処理がもう一度動きます")
         else:
             print(f"{folder.name}: {result.ride_id} として送りました（{len(result.sent)} ファイル、{result.completed}）。AWS 側で処理が始まります")
     return 1 if failed else 0

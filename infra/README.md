@@ -13,8 +13,8 @@ workspace と `env` が合っていないと plan の前に止まる。作り方
 
 ## state の置き場
 
-state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`、ap-northeast-1）に置き、S3 だけでロックする（`versions.tf` の `backend "s3"`）。test の state は同じバケットの `env:/test/infra/terraform.tfstate`。
-どの PC でも `terraform init` すれば同じ state を使う。バケットは Terraform の外で作った（非公開・SSE-S3・HTTPS のみ・バージョニング）。
+state は S3（`ct125-logger-tfstate-<アカウントID>` の `infra/terraform.tfstate`、ap-northeast-1）に置き、S3 だけでロックする（`versions.tf` の `backend "s3"`）。test の state は同じバケットの `env:/test/infra/terraform.tfstate`。
+`<アカウントID>` は `aws sts get-caller-identity --profile ct125-logger` で確かめる。どの PC でも `terraform init` すれば同じ state を使う。バケットは Terraform の外で作った（非公開・SSE-S3・HTTPS のみ・バージョニング）。
 別の PC での準備は [docs/setup_another_pc.md](../docs/setup_another_pc.md)。
 
 ## 作るもの
@@ -28,7 +28,7 @@ state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`
 | `certificate.tf` | ACM 証明書（**us-east-1**） | `drive.herdio-system.com`。CloudFront 用なので us-east-1 に置く決まり |
 | `cognito.tf` | Cognito ユーザープール・アプリクライアント・ログイン画面 | 新規登録は不可。認可コード＋PKCE |
 | `cognito_users.tf` | ログインできるユーザー | `terraform.tfvars` の `app_users` と `app_user_passwords` どおりに作る |
-| `data_api.tf` | API Gateway（HTTP API）・Lambda・IAM ロール・ログ | `/api/health` 以外は JWT が必要。Lambda は公開用のバケットの `datasets/*` だけ読める |
+| `data_api.tf` | API Gateway（HTTP API）・Lambda・IAM ロール・ログ | `/api/health` 以外は JWT が必要。Lambda が読めるのは公開用のバケットの `datasets/*` と作業用の `ledger/`・`runs/`・`models/`、書けるのは台帳（`ledger/rides.json`）だけ。ほかに、処理の Lambda を呼ぶ（公開の作り直し・モデルの切り替え）ことと、ゴミ箱の「完全に削除」のときに生データの `ride_*/` と作業用の `runs/*/rides/ride_*/` を消すことができる |
 | `cloudfront.tf` | CloudFront・OAC | `/*` → S3 `webapp/`、`/api/*` → API Gateway |
 | `ride_pipeline.tf` | ECR・Lambda（コンテナ）・IAM ロール・S3 イベント | 生データのバケットの `<走行>/upload_complete.json` で処理して公開。手動で `{"action":"retrain"}`・`{"action":"publish"}`。公開用に書けるのはこの Lambda だけ |
 | `device_api.tf` | Lambda（デバイス API）・IAM ロール・API Gateway の POST ルート | ESP32 が生データを生データのバケットに直接置くための受付。権限は生データのバケットに置くことと機器トークンのハッシュを読むことだけ |
@@ -43,8 +43,8 @@ state は S3（`ct125-logger-tfstate-535562976288` の `infra/terraform.tfstate`
   1. `terraform apply -target=aws_ecr_repository.pipeline`
   2. `pipeline/scripts/build-pipeline-image.ps1`（`pipeline_image.auto.tfvars` に digest を書く。書き換わったらコミットする）
   3. `terraform apply`
-- 自宅周辺のマスクはやめた（#13）。処理の Lambda の SSM を読む権限は外した。SSM の `/ct125/private-points` そのものは、本人の了承の後に消す
-- 作り直し（役割ごとのバケット・1 本の処理の流れ）を本番に入れる手順：[docs/migration_split_buckets.md](../docs/migration_split_buckets.md)
+- 特定の地点の周りの座標を隠す仕組みはやめた（#13）。処理の Lambda の SSM を読む権限は外した。SSM の `/ct125/private-points` は使っていない
+- 役割ごとのバケットと 1 本の処理の流れの設計：[docs/data_flow_design.md](../docs/data_flow_design.md)
 - PC の処理のロールを使うプロファイル（`~/.aws/config`）：`[profile ct125-local-pipeline]` に `role_arn = <terraform output -raw local_pipeline_role_arn>`・`source_profile = ct125-logger`・`region = ap-northeast-1`
 - モデルの版：作業用のバケットの `models/current.json`（`{"version": "..."}`）。Lambda の retrain・publish が書き換える
 - DNS は Cloudflare（`herdio-system.com`）。次の 2 つの CNAME を **プロキシなし（DNS のみ）** で置く
@@ -65,7 +65,7 @@ terraform plan
 terraform apply
 ```
 
-apply の後、画面を出すのは `D:\ct125-app\scripts\deploy.ps1`（Terraform の出力からログイン設定を作り、ビルドして S3 に上げる）。
+apply の後、画面を出すのは `web/scripts/deploy.ps1`（Terraform の出力からログイン設定を作り、ビルドして S3 に上げる）。
 
 ## destroy して作り直すとき
 
@@ -76,4 +76,4 @@ apply の後、画面を出すのは `D:\ct125-app\scripts\deploy.ps1`（Terrafo
 ## 注意
 
 - state にはユーザーのパスワードとアカウント ID が入る。S3 のバケットを公開しない・コミットしない
-- パスワードの決まりは緩めてある（8 文字以上・英小文字と数字）。後で `cognito.tf` の `password_policy` を 12 文字以上・英大文字必須に戻し、パスワードも変える
+- パスワードの決まりは緩めてある（8 文字以上・英小文字と数字。`cognito.tf` の `password_policy`）。利用者が覚えやすいパスワードを使うため

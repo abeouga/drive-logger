@@ -17,7 +17,7 @@ firmware・pipeline・api・web の間でやりとりするファイルと JSON 
 
 - JSON Schema は Draft 2020-12。どの定義にも `version`（整数）を持たせ、形を変えたら上げる
 - 画面用 JSON の見本は `examples/app/`。pipeline のテストが、本物の書き出しの関数から作り直して一致を確かめ、web の型チェック（`web/src/lib/contract.check.ts`）がこの見本を型に当てる
-- 走行の台帳・処理の記録・モデルの記録は、設計（[docs/data_flow_design.md](../docs/data_flow_design.md)）の形を先に定義したもの。実装は #10・#11
+- 走行の台帳・処理の記録・モデルの記録は、設計（[docs/data_flow_design.md](../docs/data_flow_design.md)）の形を定義したもの。書くのは pipeline の `records.py`・`models.py`（台帳はデータ API の `domain/ledger.py` も）
 
 ## 突き合わせのテスト
 

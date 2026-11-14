@@ -44,6 +44,8 @@ class FakeRawUploads:
         self.objects: dict[tuple[str, str], int] = {}
         self.completed: set[str] = set()
         self.fingerprints: dict[str, str] = {}
+        self.additions: dict = {}
+        self.memo_marks: list = []
 
     def create_session(self, session):
         if session.ride_id in self.sessions:
@@ -75,6 +77,15 @@ class FakeRawUploads:
 
     def save_fingerprint(self, fingerprint, session):
         self.fingerprints[fingerprint] = session.ride_id
+
+    def save_addition(self, addition):
+        self.additions[addition.ride_id] = addition
+
+    def find_addition(self, ride_id):
+        return self.additions.get(ride_id)
+
+    def mark_memo_added(self, ride_id, file_names, when):
+        self.memo_marks.append((ride_id, file_names, when))
 
 
 def _service(repository):
@@ -159,9 +170,9 @@ def test_complete_checks_sizes_then_marks():
     assert ride_id not in repository.completed
 
     repository.put(ride_id, FILES)
-    assert service.complete(D01, ride_id) is True
+    assert service.complete(D01, ride_id) == "complete"
     assert ride_id in repository.completed
-    assert service.complete(D01, ride_id) is False  # やり直しても困らない
+    assert service.complete(D01, ride_id) == "already_complete"  # やり直しても困らない
 
 
 def test_cannot_resume_after_complete():
@@ -238,9 +249,9 @@ def test_same_sd_ride_is_not_uploaded_twice_even_from_another_device():
     first = service.start(D01, "ride_013", FILES)
     assert first.status == "new"
     repository.put(first.ride_id, FILES)
-    assert service.complete(D01, first.ride_id) is True
+    assert service.complete(D01, first.ride_id) == "complete"
 
-    again = service.start(Device("pc01"), "ride_013", FILES + [("notes.md", 20)])   # PC から、メモを足して送り直した
+    again = service.start(Device("pc01"), "ride_013", FILES)   # PC から、同じものを送り直した
     assert again.status == "already_uploaded" and again.ride_id == first.ride_id and again.urls == {}
 
 
@@ -263,7 +274,7 @@ def test_complete_again_saves_the_mark_for_old_uploads():
     ticket = service.start(D01, "ride_013", FILES)
     repository.put(ticket.ride_id, FILES)
     repository.completed.add(ticket.ride_id)        # 印を付ける前に完了していた走行
-    assert service.complete(D01, ticket.ride_id) is False
+    assert service.complete(D01, ticket.ride_id) == "already_complete"
     assert list(repository.fingerprints.values()) == [ticket.ride_id]
 
 
@@ -279,3 +290,104 @@ def test_http_returns_status_and_empty_uploads_for_a_duplicate(device_client):
     assert again["status"] == "already_uploaded" and again["uploads"] == [] and again["ride_id"] == first["ride_id"]
     # 機器はそのまま完了を報告し、「前に完了済み」を受け取って送り終えた印を付ける（firmware は変えなくてよい）
     assert client.post(f"/api/device/uploads/{again['ride_id']}/complete", headers=headers).json()["status"] == "already_complete"
+
+
+# ------------------------------------------------------------------ 送り終えた走行に走行メモを足す（#100）
+PC01 = Device("pc01")
+
+
+def _sent(repository, service, files=FILES):
+    ticket = service.start(D01, "ride_013", files)
+    repository.put(ticket.ride_id, files)
+    service.complete(D01, ticket.ride_id)
+    return ticket.ride_id
+
+
+def test_memo_written_later_can_be_added_from_another_device():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    ride_id = _sent(repository, service)
+
+    ticket = service.start(PC01, "ride_013", FILES + [("notes.md", 20)])   # PC で後からメモを書いて送り直した
+    assert ticket.status == "memo_added" and ticket.ride_id == ride_id
+    assert list(ticket.urls) == ["notes.md"]                                 # メモの分だけ。ほかは上書きさせない
+    assert repository.additions[ride_id].device_id == "pc01"
+
+    with pytest.raises(UploadConflictError):                                 # まだ置いていない
+        service.complete(PC01, ride_id)
+    repository.put(ride_id, [("notes.md", 20)])
+    assert service.complete(PC01, ride_id) == "memo_added"
+    assert repository.memo_marks == [(ride_id, ("notes.md",), NOW.isoformat())]
+    assert repository.additions[ride_id].applied_at == NOW.isoformat()
+
+    assert service.complete(PC01, ride_id) == "already_complete"           # やり直しても置き直さない
+    assert len(repository.memo_marks) == 1
+    assert service.start(PC01, "ride_013", FILES + [("notes.md", 20)]).status == "already_uploaded"
+
+
+def test_changed_memo_is_added_again_but_same_memo_is_not():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    ride_id = _sent(repository, service, FILES + [("notes.md", 20)])
+    assert service.start(PC01, "ride_013", FILES + [("notes.md", 20)]).status == "already_uploaded"
+    changed = service.start(PC01, "ride_013", FILES + [("notes.md", 35), ("memo.txt", 5)])
+    assert changed.status == "memo_added" and sorted(changed.urls) == ["memo.txt", "notes.md"]
+    repository.put(ride_id, [("notes.md", 35), ("memo.txt", 5)])
+    assert service.complete(PC01, ride_id) == "memo_added"
+    assert repository.memo_marks[-1][1] == ("notes.md", "memo.txt")
+
+
+def test_other_device_cannot_complete_someone_elses_memo_addition():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    ride_id = _sent(repository, service)
+    service.start(PC01, "ride_013", FILES + [("notes.md", 20)])
+    repository.put(ride_id, [("notes.md", 20)])
+    with pytest.raises(UploadNotFoundError):
+        service.complete(Device("pc02"), ride_id)
+    assert service.complete(D01, ride_id) == "already_complete"   # 最初に送った機器の報告では、メモの足しは確定しない
+    assert repository.memo_marks == []
+
+
+def test_memo_is_not_added_to_an_unfinished_upload():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    service.start(D01, "ride_013", FILES)                         # 送りかけ（完了していない）
+    assert service.start(PC01, "ride_013", FILES + [("notes.md", 20)]).status == "new"
+
+
+def test_s3_memo_added_rewrites_marker_with_memo():
+    import io
+    import json
+
+    class FakeS3:
+        def __init__(self):
+            self.objects = {"raw/ride_20261108_153012/upload_complete.json": {"ride_id": "ride_20261108_153012", "files": ["accel.csv", "gps.csv", "meta.json"], "uploaded_at": "2026-11-08T06:30:12+00:00", "source": "device", "device_id": "d01", "local_session": "ride_012"}}
+
+        def get_object(self, Bucket, Key):
+            return {"Body": io.BytesIO(json.dumps(self.objects[Key]).encode("utf-8"))}
+
+        def put_object(self, **kwargs):
+            self.objects[kwargs["Key"]] = json.loads(kwargs["Body"])
+
+    s3 = FakeS3()
+    S3RawUploadRepository(s3, "bucket", "raw/").mark_memo_added("ride_20261108_153012", ("notes.md",), NOW.isoformat())
+    marker = s3.objects["raw/ride_20261108_153012/upload_complete.json"]
+    assert marker["files"] == ["accel.csv", "gps.csv", "meta.json", "notes.md"]
+    assert marker["memo_added_at"] == NOW.isoformat() and marker["device_id"] == "d01"
+
+
+def test_http_memo_addition(device_client):
+    client, repository = device_client
+    headers = {"Authorization": f"Device d01.{TOKEN}"}
+    body = {"local_session": "ride_012", "files": [{"name": n, "size": s} for n, s in FILES]}
+    first = client.post("/api/device/uploads", json=body, headers=headers).json()
+    repository.put(first["ride_id"], FILES)
+    client.post(f"/api/device/uploads/{first['ride_id']}/complete", headers=headers)
+
+    body["files"].append({"name": "notes.md", "size": 20})
+    again = client.post("/api/device/uploads", json=body, headers=headers).json()
+    assert again["status"] == "memo_added" and [u["name"] for u in again["uploads"]] == ["notes.md"]
+    repository.put(first["ride_id"], [("notes.md", 20)])
+    done = client.post(f"/api/device/uploads/{first['ride_id']}/complete", headers=headers).json()
+    assert done == {"ride_id": first["ride_id"], "status": "memo_added"}

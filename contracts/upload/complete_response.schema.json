@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/upload/complete_response.schema.json",
-  "version": 1,
+  "version": 2,
   "title": "POST /api/device/uploads/{ride_id}/complete の応答",
   "type": "object",
   "required": ["ride_id", "status"],
   "additionalProperties": false,
   "properties": {
     "ride_id": { "type": "string" },
-    "status": { "enum": ["complete", "already_complete"], "description": "complete＝今回完了、already_complete＝前に完了済み（やり直しても困らない）" }
+    "status": { "enum": ["complete", "already_complete", "memo_added"], "description": "complete＝今回完了、already_complete＝前に完了済み（やり直しても困らない）、memo_added＝送り終えた走行に走行メモを足し、完了の印を置き直した（処理がもう一度動く。#100）" }
   }
 }

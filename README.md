@@ -14,7 +14,7 @@ flowchart LR
         ESP --> SD[(microSD)]
     end
 
-    ESP -->|家の Wi-Fi・署名付き URL| RAW[(S3 生データ)]
+    ESP -->|Wi-Fi・署名付き URL| RAW[(S3 生データ)]
     ESP -->|機器トークン| DEV[デバイス API<br/>api/ → Lambda]
     DEV -->|PUT 用 URL を発行| ESP
     DEV -->|完了の合図| RAW
@@ -35,7 +35,7 @@ flowchart LR
 | 段階 | 中身 | 場所 |
 |---|---|---|
 | 記録 | ESP32 が GPS（1Hz）と加速度（400Hz）を microSD に書く。電源断に強い（1 秒ごとに確定） | `firmware/` |
-| 送信 | 走行後、止まって静かになったら（または BOOT ボタン）、家の Wi-Fi で S3 に直接送る。機器は AWS の鍵を持たず、取り消せる機器トークンと 15 分だけ有効な URL だけを使う | `firmware/`、`api/`（デバイス API） |
+| 送信 | 走行後、止まって静かになったら（または BOOT ボタン）、Wi-Fi で S3 に直接送る。機器は AWS の鍵を持たず、取り消せる機器トークンと 15 分だけ有効な URL だけを使う | `firmware/`、`api/`（デバイス API） |
 | 前処理 | 1 秒窓の振動特徴量（RMS・p2p・crest・jerk・帯域比）と GPS の結合 | `pipeline/` |
 | 異常スコア | 速度で補正した正常時のベースラインからの逸脱（z_speed）と Isolation Forest（scikit-learn） | `pipeline/` |
 | 自動処理 | S3 に生データが届くと Lambda（コンテナ）が前処理 → 推論 → 画面用データの書き出し。学習し直しも Lambda で | `pipeline/src/ct125/cloud/` |
@@ -44,15 +44,14 @@ flowchart LR
 | インフラ | S3・CloudFront・ACM・Cognito・API Gateway・Lambda×3・ECR を Terraform で | `infra/` |
 
 **言っていないこと**：健康な車両の走行データだけで学習しているので、これは「故障の予測」ではありません。
-値の大きい区間は「路面または車両に起因する振動の変化」を示すもので、車両の異常と断定するものではありません（`docs/DEV_PLAN.md` 4.）。
+値の大きい区間は「路面または車両に起因する振動の変化」を示すもので、車両の異常と断定するものではありません（[docs/analysis_policy.md](docs/analysis_policy.md) 1.）。
 
 ## フォルダー
 
 ```
 drive-logger/
 ├── README.md        このファイル
-├── CLAUDE.md        Claude Code への作業ルール
-├── docs/            計画（DEV_PLAN）・進捗（PROGRESS）・構成・データ仕様・設計
+├── docs/            構成・解析の決まり・データ仕様・設計
 ├── firmware/        ESP32（Arduino）。記録と Wi-Fi での送信。設定スクリプト
 ├── pipeline/        Python。前処理・異常スコア・画面用データの書き出し・AWS の自動処理（Lambda コンテナ）・機器の登録
 ├── api/             FastAPI。データ API（画面用、読むだけ）とデバイス API（機器用、raw/ に置くだけ）
@@ -61,6 +60,8 @@ drive-logger/
 ```
 
 それぞれのフォルダーに README があります。全体の構成は [docs/architecture.md](docs/architecture.md)。
+
+開発中の論点・作業の段取り・手元の運用のメモは、開発用の文書のリポジトリ [abeouga/agorack-document](https://github.com/abeouga/agorack-document)（非公開）の `drive-logger/` に置いています。
 
 ## データの約束事
 
@@ -94,7 +95,7 @@ Terraform の state はコミットせず、非公開の S3 に置いていま�
 |---|---|
 | 画面をローカルで触る | `start.bat`（ダブルクリックでよい。PowerShell なら `.\start.ps1`。中身は `web/scripts/start-dev.ps1` で、`web/start.bat` と同じ。または `cd web; npm run dev`。公開版と同じログイン。`web/docs/local_dev.md`） |
 | 解析をローカルで流す | `cd pipeline; .venv/Scripts/python -m ct125 process --ride <走行>`（S3 から読み、作業用に結果を置く。画面に出すのは `publish`） |
-| PC から SD の走行を送る | `cd pipeline; .venv/Scripts/python -m ct125 upload-sd E:/sessions`（ESP32 と同じデバイス API。同じ走行は 2 回受け付けない） |
+| PC から SD の走行を送る | `cd pipeline; .venv/Scripts/python -m ct125 upload-sd <SD の sessions フォルダー>`（ESP32 と同じデバイス API。同じ走行は 2 回受け付けない） |
 | 走行の台帳を見る | `cd pipeline; .venv/Scripts/python -m ct125 rides`（消す・戻すは画面の admin のボタン） |
 | AWS のリソースを作る・変える | `terraform -chdir=infra apply` |
 | 画面を公開する | `web/scripts/deploy.ps1` |
@@ -118,6 +119,6 @@ PR と main への push ごとに、GitHub Actions が次を回します（AWS �
 
 ## 技術
 
-ESP32（Arduino、FreeRTOS、mbedTLS）／ Python 3.12（pandas・numpy・scikit-learn・pyarrow）／
+ESP32（Arduino、FreeRTOS、mbedTLS）／ Python（pipeline は 3.12、api は 3.13。pandas・numpy・scikit-learn・pyarrow）／
 FastAPI＋Mangum ／ React 19・TypeScript・Vite・Tailwind・MapLibre・ECharts ／ amazon-cognito-identity-js ／
 AWS（S3・CloudFront・ACM・Cognito・API Gateway・Lambda（zip とコンテナ）・ECR・SSM・CloudWatch Logs）／ Terraform ／ Docker
