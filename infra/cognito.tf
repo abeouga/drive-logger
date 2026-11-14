@@ -18,8 +18,7 @@ resource "aws_cognito_user_pool" "app" {
     case_sensitive = false
   }
 
-  # 覚えやすいパスワードを使うため、緩めにしている（2026-11-07 ユーザー判断）。
-  # 後で 12 文字以上・英大文字必須に戻すこと
+  # 利用者が覚えやすいパスワードを使うため、緩めにしている（8 文字以上・英小文字と数字）
   password_policy {
     minimum_length                   = 8
     require_lowercase                = true

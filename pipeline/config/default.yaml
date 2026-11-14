@@ -1,5 +1,5 @@
 # 設定の既定値（根拠は docs/data_schema.md 6.）。PC ごとの値（AWS のバケット名など）は config/local.yaml（コミットしない）に置く。
-window_sec: 1.0          # 1 秒窓、重なりなし（計画書 9.1）
+window_sec: 1.0          # 1 秒窓、重なりなし（docs/analysis_policy.md 2.1）
 edge_sec: 60             # 走行の先頭・末尾を is_edge=True にする秒数
 clip_g: 15.9             # ADXL345 FULL_RES ±16g の上限（15.97 g）手前。これ以上は is_clipped
 stop_speed_kmh: 5        # 停止判定（停止中でも GPS 速度が 0〜4 km/h 出る）。contracts/common.json と同じ値（firmware も使う）

@@ -67,4 +67,4 @@ body:
       label: 後片付け
       options:
         - label: 試験用の走行を公開一覧に残すか消すか決めた
-        - label: docs/PROGRESS.md に記録した
+        - label: 結果をこの Issue に書いた

@@ -25,6 +25,10 @@ build/
 .terraform/
 *.tsbuildinfo
 
+# 手元の開発の設定・作業のメモ（開発用の文書は abeouga/agorack-document の drive-logger/）
+.claude/launch.json
+docs/notes/
+
 # OS
 Thumbs.db
 .DS_Store

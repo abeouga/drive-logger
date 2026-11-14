@@ -4,12 +4,12 @@
 
 > **作り直し（2026-11-09）**：データの流れを、S3 を中心にした 1 本にした（Epic #1）。バケットを役割ごとに分け、
 > 処理の記録・走行の台帳・走行の分類・モデルの記録を足した。設計は [data_flow_design.md](data_flow_design.md)、
-> 本番に入れる手順は [migration_split_buckets.md](migration_split_buckets.md)。
+> 本番は 2026-11-09 にこの形へ移した（前の状態の印は git のタグ `before-split-buckets`）。
 
 ```mermaid
 flowchart LR
     subgraph bike[バイク側]
-        GPS[ATGM336H GPS<br/>9600bps・1Hz] --> ESP[ESP32<br/>CT125_LOGGER_V3.2]
+        GPS[ATGM336H GPS<br/>9600bps・1Hz] --> ESP[ESP32<br/>CT125_LOGGER_V3.3]
         ACC[ADXL345 振動<br/>400Hz・±16g] --> ESP
         ESP --> SD[(microSD<br/>accel.csv / gps.csv / ...)]
     end
@@ -40,7 +40,7 @@ flowchart LR
 
 | 段階 | 実装 | 場所 |
 |---|---|---|
-| 記録・送信 | ESP32 Arduino スケッチ（V3.1）。GPS と加速度を別 CSV、時計は `t_us`。走行後に Wi-Fi でデバイス API から S3 へ送る | `firmware/ct125_logger/`、`api/`（デバイス API） |
+| 記録・送信 | ESP32 Arduino スケッチ（V3.3）。GPS と加速度を別 CSV、時計は `t_us`。走行後に Wi-Fi でデバイス API から S3 へ送る | `firmware/ct125_logger/`、`api/`（デバイス API） |
 | 読み込み・時刻 | `t_us` と GPS UTC の対応付け、JST | `pipeline/src/ct125/io.py` |
 | クリーニング | 重複・振り切れ、GPS の status/sats/hdop/飛び/速度不整合 | `pipeline/src/ct125/clean.py` |
 | 特徴量 | 1 秒窓の振動特徴量、帯域比 | `pipeline/src/ct125/features.py` |
@@ -62,7 +62,7 @@ flowchart LR
 
 - SageMaker での学習（今は Lambda の `retrain` で十分な量。データが増えたら移す）
 - ユーザーごとのデータセット（入口は `api\src\ct125_api\services\dataset_resolver.py`。今は全員 shared。#25 で、当面は分けないと決めた）
-- test 環境（#26 で作ると決めた。同じ Terraform を変数で 2 つにし、今のプロジェクトの中で名前で分ける。[data_flow_design.md](data_flow_design.md) の 14.）
+- 本番と別の test 環境：同じ Terraform を変数で 2 つにし、今のプロジェクトの中で名前で分ける（#26。作りと使い方は [test_environment.md](test_environment.md)）
 
 ## 判定の差し替えの方針（#76 で決定、2026-11-10）
 
@@ -70,7 +70,7 @@ flowchart LR
 
 - モデル：Isolation Forest に**速度を特徴量として足し**、振動が**いつもより大きい側だけ**を判定にする。今の Isolation Forest は速度を使わずに学習しているため、速く走った所（もともと振動が大きい所）や、静かすぎる所を拾ってしまう。今の学習・保存・版の切り替えの仕組みをそのまま使える。GPS が無い走行は速度が分からないので、今どおり判定しない
 - しきい値：学習に使った 1 秒のスコアの分位点（上位 0.1% など。割合は `pipeline/config/default.yaml`）を、モデルと一緒に `model.json` に保存する。モデルの種類を問わず同じ決め方で済み、画面は保存した値を出すだけで済む
-- 確かめ方：正解のラベルが無いので、1 走行を抜いて学習し、抜いた走行にスコアを付けることを走行の数だけ繰り返す。そのうえで上位 N 件を目で見る（DEV_PLAN 4.2）。しきい値を超えた数が、学習のときと大きくずれないかも見る。今は学習に使った走行にそのままスコアを付けているので、新しい走行でどうなるかが分からない
+- 確かめ方：正解のラベルが無いので、1 走行を抜いて学習し、抜いた走行にスコアを付けることを走行の数だけ繰り返す。そのうえで上位 N 件を目で見る（[analysis_policy.md](analysis_policy.md) 1.2）。しきい値を超えた数が、学習のときと大きくずれないかも見る。今は学習に使った走行にそのままスコアを付けているので、新しい走行でどうなるかが分からない
 - 画面用データの判定の方法（`anomaly.method`）に新しい値を足すだけにし、画面は直さずに済むようにする
 - 保存形式は skops にする（#23。[data_flow_design.md](data_flow_design.md) の 10.）
 - 採用しなかった案：速度の区間ごとに Isolation Forest を作る（今の 1,439 秒を 20 区間に分けると 1 区間 70 秒ほどで、モデルが不安定になる）

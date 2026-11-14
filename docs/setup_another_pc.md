@@ -52,6 +52,7 @@ aws sts get-caller-identity --profile ct125-logger
 | `infra/terraform.tfvars` | アプリのユーザーとパスワード（**秘密**） | `example.tfvars` をコピーし、**いま使っているパスワードと同じ値**を入れる。違う値を入れると apply でパスワードが変わる。値はパスワード管理ソフトなどで受け渡し、チャットや Git には書かない |
 | `pipeline/config/local.yaml` | AWS のプロファイルとバケット、マスクする地点 | `pipeline/config/local.example.yaml` をコピーして埋める |
 | `api/dist/lambda.zip` | データ API・デバイス API の Lambda | `api/scripts/build-lambda.ps1` で作る（Terraform が読む） |
+| `.claude/launch.json` | 手元の開発サーバーの起動の設定（画面の `npm run dev` など） | 開発用の文書のリポジトリ（abeouga/agorack-document、非公開）の `drive-logger/` から写す |
 
 次のものは自動で作られるか、要りません。
 

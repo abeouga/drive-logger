@@ -8,7 +8,7 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 設計は [docs/device_upload_design.md](../../docs/device_upload_design.md)。電源を切れば今までどおり記録は終わります（送るのは次に止まったとき）。
 
 > 記録は 2026-11-02 に机上（ブレッドボード版 CT125-BB-R3）で確認。V3 は 2026-11-08 に机上で、記録（399Hz・取りこぼし 0）と、
-> **家の Wi-Fi で S3 へ送り、AWS の自動処理を経て公開一覧に載るまで**を確認（4.3MB を約 33 秒）。現在は V3.2。
+> **家の Wi-Fi で S3 へ送り、AWS の自動処理を経て公開一覧に載るまで**を確認（4.3MB を約 33 秒）。現在は V3.3。
 > V3.2（2026-11-09）は、走行メモ `notes.md` を送るようにし、止まっているとみなす速さを 3 → 5 km/h にした（pipeline とそろえた）。
 > V3.3（2026-11-09）は、送る走行の判定を meta.json の文字列の完全一致から JSON の値の読み取りに変えた（`json_lite.h`。コロンの前後の空白を許し、版の数で比べる。PC で動くテストは `firmware/tests/host/`）。**V3.2・V3.3 はコンパイルと PC のテストだけ確かめた。実機にはまだ書き込んでいない。**
 > 2026-11-10、1 つだった `ct125_logger.ino` を役割ごとのファイルに分けた（#27。関数の中身・定数・CSV と meta.json の書き出しは変えていないので、版は V3.3 のまま）。分けた後の版は、コンパイルだけ確かめた。
@@ -80,7 +80,7 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 - **送信の記録**：SD の `/upload_log.csv`。シリアルに `LOG` と送ると最後の約 40 行を出す（SD を抜かずに理由が見られる）
 - **秘密の置き場所**：Wi-Fi のパスワードと機器トークンは ESP32 の内部フラッシュ（NVS）だけ。ソースにも SD にも書かない
 
-最初の設定（1 回だけ。パスワードは本人が入力する）：
+最初の設定（1 回だけ。パスワードは利用者が入力する）：
 
 ```bash
 .venv/Scripts/python.exe -m ct125 register-device --id d01 --token-file config/d01.token
@@ -120,23 +120,14 @@ python tools/check_session.py E:/sessions
 ## 書き込み方
 
 ```bash
-"D:/ESP32/tools/arduino-cli/arduino-cli.exe" compile --config-file D:/ESP32/arduino-cli.yaml --fqbn "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M" --output-dir build .
+arduino-cli compile --fqbn "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M" --output-dir build .
 ```
 
 ```bash
-"D:/ESP32/arduino-data/packages/esp32/tools/esptool_py/5.3.1/esptool.exe" --chip esp32 --port COM5 --baud 230400 write-flash 0x1000 build/ct125_logger.ino.bootloader.bin 0x8000 build/ct125_logger.ino.partitions.bin 0x10000 build/ct125_logger.ino.bin
+"<arduino-cli のデータのフォルダー>/packages/esp32/tools/esptool_py/5.3.1/esptool.exe" --chip esp32 --port <ポート> --baud 230400 write-flash 0x1000 build/ct125_logger.ino.bootloader.bin 0x8000 build/ct125_logger.ino.partitions.bin 0x10000 build/ct125_logger.ino.bin
 ```
 
-（ポートは PC によって変わる。2026-11-08 は COM5。`arduino-cli board list` で確かめる）
-
-元のプログラム（SD_READER_V1）は `../backup/before-check-4MB.bin`（4MB全体、実機と照合済み）。ソースは見つかっていない。
-
-## まだやっていないこと
-
-- バッテリーだけでの動作確認（手順は下）
-- 実車での走行記録、振動の大きさ（±16g で足りるか）、周波数（400Hz で足りるか）
-- センサーの軸と車体の向きの対応づけ
-- GPS の PPS による UTC との精密な同期
+（ポートは PC によって変わる。`arduino-cli board list` で確かめる）
 
 ## バッテリー単体テストの手順
 

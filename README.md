@@ -44,15 +44,14 @@ flowchart LR
 | インフラ | S3・CloudFront・ACM・Cognito・API Gateway・Lambda×3・ECR を Terraform で | `infra/` |
 
 **言っていないこと**：健康な車両の走行データだけで学習しているので、これは「故障の予測」ではありません。
-値の大きい区間は「路面または車両に起因する振動の変化」を示すもので、車両の異常と断定するものではありません（`docs/DEV_PLAN.md` 4.）。
+値の大きい区間は「路面または車両に起因する振動の変化」を示すもので、車両の異常と断定するものではありません（[docs/analysis_policy.md](docs/analysis_policy.md) 1.）。
 
 ## フォルダー
 
 ```
 drive-logger/
 ├── README.md        このファイル
-├── CLAUDE.md        Claude Code への作業ルール
-├── docs/            計画（DEV_PLAN）・進捗（PROGRESS）・構成・データ仕様・設計
+├── docs/            構成・解析の決まり・データ仕様・設計
 ├── firmware/        ESP32（Arduino）。記録と Wi-Fi での送信。設定スクリプト
 ├── pipeline/        Python。前処理・異常スコア・画面用データの書き出し・AWS の自動処理（Lambda コンテナ）・機器の登録
 ├── api/             FastAPI。データ API（画面用、読むだけ）とデバイス API（機器用、raw/ に置くだけ）
@@ -61,6 +60,8 @@ drive-logger/
 ```
 
 それぞれのフォルダーに README があります。全体の構成は [docs/architecture.md](docs/architecture.md)。
+
+開発中の論点・作業の段取り・手元の運用のメモは、開発用の文書のリポジトリ [abeouga/agorack-document](https://github.com/abeouga/agorack-document)（非公開）の `drive-logger/` に置いています。
 
 ## データの約束事
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""欠損・外れ値・重複の処理と GPS の妥当性チェック（計画書フェーズ 1-2、docs/data_schema.md 5.）。"""
+"""欠損・外れ値・重複の処理と GPS の妥当性チェック（docs/analysis_policy.md 3.、docs/data_schema.md 5.）。"""
 from __future__ import annotations
 
 import numpy as np

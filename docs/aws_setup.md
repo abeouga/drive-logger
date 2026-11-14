@@ -11,7 +11,7 @@
 ## 0. 前提
 
 - アカウント：ct125-logger 専用の AWS アカウント。CLI プロファイル **`ct125-logger`**（IAM ユーザーの長期アクセスキー、region = ap-northeast-1）。プラン：有料（PAID）。
-- リージョン：「新しい AWS 体験」ではプロジェクトごとに固定。読み取り API ではどのリージョンも拒否されず判定できなかったため、住所（熊本）と計画書から **ap-northeast-1** とし、そこでバケット作成が通った。念のため **AWS Settings > View all projects > Overview > Additional Info > Region** で確認する。
+- リージョン：「新しい AWS 体験」ではプロジェクトごとに固定。読み取り API ではどのリージョンも拒否されず判定できなかったため、住所から **ap-northeast-1** とし、そこでバケット作成が通った。念のため **AWS Settings > View all projects > Overview > Additional Info > Region** で確認する。
 - 鍵はリポジトリにも Terraform フォルダーにも置かない（`~/.aws/credentials` のみ）。
 - 使うのは S3 だけ。データ約 100 MB で、料金は月数円〜数十円の見込み。
 
@@ -93,10 +93,10 @@ site/<ride_id>/index.html
 
 ## 6. 静的ウェブサイトホスティング（Should、やらない既定）
 
-やる場合は `site/` だけを別バケットにして CloudFront + OAC で配信する（バケット自体は公開しない）。本人の確認後に着手。
+やる場合は `site/` だけを別バケットにして CloudFront + OAC で配信する（バケット自体は公開しない）。やっていない。
 
 ## 7. 片付け
 
-**方針（2026-11-06 本人決定）：バケットは当面残す。** 残すか消すかは後で改めて決める。
+**方針（2026-11-06）：バケットは当面残す。**
 
-バケットは `force_destroy = false`（中身があると `terraform destroy` が失敗し、生データの誤削除を防ぐ）。消すときは本人が確認してから、全バージョンを削除 → `terraform destroy`。
+バケットは `force_destroy = false`（中身があると `terraform destroy` が失敗し、生データの誤削除を防ぐ）。消すときは中身を確かめてから、全バージョンを削除 → `terraform destroy`。
