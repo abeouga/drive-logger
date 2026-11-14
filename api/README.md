@@ -36,15 +36,15 @@ ESP32    ─https（署名付き URL）→ S3 生データ <走行>/ → 完了�
 | `GET /api/models` | ログイン | モデルの版の一覧と、今使っている版 |
 | `GET /api/models/{version}`・`/notes` | ログイン | その版の記録（model.json）とナレッジ（notes.md） |
 | `PUT /api/models/current` | admin | 今使うモデルを切り替える（全走行の点数付けし直しは処理の Lambda。202 を返し、数分で画面に出る） |
-
-応答の形は `../contracts/api/`（`tests/test_rides_api.py` が定義に当てる）。データ API が書けるのは作業用のバケットの台帳（`ledger/rides.json`）だけで、公開用には書けない。
-完全に削除のときだけ、生データの `<ride_id>/` 以下と、作業用の `runs/<run_id>/rides/<ride_id>/` 以下を消せる（読めない）。`run.json` とモデルは記録なので消さない。
 | `GET /api/docs` | ― | データ API の説明書（OpenAPI） |
 | `POST /api/device/uploads` | 機器 | 送るファイルと大きさ → 走行名（`ride_<日時>`）とファイルごとの PUT 用 URL（15 分）。途中で切れたら前回の走行名を付けて呼び直す |
 | `POST /api/device/uploads/{ride_id}/complete` | 機器 | S3 の大きさが申告どおりなら完了の合図を置く（違えば 409）。完了済みなら `already_complete` |
 
-機器の認証ヘッダー：`Authorization: Device <機器ID>.<トークン>`。機器の登録・無効化は ct125-logger の
-`python -m ct125 register-device --id d01` / `revoke-device`（pipeline/）。PC から送る道具は pipeline の `python -m ct125 upload-sd`（ESP32 と同じ手順）。
+応答の形は `../contracts/api/`（`tests/test_rides_api.py` が定義に当てる）。データ API が書けるのは作業用のバケットの台帳（`ledger/rides.json`）だけで、公開用には書けない。
+完全に削除のときだけ、生データの `<ride_id>/` 以下と、作業用の `runs/<run_id>/rides/<ride_id>/` 以下を消せる（読めない）。`run.json` とモデルは記録なので消さない。
+
+機器の認証ヘッダー：`Authorization: Device <機器ID>.<トークン>`。機器の登録・無効化は pipeline の
+`python -m ct125 register-device --id d01` / `revoke-device`。PC から送る道具は pipeline の `python -m ct125 upload-sd`（ESP32 と同じ手順）。
 同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えていれば、`POST /api/device/uploads` は既にある走行 ID を `status: already_uploaded`・`uploads: []` で返す（#14。印は生データのバケットの `_uploads/`）。
 
 ## フォルダー構成と役割
@@ -64,6 +64,8 @@ src/ct125_api/
 │
 ├── routers/                  ① HTTP の入口（Controller）。受け取ってサービスを呼ぶだけ
 │   ├── health_router.py  me_router.py  data_router.py
+│   ├── rides_router.py       走行の台帳・処理の記録・消す・戻す・完全に削除
+│   ├── models_router.py      モデルの記録と切り替え
 │   └── device_upload_router.py
 ├── schemas/                  ② やりとりする JSON の形（View / DTO）
 │   ├── responses.py
@@ -71,16 +73,21 @@ src/ct125_api/
 ├── services/                 ③ 業務の流れ（Service）
 │   ├── data_file_service.py      ファイル名の検査 → データセットを決める → 読む
 │   ├── dataset_resolver.py       ユーザー → データセット（今は全員 shared）
+│   ├── ride_service.py           台帳・処理の記録・モデルを見る／変える（変えるのは admin だけ）
+│   ├── pipeline_client.py        処理の Lambda に公開の作り直し・モデルの切り替えを頼む（非同期）
 │   ├── device_authenticator.py   機器トークンのハッシュを照合する
 │   └── raw_upload_service.py     受け付け → URL を出す → 大きさを確かめて完了
 ├── repositories/             ④ データの置き場所とのやりとり（DAO / Repository）。約束と実装を分けてある
 │   ├── data_file_repository.py      ／ s3_data_file_repository.py
 │   ├── device_token_repository.py   ／ ssm_device_token_repository.py
-│   └── raw_upload_repository.py     ／ s3_raw_upload_repository.py
+│   ├── raw_upload_repository.py     ／ s3_raw_upload_repository.py
+│   ├── work_repository.py           作業用のバケットを読む（台帳・処理の記録・モデル）。書けるのは台帳だけ
+│   └── ride_files_repository.py     完全に削除のときに、走行の生データと処理の結果を消す
 ├── auth/
 │   └── current_user.py       API Gateway が渡す claims → User
 └── domain/                   ⑤ 業務の言葉と決まり（FastAPI にも AWS にも依存しない）
     ├── user.py  dataset.py  data_file.py
+    ├── ledger.py             走行の台帳の書き換えの決まり（消す・戻す・完全に削除）
     ├── device.py             機器と、その認証情報の形
     ├── raw_upload.py         送れるファイル・大きさの上限・走行名の付け方・受け付けの記録
     └── exceptions.py

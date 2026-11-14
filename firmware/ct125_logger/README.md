@@ -4,11 +4,11 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 記録の形は [データ仕様 v2](../../docs/data_spec_v2.md)に合わせています（V3 でも同じ）。ファイルと列の正式な定義は [contracts/sd/](../../contracts/sd/)、送信の手順は [contracts/upload/](../../contracts/upload/)（CI がこのソースの定数と突き合わせる）。
 
 **V3（2026-11-08）で足したこと**：走行後、止まって静か（エンジン停止）が 2 分続くか、BOOT ボタンを 2 秒押すと、
-記録を閉じて家の Wi-Fi で S3 に送ります。そこから AWS の自動処理が動き、https://drive.herdio-system.com/ に出ます。
+記録を閉じて Wi-Fi で S3 に送ります。そこから AWS の自動処理が動き、https://drive.herdio-system.com/ に出ます。
 設計は [docs/device_upload_design.md](../../docs/device_upload_design.md)。電源を切れば今までどおり記録は終わります（送るのは次に止まったとき）。
 
 > 記録は 2026-11-02 に机上（ブレッドボード版 CT125-BB-R3）で確認。V3 は 2026-11-08 に机上で、記録（399Hz・取りこぼし 0）と、
-> **家の Wi-Fi で S3 へ送り、AWS の自動処理を経て公開一覧に載るまで**を確認（4.3MB を約 33 秒）。現在は V3.3。
+> **Wi-Fi で S3 へ送り、AWS の自動処理を経て公開一覧に載るまで**を確認（4.3MB を約 33 秒）。現在は V3.3。
 > V3.2（2026-11-09）は、走行メモ `notes.md` を送るようにし、止まっているとみなす速さを 3 → 5 km/h にした（pipeline とそろえた）。
 > V3.3（2026-11-09）は、送る走行の判定を meta.json の文字列の完全一致から JSON の値の読み取りに変えた（`json_lite.h`。コロンの前後の空白を許し、版の数で比べる。PC で動くテストは `firmware/tests/host/`）。**V3.2・V3.3 はコンパイルと PC のテストだけ確かめた。実機にはまだ書き込んでいない。**
 > 2026-11-10、1 つだった `ct125_logger.ino` を役割ごとのファイルに分けた（#27。関数の中身・定数・CSV と meta.json の書き出しは変えていないので、版は V3.3 のまま）。分けた後の版は、コンパイルだけ確かめた。
@@ -33,6 +33,8 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 
 ## 配線（実機で確認済み）
 
+配線図は [docs/hardware/配線図/配線図.png](../../docs/hardware/配線図/配線図.png)。
+
 | 部品 | ESP32 |
 |---|---|
 | ADXL345（GY-291） | SDA=IO21、SCL=IO22、CS=3V3、SDO=GND（I2C 0x53） |
@@ -54,7 +56,7 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 /upload_log.csv         送信の記録（V3）
 ```
 
-- すべての時刻は ESP の時計 `t_us`（起動からのマイクロ秒）。GPS の UTC との対応は `gps.csv` の `t_rx_us`（RMC 文を受け取った時刻）と `utc` で取る。詳しくはデータ仕様.md 第2章。
+- すべての時刻は ESP の時計 `t_us`（起動からのマイクロ秒）。GPS の UTC との対応は `gps.csv` の `t_rx_us`（RMC 文を受け取った時刻）と `utc` で取る。詳しくは [データ仕様 v2](../../docs/data_spec_v2.md) の 2 章。
 - 加速度の単位は g。±16g、分解能 3.9mg。軸はセンサー基板の軸のまま。
 - データ量は約15KB/秒（1時間で約55MB）。
 
@@ -80,17 +82,19 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 - **送信の記録**：SD の `/upload_log.csv`。シリアルに `LOG` と送ると最後の約 40 行を出す（SD を抜かずに理由が見られる）
 - **秘密の置き場所**：Wi-Fi のパスワードと機器トークンは ESP32 の内部フラッシュ（NVS）だけ。ソースにも SD にも書かない
 
-最初の設定（1 回だけ。パスワードは利用者が入力する）：
+最初の設定（1 回だけ。パスワードは利用者が入力する）。機器トークンは `pipeline/` で作る：
 
 ```bash
 .venv/Scripts/python.exe -m ct125 register-device --id d01 --token-file config/d01.token
 ```
 
+ESP32 に書き込む（`firmware/` で。トークンのファイルは上で作ったもの）：
+
 ```powershell
-./scripts/provision-device.ps1 -Port COM5 -Ssid <家のルーターの 2.4GHz の SSID（末尾 -2G）> -DeviceId d01 -TokenFile config/d01.token
+./scripts/provision-device.ps1 -Port <ポート> -Ssid <2.4GHz の SSID> -DeviceId d01 -TokenFile ../pipeline/config/d01.token
 ```
 
-ESP32 は 5GHz の Wi-Fi に対応していないので、末尾 -5G の SSID は使えない。設定の確認はシリアルに `CFG STATUS`（値は出さず、入っているかどうかだけ出す）。
+ESP32 は 5GHz の Wi-Fi に対応していないので、5GHz の SSID は使えない。設定の確認はシリアルに `CFG STATUS`（値は出さず、入っているかどうかだけ出す）。
 
 ## 電源断への強さ
 
@@ -111,10 +115,10 @@ ESP32 は 5GHz の Wi-Fi に対応していないので、末尾 -5G の SSID �
 SD カードをカードリーダーで PC に読ませてから：
 
 ```bash
-python tools/check_session.py E:/sessions
+python pipeline/tools/check_session.py <SD の sessions フォルダー>
 ```
 
-（`E:` はカードリーダーのドライブ。`tools/check_session.py` はこのリポジトリの最上位にある）
+（リポジトリの直下から。`<SD の sessions フォルダー>` はカードリーダーに挿した SD の `/sessions`）
 記録時間・実測周波数・サンプルの飛び・GPS の有効率・UTC の開始時刻・t_us と UTC のずれのばらつきを表示する。
 
 ## 書き込み方

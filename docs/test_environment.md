@@ -15,7 +15,7 @@
 | Lambda・API・ECR・ロール | `ct125-ride-pipeline`・`ct125-data-api`・`ct125-device-api`・`ct125-local-pipeline` など | `ct125-test-ride-pipeline`・`ct125-test-data-api`・`ct125-test-device-api`・`ct125-test-local-pipeline` など |
 | ログインの利用者 | `ct125-app-users` | `ct125-test-app-users`（別の利用者とパスワード） |
 | 機器トークンの置き場所（SSM） | `/ct125/devices/` | `/ct125-test/devices/` |
-| 画面のドメイン | `drive.herdio-system.com` | `drive-test.herdio-system.com`（案。`test.tfvars` の `app_domain` で変えられる） |
+| 画面のドメイン | `drive.herdio-system.com` | `drive-test.herdio-system.com`（`test.tfvars` の `app_domain` で変えられる） |
 | ログイン画面の URL の先頭 | `ct125-drive-login` | `ct125-drive-login-test` |
 
 - 名前は `infra/environment.tf` の `locals` で、`env` から作る。本番（`env = "prod"`）は今の名前のままになる

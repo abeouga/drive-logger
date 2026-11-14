@@ -20,7 +20,7 @@
 ログイン：アプリの画面からユーザープールに直接（USER_SRP_AUTH、更新は REFRESH_TOKEN_AUTH）。アクセストークンを /api に付ける
 ```
 
-- バケットは非公開のまま。CloudFront は `webapp/` だけ、データ API の Lambda は公開用のバケットの `datasets/` だけを読める
+- バケットは非公開のまま。CloudFront は `webapp/` だけを読める。データ API の Lambda が読めるのは公開用のバケットの `datasets/` と作業用のバケットの台帳・処理の記録・モデルで、書けるのは台帳だけ（権限の全体は `infra/README.md` の `data_api.tf`）
 - ユーザーごとにデータを分ける入口は `api/src/ct125_api/services/dataset_resolver.py`。今は全員が `shared` を見る
 
 ---
@@ -34,6 +34,7 @@
 | `npm run build`（`scripts/deploy.ps1`） | 公開版 | CloudFront → データ API | **要** |
 | `npm run dev`（`start.bat`） | ふだんの開発 | Vite の dev サーバーが公開ドメインへ中継 | **要**（公開版と同じ） |
 | `npm run dev:local` | API と画面を一緒に直すとき | 手元で動かしたデータ API（http://localhost:8000） | なし（手元の開発者＝admin） |
+| `npm run dev:test`（`start.bat -Env test`） | 本番に書かずに、つないだ動きを確かめるとき | test の環境の公開ドメインへ中継 | **要**（test の Cognito。`../docs/test_environment.md`） |
 
 API の呼び出しは `src/lib/dataSource.ts` の 1 か所。走行の一覧は `GET /api/rides`（走行の台帳）、1 走行のデータは `GET /api/data/<ファイル名>`。
 admin でログインすると、走行を消す・ゴミ箱から戻す（#19）、前の処理の結果に戻す・モデルを切り替える（#20）ボタンが出る（最終的な判断はデータ API がする）。
@@ -43,12 +44,14 @@ admin でログインすると、走行を消す・ゴミ箱から戻す（#19�
 ## ディレクトリ構成
 
 ```
-web\
+web/
 ├── README.md  package.json  vite.config.ts  tsconfig.json  index.html
 ├── .env.example                  dev の設定の見本（コミットする）
 ├── .env.development              dev のログイン設定（秘密ではない。Terraform が無い PC でも起動できるようにコミットする）
 ├── .env.development.local        dev のログイン設定。start-dev.ps1 が Terraform の出力から作る（コミットしない。.env.development より優先）
 ├── .env.production.local         公開版のログイン設定。deploy.ps1 が Terraform の出力から作る（コミットしない）
+├── .env.testenv                  test の環境につなぐ dev サーバー（npm run dev:test）の中継先（秘密ではない。コミットする）
+├── .env.testenv.local            test のログイン設定。start-dev.ps1 -Env test が Terraform（workspace の test）の出力から作る（コミットしない）
 ├── start.bat                     ダブルクリックで npm run dev
 │
 ├── src/                   ブラウザで動くコード（React）
@@ -65,7 +68,9 @@ web\
 │
 ├── scripts/
 │   ├── start-dev.ps1      start.bat の中身（ログインの設定を作ってから npm run dev）
-│   └── deploy.ps1         公開：ログイン設定を作る → build → S3 webapp/ → CloudFront のキャッシュ削除
+│   ├── deploy.ps1         公開：ログイン設定を作る → build → S3 webapp/ → CloudFront のキャッシュ削除
+│   ├── auth-env.ps1       ログインの設定のファイルを Terraform の出力から作る関数（start-dev.ps1 と deploy.ps1 が読み込む）
+│   └── subset-brand-font.py  アプリの名前に使う字体から、名前の字だけの小さな woff2 を作る
 │
 ├── dist/                  ビルド結果（コミットしない）
 └── docs/
