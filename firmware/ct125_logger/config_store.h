@@ -9,7 +9,7 @@
 #include <Arduino.h>
 
 struct DeviceConfig {
-  String wifiSsid, wifiPass;    // 家の Wi-Fi（2.4GHz）
+  String wifiSsid, wifiPass;    // 送信に使う Wi-Fi（2.4GHz）
   String wifi2Ssid, wifi2Pass;  // 予備（スマホのテザリングなど。無くてよい）
   String deviceId, deviceToken; // register-device で作った機器 ID とトークン
   String apiBase;               // 送り先（既定 https://drive.herdio-system.com）

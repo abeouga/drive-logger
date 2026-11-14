@@ -1,11 +1,11 @@
-// CT125ロガー フェーズ1：加速度（ADXL345）＋GPS（ATGM336H）を microSD に記録する
+// CT125ロガー：加速度（ADXL345）＋GPS（ATGM336H）を microSD に記録し、走行後に Wi-Fi で S3 へ送る
 // データの形は ../../docs/data_spec_v2.md（データ仕様 v2）に合わせている。
 //
-// 配線（ブレッドボード版 CT125-BB-R3、2026-11-02 に実機で確認済み）
+// 配線（ブレッドボード版 CT125-BB-R3、実機で確認済み）
 //   ADXL345 : SDA=IO21, SCL=IO22, CS=3V3, SDO=GND（I2C 0x53）
 //   GPS     : GPS TX → IO32（ESP受信）, GPS RX ← IO33, 9600bps, PPS は未接続（PIN_PPS で有効化）
 //   microSD : CS=IO5, SCK=IO18, MISO=IO19, MOSI=IO23（秋月105488、3.3V）
-//   LED     : IO2（ボード上のLEDと仮定。要確認）
+//   LED     : IO2（ボード上のLEDのはず。実機で点くかは未確認）
 //
 // 記録の仕組み
 //   - 電源を入れるたびに /sessions/ride_NNN/ を作り、accel.csv・gps.csv・events.csv・status.csv に書く。
@@ -14,7 +14,7 @@
 //   - SDへの書き込みは loop()（コア1）で、RAMのリングバッファから取り出して行う。
 //   - 1秒ごとに flush。電源が突然切れても失うのは最後の約1秒。
 //
-// V3：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
+// 送信：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
 //   記録中 →（止まって静か 2 分、または BOOT ボタン 2 秒）→ 記録を閉じる → 送信 → 待機
 //   待機中に動き出したら再起動して、新しい走行の記録を始める。記録と送信は同時にしない。
 //   送信の手順は uploader.cpp、Wi-Fi とトークンの設定は config_store.cpp（シリアルから書き込む）。
@@ -171,7 +171,7 @@ void finishSession(const char *reason) {
 // ------------------------------------------------------------------ 送信
 // 自動で始めた送信は、走り出したら（動きが約 1 秒続いたら）ファイルの合間でやめる（記録が優先）。
 // 手で始めた送信（BOOT ボタン・シリアル）はやめない：ボタンを押す手で基板が揺れるので、
-// 一瞬の揺れでやめると送れない（2026-11-08 の机上試験で、最初の 1 回がこれで止まった）。
+// 一瞬の揺れでやめると、手で始めた送信がすぐに止まってしまう。
 bool neverAbort() { return false; }
 
 void runUpload(bool automatic) {

@@ -6,7 +6,7 @@ import tailwindcss from "@tailwindcss/vite";
 //   npm run build    ：CloudFront で配る。/api/* は同じドメインのデータ API
 //   npm run dev      ：Vite の dev サーバーが /api/* を公開ドメイン（API_ORIGIN）へ中継する。ログインは公開版と同じ Cognito
 //   npm run dev:local：/api/* を手元で動かしたデータ API（uvicorn、http://localhost:8000）へ中継する。ログインしない
-//                      （データ API を ALLOW_LOCAL_USER=true で動かす。手元の開発者は admin として扱われる。docs/local_dev.md）
+//                      （データ API を ALLOW_LOCAL_USER=true で動かす。手元の開発者は admin として扱われる。web/docs/local_dev.md）
 //   npm run dev:test ：/api/* を test のドメイン（.env.testenv の API_ORIGIN）へ中継する。ログインは test の Cognito（.env.testenv.local）
 export default defineConfig(({ mode }) => {
   // .env.development.local などを読む。第 3 引数 "" で VITE_ の付かない変数も読む（この値はブラウザには渡さない）

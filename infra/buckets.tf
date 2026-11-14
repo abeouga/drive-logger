@@ -2,7 +2,7 @@
 #   raw    生データの正本。書けるのはデバイス API だけ。保存期間なし
 #   work   処理の結果と記録（runs/）、モデル（models/）、走行の台帳（ledger/）。書けるのは処理（Lambda・ローカル）と、台帳だけデータ API
 #   public 画面が読む JSON・PNG（datasets/shared/）。書けるのは公開の仕組み（処理の Lambda）だけ
-# どれも非公開・SSE-S3・HTTPS のみ・バージョニング（古い版は noncurrent_version_days 日）。今のバケット（s3.tf）は画面（webapp/）用に残す。
+# どれも非公開・SSE-S3・HTTPS のみ・バージョニング（古い版は noncurrent_version_days 日）。画面（webapp/）は別のバケット（s3.tf）に置く。
 
 locals {
   data_roles = {

@@ -1,5 +1,5 @@
 output "bucket_name" {
-  description = "画面（React のビルド結果 webapp/）のバケット。作り直しの前は走行データもここにあった"
+  description = "画面（React のビルド結果 webapp/）のバケット。走行データは役割ごとのバケット（buckets.tf）にある"
   value       = aws_s3_bucket.data.bucket
 }
 

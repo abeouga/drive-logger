@@ -18,7 +18,7 @@ resource "aws_cognito_user_pool" "app" {
     case_sensitive = false
   }
 
-  # 利用者が覚えやすいパスワードを使うため、緩めにしている（8 文字以上・英小文字と数字）
+  # 新規登録を閉じ、管理者が Terraform で作る少数のユーザーだけが使うので、条件は最低限にしている（8 文字以上・英小文字と数字）
   password_policy {
     minimum_length                   = 8
     require_lowercase                = true
