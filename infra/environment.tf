@@ -25,7 +25,7 @@ locals {
   # バケットの名前の先頭：本番 ct125-logger-…、test ct125-logger-test-…（後ろに役割とアカウント ID が付く）
   bucket_prefix = local.is_prod ? var.bucket_prefix : "${var.bucket_prefix}-${var.env}"
 
-  app_domain            = coalesce(var.app_domain, local.is_prod ? "drive.herdio-system.com" : "drive-${var.env}.herdio-system.com")
+  app_domain            = coalesce(var.app_domain, local.is_prod ? "drive.${var.base_domain}" : "drive-${var.env}.${var.base_domain}")
   cognito_domain_prefix = coalesce(var.cognito_domain_prefix, local.is_prod ? "ct125-drive-login" : "ct125-drive-login-${var.env}")
 
   # 機器トークンのハッシュを置く SSM の場所：本番 /ct125/devices/、test /ct125-test/devices/
