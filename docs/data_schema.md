@@ -13,7 +13,7 @@
 |---|---|---|
 | 言語・環境 | **Arduino**（ESP32 Arduino core 3.3.12、arduino-cli 1.5.2 でビルド）。版は `CT125_LOGGER_V2.1`（`meta.json` の `firmware`、`events.csv` の `boot` 行と一致） | 「Arduino か ESP-IDF か未確認」→ Arduino で確定 |
 | GPS | ATGM336H、UART2（RX=IO32、TX=IO33）、**9600bps**、NMEA。`$..RMC` と `$..GGA` を使い、RMC 1 文ごとに `gps.csv` に 1 行（**1Hz**、実測の行間隔の中央値 1.000〜1.001 s）。チェックサム不一致の文は捨てる。PPS は未接続（`PIN_PPS=-1`） | 推定どおり |
-| ADXL345 | I2C **0x53**（SDO=GND）、I2C 400kHz。`DATA_FORMAT=0x0B`（**FULL_RES、±16g**）、`BW_RATE=0x0C`（**ODR 400Hz**）、FIFO ストリームモード。生 LSB × **0.0039 g/LSB** で g に変換して書く（CSV の値は 0.0039 の整数倍。小数 4 桁） | 「レンジ・ODR 未確認」→ ±16g・400Hz で確定 |
+| ADXL345 | I2C **0x53**（SDO=GND）、I2C 400kHz。`DATA_FORMAT=0x0B`（**FULL_RES、±16g**）、`BW_RATE=0x0C`（**ODR 400Hz**。V3.5 からは `0x0D`＝ODR 800Hz）、FIFO ストリームモード。生 LSB × **0.0039 g/LSB** で g に変換して書く（CSV の値は 0.0039 の整数倍。小数 4 桁） | 「レンジ・ODR 未確認」→ ±16g・400Hz で確定 |
 | SD 書き込み | SPI（CS=IO5）。電源オンごとに `/sessions/ride_NNN/` を作り、CSV 4 種＋`meta.json`。1 秒ごとに flush。加速度はコア 0 のタスクが FIFO から読み、リングバッファ経由でコア 1 の `loop()` が書く | — |
 | 時刻の生成 | すべて **`t_us` ＝ ESP32 `esp_timer_get_time()`（起動からのマイクロ秒、64bit）**。RTC なし。加速度の `t_us` は V2.1 の PLL 方式（前サンプル＋周期で進め、FIFO を読んだ時刻とのずれを少しずつ戻す）。GPS 行の `t_rx_us` は RMC 文の先頭 `$` を受けた時刻。UTC への対応付けは PC 側（下記 4.） | 「millis と GPS UTC の組み合わせ」の推定どおり（単位は ms でなく us） |
 | K-Line / ECU 関連コード | **なし**（`kline`、`l9637`、`ecu` に該当する記述はスケッチ中に存在しない）。あっても触らない方針は変わらない | — |

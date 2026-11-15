@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define FW_VERSION "CT125_LOGGER_V3.4"
+#define FW_VERSION "CT125_LOGGER_V3.5"
 
 const int PIN_SDA = 21, PIN_SCL = 22;
 const int PIN_GPS_RX = 32, PIN_GPS_TX = 33;
@@ -14,7 +14,9 @@ const int PIN_SD_CS = 5;
 const uint32_t SD_HZ = 4000000;
 const uint8_t ADXL = 0x53;
 const float G_PER_LSB = 0.0039f;     // フル分解能
-const float ACCEL_HZ = 400.0f;       // BW_RATE=0x0C
+// ADXL345 の ODR。I2C 400 kHz で使う。0x0C＝400 Hz、0x0D＝800 Hz（帯域はそれぞれ半分）。V3.4 までは 400 Hz
+const uint8_t ADXL_BW_RATE = 0x0D;
+const float ACCEL_HZ = 800.0f;       // ADXL_BW_RATE と合わせる
 const uint32_t FLUSH_MS = 1000;
 const uint32_t STATUS_MS = 10000;
 

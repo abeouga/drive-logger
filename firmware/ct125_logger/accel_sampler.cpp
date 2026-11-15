@@ -54,7 +54,7 @@ void sensorTask(void *) {
       logEvent("fifo_overrun", d);
     }
     int n = st & 0x3F;
-    if (n < 4) {                      // 数件たまってからまとめて読む（FIFO は32件＝約80ms分あるので余裕あり）
+    if (n < 4) {                      // 数件たまってからまとめて読む（FIFO は32件＝800Hz で約40ms分あるので余裕あり）
       vTaskDelay(2);
       continue;
     }
