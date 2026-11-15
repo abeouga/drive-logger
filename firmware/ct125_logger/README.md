@@ -35,7 +35,7 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 
 ## 配線（実機で確認済み）
 
-配線図は [docs/hardware/配線図/配線図.png](../../docs/hardware/配線図/配線図.png)。
+つながりの正本は KiCad の回路図（[hardware/](../../hardware/README.md)）。説明用の配線図は [docs/hardware/配線図/配線図.png](../../docs/hardware/配線図/配線図.png)。ピンを変えるときは、`logger_constants.h` の `PIN_*` と回路図を一緒に直す。
 
 | 部品 | ESP32 |
 |---|---|
