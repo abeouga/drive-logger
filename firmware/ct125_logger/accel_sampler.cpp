@@ -3,6 +3,7 @@
 #include <math.h>
 
 #include "adxl345.h"
+#include "adxl_link.h"
 #include "event_log.h"
 #include "logger_constants.h"
 #include "logger_state.h"
@@ -21,6 +22,32 @@ const double RESYNC_US = 20000;
 volatile double pllPeriodUs = 1e6 / ACCEL_HZ;
 volatile int32_t statDtMin = INT32_MAX, statDtMax = 0, statErrMax = 0;
 volatile uint32_t timeResyncs = 0;
+
+// 記録中に ADXL345 が外れたとき（V3.6）
+//   読み出しの失敗が ADXL_LOST_AFTER_ERRORS 回続いたら外れたとみなし、events.csv に adxl_lost を残す。
+//   外れている間は ADXL_RETRY_MS ごとに I2C の線を解放して設定し直し（adxlReinit）、戻ったら adxl_back を残して続ける。
+//   外れている間の失敗は、i2c_errors に 1 回の試しごとに 1 だけ数える（以前は 1 秒に約 1,000 回増えていた）。
+static AdxlLink adxlLink;
+
+static uint32_t millisNow() { return (uint32_t)(nowUs() / 1000); }
+
+// 読み出しに失敗したとき。外れたとみなしたら true
+static bool onReadFailed() {
+  AdxlStep step = adxlReadFailed(adxlLink, millisNow());
+  if (step == AdxlStep::CountError) {
+    i2cErrors++;
+    return false;
+  }
+  if (step == AdxlStep::BecameLost) {
+    i2cErrors++;
+    accelLost = true;
+    accelStd1s = -1;
+    char d[32];
+    snprintf(d, sizeof(d), "n=%lu", (unsigned long)samples);
+    logEvent("adxl_lost", d);
+  }
+  return true;
+}
 
 void sensorTask(void *) {
   char buf[64 * 33];
@@ -41,12 +68,34 @@ void sensorTask(void *) {
       accelStopped = true;
       vTaskDelete(nullptr);
     }
+    if (adxlLink.lost) {                  // 外れている間：決めた間隔ごとに立て直しを試す
+      uint32_t now = millisNow();
+      if (adxlShouldTry(adxlLink, now)) {
+        bool ok = adxlReinit();
+        uint32_t lostMs = adxlLostMs(adxlLink, now);
+        if (adxlTried(adxlLink, now, ok)) {
+          accelLost = false;
+          tNext = -1;                 // 時刻は合わせ直す（外れていた間はサンプルが無い）
+          tPrev = -1;                 // 外れていた間の隙間は、間隔の最小・最大（dt_min・dt_max）に入れない
+          magSum = magSumSq = 0;
+          magCount = 0;
+          char d[48];
+          snprintf(d, sizeof(d), "tries=%lu lost_ms=%lu", (unsigned long)adxlLink.tries, (unsigned long)lostMs);
+          logEvent("adxl_back", d);
+        } else {
+          i2cErrors++;
+        }
+      }
+      vTaskDelay(pdMS_TO_TICKS(50));
+      continue;
+    }
     uint8_t st = 0, src = 0;
     if (!readRegs(0x39, &st, 1) || !readRegs(0x30, &src, 1)) {
-      i2cErrors++;
+      onReadFailed();
       vTaskDelay(1);
       continue;
     }
+    adxlReadOk(adxlLink);
     if ((src & 0x01) && samples > 0) {   // 記録開始前（n=0）のあふれは記録の欠けではないので数えない
       fifoOverruns++;
       char d[24];
@@ -78,7 +127,7 @@ void sensorTask(void *) {
     int len = 0, got = 0;
     for (int i = 0; i < n; i++) {
       if (!readRegs(0x32, raw, 6)) {
-        i2cErrors++;
+        onReadFailed();
         break;
       }
       int16_t x = raw[0] | (raw[1] << 8), y = raw[2] | (raw[3] << 8), z = raw[4] | (raw[5] << 8);

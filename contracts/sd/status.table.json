@@ -9,7 +9,7 @@
     { "name": "rate_hz", "type": "number", "unit": "Hz", "description": "この 10 秒の実測の周波数" },
     { "name": "ring_drops", "type": "integer", "description": "リングバッファの取りこぼし（累計）" },
     { "name": "fifo_overruns", "type": "integer", "description": "ADXL345 の FIFO のあふれ（累計）" },
-    { "name": "i2c_errors", "type": "integer", "description": "I2C のエラー（累計）" },
+    { "name": "i2c_errors", "type": "integer", "description": "I2C のエラー（累計）。V3.6 から、ADXL345 が外れたとみなしている間は、立て直しを 1 回試すごとに 1 だけ数える（V3.5 までは 1 秒に約 1,000 回増えた）" },
     { "name": "sd_write_errors", "type": "integer", "description": "SD の書き込みエラー（累計）" },
     { "name": "bytes", "type": "integer", "description": "書いたバイト数（累計）" },
     { "name": "gps_status", "type": "string", "description": "GPS の状態（A／V）" },

@@ -10,3 +10,10 @@ void i2cBusRecover();
 
 // DEVID を確かめ（5 回まで再試行し events.csv に残す）、測定を始める。DEVID が合わなければ false
 bool adxlInit();
+
+// ADXL345 がつながっているか（DEVID を 1 回読むだけ。出来事は残さない。抜き差しを見るため）
+bool adxlPresent();
+
+// 外れた ADXL345 の立て直し：I2C の線を解放して開き直し、いれば設定し直して測定を始める。いなければ false
+// （つなぎ直した直後の ADXL345 は設定が消えて止まっているので、設定し直す必要がある）
+bool adxlReinit();

@@ -28,6 +28,14 @@ void ledTask(void *) {
     } else if (mode == MODE_IDLE) {       // 送れなかった：短く 3 回
       blink(3, 80, 150);
       vTaskDelay(pdMS_TO_TICKS(800));
+    } else if (mode == MODE_WAIT_ADXL && waitUploadTried && uploadSucceeded()) {  // ADXL 待ち・送り終えた：つきっぱなし
+      digitalWrite(PIN_LED, HIGH);
+      vTaskDelay(pdMS_TO_TICKS(200));
+    } else if (mode == MODE_WAIT_ADXL && waitUploadTried) {  // ADXL 待ち・送れなかった：短く 3 回
+      blink(3, 80, 150);
+      vTaskDelay(pdMS_TO_TICKS(800));
+    } else if (mode == MODE_WAIT_ADXL) {  // ADXL を待っている：2 秒に 1 回、短く
+      blink(1, 80, 1920);
     } else if (!running) {                // NG：速い点滅
       digitalWrite(PIN_LED, !digitalRead(PIN_LED));
       vTaskDelay(pdMS_TO_TICKS(100));
