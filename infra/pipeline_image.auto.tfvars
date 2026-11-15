@@ -1,2 +1,2 @@
 # pipeline/scripts/build-pipeline-image.ps1 が書く。手で直さない（ECR の住所は書かない。この環境の ECR から組み立てる）
-pipeline_image_digest = "sha256:6cfcf94497827521021286329426cc3537b8de7f2aec8587548d3526285fdfd4"
+pipeline_image_digest = "sha256:efe7907137406e37651033d9d5977cf32292c517fea0fd3fff3ba28c4bfdec35"
