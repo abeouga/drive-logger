@@ -10,7 +10,7 @@
 // 記録の仕組み
 //   - 電源を入れるたびに /sessions/ride_NNN/ を作り、accel.csv・gps.csv・events.csv・status.csv に書く。
 //   - すべての行に ESP の時計 t_us（起動からのマイクロ秒）を付ける。GPS の UTC は gps.csv で対応づける。
-//   - 加速度は ADXL345 の FIFO を使い 400Hz で読む（コア0）。GPS は別タスク（コア1）。
+//   - 加速度は ADXL345 の FIFO を使い 800Hz（ACCEL_HZ）で読む（コア0）。GPS は別タスク（コア1）。
 //   - SDへの書き込みは loop()（コア1）で、RAMのリングバッファから取り出して行う。
 //   - 1秒ごとに flush。電源が突然切れても失うのは最後の約1秒。
 //
@@ -94,7 +94,7 @@ void setup() {
     Serial.println("ADXL=NG 記録しません");
     return;
   }
-  Serial.println("ADXL=OK 400Hz +-16g FIFO");
+  Serial.printf("ADXL=OK %.0fHz +-16g FIFO\n", ACCEL_HZ);
   if (!openSession()) {
     Serial.println("SESSION=NG 記録しません");
     return;

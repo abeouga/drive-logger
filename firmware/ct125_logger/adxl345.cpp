@@ -59,7 +59,7 @@ bool adxlInit() {
   if (id != 0xE5) return false;
   writeReg(0x2D, 0x00);        // 設定中は停止
   writeReg(0x31, 0x0B);        // DATA_FORMAT: FULL_RES, ±16g
-  writeReg(0x2C, 0x0C);        // BW_RATE: 400Hz
+  writeReg(0x2C, ADXL_BW_RATE); // BW_RATE: ODR（logger_constants.h）
   writeReg(0x38, 0x00);        // FIFO を空にする（バイパス）
   writeReg(0x38, 0x80 | 16);   // FIFO_CTL: ストリームモード
   writeReg(0x2D, 0x08);        // POWER_CTL: 測定開始
