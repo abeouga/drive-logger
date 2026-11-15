@@ -43,6 +43,29 @@ void i2cBusRecover() {
   pinMode(PIN_SCL, INPUT);
 }
 
+bool adxlPresent() {
+  uint8_t id = 0;
+  return readRegs(0x00, &id, 1) && id == 0xE5;
+}
+
+static bool adxlConfigure() {
+  bool ok = writeReg(0x2D, 0x00);   // 設定中は停止
+  ok = writeReg(0x31, 0x0B) && ok;  // DATA_FORMAT: FULL_RES, ±16g
+  ok = writeReg(0x2C, ADXL_BW_RATE) && ok;  // BW_RATE: ODR（logger_constants.h）
+  ok = writeReg(0x38, 0x00) && ok;  // FIFO を空にする（バイパス）
+  ok = writeReg(0x38, 0x80 | 16) && ok;  // FIFO_CTL: ストリームモード
+  ok = writeReg(0x2D, 0x08) && ok;  // POWER_CTL: 測定開始
+  return ok;
+}
+
+bool adxlReinit() {
+  Wire.end();
+  i2cBusRecover();
+  Wire.begin(PIN_SDA, PIN_SCL, 400000);
+  delay(2);
+  return adxlPresent() && adxlConfigure();
+}
+
 bool adxlInit() {
   uint8_t id = 0;
   for (int attempt = 1; attempt <= 5; attempt++) {
@@ -57,11 +80,5 @@ bool adxlInit() {
     delay(20);
   }
   if (id != 0xE5) return false;
-  writeReg(0x2D, 0x00);        // 設定中は停止
-  writeReg(0x31, 0x0B);        // DATA_FORMAT: FULL_RES, ±16g
-  writeReg(0x2C, ADXL_BW_RATE); // BW_RATE: ODR（logger_constants.h）
-  writeReg(0x38, 0x00);        // FIFO を空にする（バイパス）
-  writeReg(0x38, 0x80 | 16);   // FIFO_CTL: ストリームモード
-  writeReg(0x2D, 0x08);        // POWER_CTL: 測定開始
-  return true;
+  return adxlConfigure();
 }

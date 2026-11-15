@@ -2,6 +2,7 @@
 
 volatile Mode mode = MODE_ERROR;
 volatile UploadResult lastUploadResult = UploadResult::NothingToSend;
+volatile bool waitUploadTried = false;
 
 RingbufHandle_t ringAccel, ringGps, ringEvent;
 
@@ -12,3 +13,4 @@ bool running = false;
 
 volatile bool stopRequested = false, accelStopped = false, gpsStopped = false;
 volatile bool hasMoved = false;
+volatile bool accelLost = false;

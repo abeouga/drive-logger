@@ -17,6 +17,13 @@
 // 送信：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
 //   記録中 →（止まって静か 2 分、または BOOT ボタン 2 秒）→ 記録を閉じる → 送信 → 待機
 //   待機中に動き出したら再起動して、新しい走行の記録を始める。記録と送信は同時にしない。
+//
+// ADXL345 の抜き差し（V3.6。ADXL345 は外して車両のフレームに付け、走るときに起動後につなぐ。送るときは外す）
+//   起動時に無い → ADXL を待つ（1 秒ごとに探す）。30 秒来なければ送り残しを送る（BOOT ボタン 2 秒ならすぐ）。
+//                  来たら記録を始める（送っている途中なら、ファイルの合間でやめる）。
+//   記録中に外れた → 1 秒ごとに立て直す（accel_sampler.cpp）。外れたまま止まって 2 分たったら、閉じて送る。
+//   待機中に外れて、またつながった → 再起動して新しい走行の記録を始める。
+//   判定の部分は adxl_link.h（PC でテストできる）。
 //   送信の手順は uploader.cpp、Wi-Fi とトークンの設定は config_store.cpp（シリアルから書き込む）。
 //
 // このファイルには、起動（setup）と状態の切り替え（記録中 → 送信 → 待機）だけを置く。
@@ -35,7 +42,8 @@
 // LED（PC なしで動かすときの目印）
 //   ゆっくり点滅（1秒に1回）      : 記録中・GPS 有効
 //   短く2回ずつ点滅              : 記録中・GPS まだ（未測位）
-//   速い点滅（1秒に5回）が続く     : 記録できていない（SD・ADXL のどちらかが NG）
+//   速い点滅（1秒に5回）が続く     : 記録できていない（SD が NG）
+//   2秒に1回、短く               : ADXL345 を待っている（起動時に無かった。V3.6）
 //   1秒ついて1秒消える            : 送信中
 //   つきっぱなし                  : 送信が終わった（または送るものが無い）
 //   短く3回ずつ点滅              : 送れなかった（Wi-Fi が無い・設定が無い・失敗。BOOT ボタンでやり直せる）
@@ -50,6 +58,7 @@
 #include "logger_state.h"
 #include "event_log.h"
 #include "adxl345.h"
+#include "adxl_link.h"
 #include "accel_sampler.h"
 #include "gps_task.h"
 #include "sd_session.h"
@@ -60,6 +69,9 @@
 
 void finishSession(const char *reason);
 void runUpload(bool automatic);
+void startLogging();
+
+AdxlWait adxlWait;  // 起動時に ADXL345 が無かったときの待ち
 
 // ------------------------------------------------------------------ main
 void setup() {
@@ -91,12 +103,22 @@ void setup() {
   Serial.printf("SD_MOUNT=OK CARD_MB=%llu\n", SD.cardSize() / (1024ULL * 1024ULL));
   listSessions();
   if (!adxlInit()) {
-    Serial.println("ADXL=NG 記録しません");
+    // 止まらずに待つ。ADXL345 を外して送りに来たときは、待っている間に送り残しを送る
+    logEvent("adxl_missing", "");
+    Serial.println("ADXL=なし つながるまで待ちます（30 秒来なければ送り残しを送ります。BOOT ボタン 2 秒ならすぐ送ります）");
+    adxlWait.sinceMs = millis();
+    mode = MODE_WAIT_ADXL;
     return;
   }
   Serial.printf("ADXL=OK %.0fHz +-16g FIFO\n", ACCEL_HZ);
+  startLogging();
+}
+
+// 記録を始める：走行のフォルダーを作り、リングバッファと加速度・GPS のタスクを動かす
+void startLogging() {
   if (!openSession()) {
     Serial.println("SESSION=NG 記録しません");
+    mode = MODE_ERROR;  // ADXL を待っていた後でも、記録のフォルダーを作れなければ止まる（作り直しを繰り返さない）
     return;
   }
   Serial.printf("SESSION=%s\n", sessionDir.c_str());
@@ -194,6 +216,20 @@ void loopIdle() {
     return;
   }
   lastCheck = millis();
+  // ADXL345 が外れていたら動き出しは見られない。またつながったら、再起動して新しい走行の記録を始める
+  // （つないだ直後の ADXL345 は設定が消えて止まっていて、movingNow() では動き出しを見られないため）
+  static bool adxlGone = false;
+  if (!adxlPresent()) {
+    if (!adxlGone) Serial.println("ADXL=なし つながったら新しい走行の記録を始めます");
+    adxlGone = true;
+    movingSeconds = 0;
+    return;
+  }
+  if (adxlGone) {
+    Serial.println("ADXL=OK 再起動して新しい走行の記録を始めます");
+    delay(100);
+    ESP.restart();
+  }
   movingSeconds = movingNow() ? movingSeconds + 1 : 0;
   if (movingSeconds >= MOVING_SECONDS_TO_WAKE) {
     Serial.println("MOVING 再起動して新しい走行の記録を始めます");
@@ -202,11 +238,51 @@ void loopIdle() {
   }
 }
 
+// ------------------------------------------------------------------ ADXL345 を待っている（起動時に無かった）
+// 送っている途中で ADXL345 がつながったら、ファイルの合間で送るのをやめる（走り出すので、記録が優先）
+bool adxlConnected() { return adxlPresent(); }
+
+void uploadWhileWaiting() {
+  adxlWait.uploadTried = true;
+  waitUploadTried = true;
+  mode = MODE_UPLOADING;
+  UploadSummary summary = uploadPendingSessions(loadConfig(), adxlConnected);
+  lastUploadResult = summary.result;
+  Serial.printf("UPLOAD_RESULT %s sent=%d failed=%d free_heap=%u\n", uploadResultName(summary.result), summary.sent, summary.failed,
+                (unsigned)ESP.getFreeHeap());
+  mode = MODE_WAIT_ADXL;
+}
+
+void loopWaitAdxl() {
+  static uint32_t lastCheck = 0;
+  if (buttonHeld() || uploadRequestedBySerial) {  // 手で送る（すぐ）
+    uploadRequestedBySerial = false;
+    uploadWhileWaiting();
+    return;
+  }
+  if (millis() - lastCheck < 1000) {
+    delay(20);
+    return;
+  }
+  lastCheck = millis();
+  if (adxlPresent()) {
+    if (!adxlInit()) return;  // つないだ直後で読めないことがある。次の 1 秒でまた試す
+    char d[32];
+    snprintf(d, sizeof(d), "waited_ms=%lu", (unsigned long)(millis() - adxlWait.sinceMs));
+    logEvent("adxl_found", d);
+    Serial.printf("ADXL=OK %.0fHz +-16g FIFO\n", ACCEL_HZ);
+    startLogging();
+    return;
+  }
+  if (adxlWaitShouldUpload(adxlWait, millis())) uploadWhileWaiting();
+}
+
 void loop() {
   pollSerial();
   switch (mode) {
     case MODE_LOGGING: loopLogging(); break;
     case MODE_IDLE: loopIdle(); break;
-    default: delay(100); break;  // MODE_ERROR（SD・ADXL が NG）。設定のコマンドだけは受け付ける
+    case MODE_WAIT_ADXL: loopWaitAdxl(); break;
+    default: delay(100); break;  // MODE_ERROR（SD が NG・記録のフォルダーを作れない）。設定のコマンドだけは受け付ける
   }
 }

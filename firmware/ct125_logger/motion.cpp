@@ -4,13 +4,15 @@
 
 #include "accel_sampler.h"
 #include "adxl345.h"
+#include "adxl_link.h"
 #include "gps_task.h"
 #include "logger_constants.h"
 #include "logger_state.h"
 
 // ------------------------------------------------------------------ 記録中
 static bool isQuietNow() {
-  bool stillVibration = accelStd1s >= 0 && accelStd1s < QUIET_STD_G;
+  // ADXL345 が外れていたら、振動は見られないので静かとみなす（外したまま止まって 2 分たったら、閉じて送る。V3.6）
+  bool stillVibration = quietByVibration(accelStd1s, accelLost, QUIET_STD_G);
   bool stopped = gpsStatus != 'A' || gpsSpeedKmh < STOP_SPEED_KMH;  // 屋内などで GPS が無いときは振動だけで見る
   return stillVibration && stopped;
 }

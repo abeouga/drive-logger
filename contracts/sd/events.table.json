@@ -8,8 +8,8 @@
     {
       "name": "type",
       "type": "string",
-      "constraints": { "enum": ["boot", "sd_retry", "adxl_retry", "fifo_overrun", "gps_valid", "gps_lost", "time_resync", "sd_write_error", "sd_reopen", "session_end"] },
-      "description": "boot＝起動（detail は版）、sd_retry・adxl_retry＝初期化のやり直し、fifo_overrun＝ADXL345 の FIFO のあふれ、gps_valid・gps_lost＝GPS の有効・無効の切り替わり、time_resync＝時刻の合わせ直し（ずれが 20 ms 超）、sd_write_error＝開いたままの CSV に書けなくなった（detail は file=ファイル名。V3.4 から）、sd_reopen＝その CSV を開き直し、切れた行の次の行の頭から書き続けた（detail は file=ファイル名 tries=試した回数）、session_end＝記録を閉じた（detail は理由）"
+      "constraints": { "enum": ["boot", "sd_retry", "adxl_retry", "fifo_overrun", "gps_valid", "gps_lost", "time_resync", "sd_write_error", "sd_reopen", "adxl_missing", "adxl_found", "adxl_lost", "adxl_back", "session_end"] },
+      "description": "boot＝起動（detail は版）、sd_retry・adxl_retry＝初期化のやり直し、fifo_overrun＝ADXL345 の FIFO のあふれ、gps_valid・gps_lost＝GPS の有効・無効の切り替わり、time_resync＝時刻の合わせ直し（ずれが 20 ms 超）、sd_write_error＝開いたままの CSV に書けなくなった（detail は file=ファイル名。V3.4 から）、sd_reopen＝その CSV を開き直し、切れた行の次の行の頭から書き続けた（detail は file=ファイル名 tries=試した回数）、adxl_missing＝起動時に ADXL345 が無く、待ち始めた（V3.6）、adxl_found＝待っていて ADXL345 がつながり、記録を始めた（detail は waited_ms=待った時間）、adxl_lost＝記録中に ADXL345 の読み出しの失敗が続き、外れたとみなした（detail は n=サンプル数）、adxl_back＝外れた ADXL345 を設定し直し、記録を続けた（detail は tries=試した回数 lost_ms=外れていた時間）、session_end＝記録を閉じた（detail は理由）"
     },
     { "name": "detail", "type": "string", "description": "補足（回数・版・理由など）" }
   ],
