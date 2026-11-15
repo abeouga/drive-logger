@@ -1,0 +1,10 @@
+# KiCad が手元で作るもの（人ごとの表示の設定・自動の控え・書き出し）
+*.kicad_prl
+*-backups/
+_autosave-*
+~*.lck
+fp-info-cache
+*.bak
+erc.rpt
+*.pdf
+*.svg
