@@ -1,7 +1,9 @@
 // 詳細パネル：何も選んでいないときは基準を超えた振動の一覧、選んだら その 1 秒の値
+import type { ReactNode } from "react";
 import type { RideData, Waveform } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
 import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, isJudged, type Selection } from "../lib/series";
+import InfoTip from "./InfoTip";
 import WaveChart from "./WaveChart";
 
 /** 選んだ 1 秒の生波形：読めた波形／読み込み中／ファイルにその 1 秒が無い／読めなかった */
@@ -22,10 +24,10 @@ function when(d: RideData, i: number): string {
 
 const num = (v: number | null, digits: number) => (v === null ? "—" : v.toFixed(digits));
 
-function Row({ label, value, unit }: { label: string; value: string; unit?: string }) {
+function Row({ label, value, unit }: { label: ReactNode; value: string; unit?: string }) {
   return (
     <div className="flex items-baseline justify-between gap-4 border-b border-line py-1.5 last:border-0">
-      <span className="text-xs text-ink-2">{label}</span>
+      <span className="inline-flex items-center gap-1 text-xs text-ink-2">{label}</span>
       <span className="tabular text-sm">
         {value}
         {unit && <span className="ml-1 text-xs text-ink-2">{unit}</span>}
@@ -116,20 +118,31 @@ export default function DetailPanel({ data, selected, ranked, wave, onSelect }: 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="text-xs text-ink-2">選んだ 1 秒{rank >= 0 && `（基準を超えた振動 ${rank + 1} 番目）`}</div>
-          <div className="tabular text-lg font-semibold">{when(data, i)}</div>
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <span className="tabular text-lg font-semibold">{when(data, i)}</span>
+          {rank >= 0 && <span className="text-xs text-ink-2">基準を超えた振動 {rank + 1} 番目</span>}
         </div>
         <button onClick={() => onSelect(null)} className="btn btn-secondary btn-compact shrink-0">
           一覧へ
         </button>
       </div>
-      <div>
+      {/* (i) の吹き出しを、この表の幅で出す */}
+      <div className="relative">
         <Row label="速度" value={c.has_gps[i] ? num(c.speed[i], 1) : "GPS なし"} unit={c.has_gps[i] ? "km/h" : undefined} />
         <Row label="振動 rms" value={num(c.rms[i], 3)} unit="g" />
         <Row label="振れ幅（最大−最小）" value={num(c.p2p[i], 2)} unit="g" />
         <Row label="z_speed（速度で補正した逸脱）" value={num(c.z[i], 2)} />
-        <Row label="score_if（Isolation Forest）" value={num(c.score_if[i], 3)} />
+        <Row
+          label={
+            <>
+              score_if（Isolation Forest）
+              <InfoTip label="注意書きを開く">
+                値の大きい所は、路面または車両に起因する振動の変化を示します。ロガーの取り付け方による揺れが含まれることもあります。
+              </InfoTip>
+            </>
+          }
+          value={num(c.score_if[i], 3)}
+        />
       </div>
       <Bands data={data} i={i} />
       <div>
@@ -141,9 +154,6 @@ export default function DetailPanel({ data, selected, ranked, wave, onSelect }: 
         {c.is_edge[i] && <span className="pill pill-muted">記録の先頭・末尾 60 秒</span>}
         {c.is_clipped[i] && <span className="pill pill-muted">±16 g に達したサンプルを含む</span>}
       </div>
-      <p className="text-xs leading-relaxed text-muted">
-        値の大きい所は、路面または車両に起因する振動の変化を示します。ロガーは車体に置いただけの暫定の固定なので、置き方による揺れも含みます。
-      </p>
     </div>
   );
 }
