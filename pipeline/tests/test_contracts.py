@@ -149,7 +149,7 @@ def build_app_examples() -> dict[str, dict]:
     rows = [i for i, flag in enumerate(payload["columns"]["anomaly"]) if flag][:2]
     _, spec, waves = export.extras_payload(df, _accel(), rows)
     nogps_summary, _ = export.ride_payload(_windows(gps=False), model_version=EXAMPLE_MODEL_VERSION)
-    rides = export.rides_document([summary, nogps_summary])
+    rides = export.rides_document([summary, nogps_summary], {"ride_20261108_011304": "2026/11/02の走行", "ride_007": "2026/11/02の走行(1)"})
     rides["generated_at_ms"] = FIXED_GENERATED_AT_MS
     return {"rides.json": rides, "ride.json": payload, "spec.json": spec, "wave.json": waves[0]}
 

@@ -211,7 +211,7 @@ def _evaluate(cfg: dict, acfg: dict, args) -> int:
 def _print_ledger(cfg: dict, acfg: dict) -> int:
     pipeline = local_pipeline(cfg, acfg)
     ledger = pipeline._read_ledger()  # noqa: SLF001  表示だけ
-    print(f"{'走行':24} {'元の名前':10} {'分類':10} {'消した':6} 公開中の結果")
+    print(f"{'走行':24} {'名前':18} {'元の名前':10} {'分類':10} {'消した':6} 公開中の結果")
     for ride_id, entry in ledger["rides"].items():
-        print(f"{ride_id:24} {entry['original_name'] or '':10} {entry['kind'] or '':10} {'はい' if entry['deleted'] else '':6} {entry['published_run'] or ''}")
+        print(f"{ride_id:24} {entry.get('name') or '':18} {entry['original_name'] or '':10} {entry['kind'] or '':10} {'はい' if entry['deleted'] else '':6} {entry['published_run'] or ''}")
     return 0

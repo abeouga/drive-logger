@@ -33,9 +33,9 @@ def validator(relative: str) -> Draft202012Validator:
     return Draft202012Validator(schema, registry=Registry().with_resources(resources), format_checker=FormatChecker())
 
 
-def _entry(ride_id, kind, published_run=RUN_2, runs=(RUN_2, RUN_1), deleted=False):
+def _entry(ride_id, kind, published_run=RUN_2, runs=(RUN_2, RUN_1), deleted=False, name="2026/11/09の走行"):
     return {
-        "ride_id": ride_id, "original_name": None, "device_id": "d01", "local_session": "ride_013", "source": "device",
+        "ride_id": ride_id, "name": name, "original_name": None, "device_id": "d01", "local_session": "ride_013", "source": "device",
         "received_at": "2026-11-09T01:00:00Z", "kind": kind, "kind_metrics": None, "deleted": deleted,
         "deleted_at": None, "deleted_by": None, "published_run": published_run, "runs": list(runs),
     }
@@ -64,9 +64,9 @@ class FakeWork:
     def __init__(self):
         self.ledger = {"schema": "ledger/1", "updated_at": "2026-11-09T03:00:00Z", "rides": {
             "ride_20261109_010000": _entry("ride_20261109_010000", "ride"),
-            "ride_20261109_011000": _entry("ride_20261109_011000", "desk"),
-            "ride_20261109_012000": _entry("ride_20261109_012000", "idle", deleted=True),
-            "ride_20261109_013000": _entry("ride_20261109_013000", None, published_run=None, runs=(RUN_2,)),
+            "ride_20261109_011000": _entry("ride_20261109_011000", "desk", name="2026/11/09の走行(1)"),
+            "ride_20261109_012000": _entry("ride_20261109_012000", "idle", deleted=True, name=None),  # 名前を付ける前の台帳（処理の Lambda が次に書くときに付く）
+            "ride_20261109_013000": _entry("ride_20261109_013000", None, published_run=None, runs=(RUN_2,), name="2026/11/09の走行(2)"),
         }}
         self.version = 1
         self.conflicts = 0
@@ -175,12 +175,15 @@ def test_list_shows_only_rides_on_screen(world):
     validator("api/rides.schema.json").validate(response.json())
     assert [ride["id"] for ride in response.json()["rides"]] == ["ride_20261109_010000"]   # 机上・消した・未処理は出さない
     assert response.json()["rides"][0]["summary"]["id"] == "ride_20261109_010000"
+    assert response.json()["rides"][0]["name"] == response.json()["rides"][0]["summary"]["name"] == "2026/11/09の走行"   # 名前は台帳から
 
 
 def test_admin_can_include_deleted_and_hidden(world):
     response = client_for(world, ADMIN).get("/api/rides", params={"include_deleted": "true"})
     validator("api/rides.schema.json").validate(response.json())
     assert len(response.json()["rides"]) == 4
+    unnamed = next(ride for ride in response.json()["rides"] if ride["id"] == "ride_20261109_012000")
+    assert unnamed["name"] is None and unnamed["summary"]["name"] == "ride_20261109_012000"   # 名前が付く前は、要約の名前を走行 ID にする
     assert client_for(world, GUEST).get("/api/rides", params={"include_deleted": "true"}).status_code == 403
 
 
@@ -197,6 +200,7 @@ def test_admin_deletes_and_restores(world):
 
     restored = client.post("/api/rides/ride_20261109_010000/restore")
     assert restored.json()["deleted"] is False and work.ledger["rides"]["ride_20261109_010000"]["deleted_at"] is None
+    assert work.ledger["rides"]["ride_20261109_010000"]["name"] == "2026/11/09の走行"   # 消す・戻すで名前は変えない
     assert pipeline.calls == [("publish",), ("publish",)]
 
 

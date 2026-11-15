@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/rides.schema.json",
-  "version": 3,
+  "version": 4,
   "title": "rides.json（走行一覧。カード用の要約とスパークライン）",
   "type": "object",
   "required": ["generated_at_ms", "rides"],
@@ -14,10 +14,11 @@
     "nullableNumber": { "type": ["number", "null"] },
     "rideSummary": {
       "type": "object",
-      "required": ["id", "start_ms", "duration_s", "distance_km", "max_speed_kmh", "fix_ratio", "gps", "n_windows", "n_anomalies", "anomaly_method", "n_anomaly_z", "n_anomaly_if", "n_clipped", "rms_median", "spark", "memo"],
+      "required": ["id", "name", "start_ms", "duration_s", "distance_km", "max_speed_kmh", "fix_ratio", "gps", "n_windows", "n_anomalies", "anomaly_method", "n_anomaly_z", "n_anomaly_if", "n_clipped", "rms_median", "spark", "memo"],
       "additionalProperties": false,
       "properties": {
         "id": { "type": "string", "description": "走行 ID" },
+        "name": { "type": "string", "minLength": 1, "description": "見出しに出す名前（台帳の name。並べ替えには使わない）" },
         "start_ms": { "type": ["integer", "null"], "description": "記録開始の UNIX ミリ秒。GPS なしは null" },
         "duration_s": { "type": "number", "description": "長さ（秒）" },
         "distance_km": { "type": "number", "description": "GPS のある連続する窓の距離の合計" },

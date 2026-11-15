@@ -1,4 +1,4 @@
-// 完全に削除の確かめの画面（admin だけ。#82）。元に戻せないので、走行の名前を打ち込むまで消せない。
+// 完全に削除の確かめの画面（admin だけ。#82）。元に戻せないので、走行 ID を打ち込むまで消せない。
 // API も同じ名前を受け取って確かめる（画面を通さずに呼んでも、名前が違えば断る）。
 import { useEffect, useRef, useState } from "react";
 import { TbAlertTriangle, TbLoader2 } from "react-icons/tb";
@@ -58,7 +58,7 @@ export default function PurgeDialog({ rideId, onClose, onPurged }: { rideId: str
         </div>
         <label className="flex flex-col gap-1 text-sm">
           <span>
-            確かめのため、走行の名前 <code className="font-mono font-semibold">{rideId}</code> を打ち込んでください
+            確かめのため、走行 ID <code className="font-mono font-semibold">{rideId}</code> を打ち込んでください
           </span>
           <input
             className="field font-mono"

@@ -52,8 +52,12 @@ class RideService:
             if not include_deleted and not ledgermod.shown_on_screen(entry):
                 continue
             summary = self._work.read_summary(entry["published_run"], ride_id) if entry["published_run"] else None
+            name = entry.get("name")  # 名前は処理の Lambda が台帳に付ける。付く前の台帳には無い
+            if summary is not None:  # 要約（summary.json）は名前を持たないので、rides.json と同じく台帳の名前を足す
+                summary = {**summary, "name": name or ride_id}
             rides.append({
                 "id": ride_id,
+                "name": name,
                 "original_name": entry["original_name"],
                 "kind": entry["kind"],
                 "deleted": entry["deleted"],
