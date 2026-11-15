@@ -2,7 +2,7 @@
 #pragma once
 #include <Arduino.h>
 
-#define FW_VERSION "CT125_LOGGER_V3.3"
+#define FW_VERSION "CT125_LOGGER_V3.4"
 
 const int PIN_SDA = 21, PIN_SCL = 22;
 const int PIN_GPS_RX = 32, PIN_GPS_TX = 33;
