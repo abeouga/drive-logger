@@ -1,0 +1,129 @@
+{
+  "description": "ADXL345 を SPI にする案の回路図（ct125_logger_adxl_spi.kicad_sch）と、案の Blender のモデル（layout.py）の対応。今の配線の対応表（blender_correspondence.json）と、ネットの名前のうち ADXL の分だけが違う",
+  "blender_model": {
+    "revision": "CT125-BB-R7A / R7B（SPI 案）",
+    "source": "layout.py の NETS_CLOSED（意図したつながり）と MUST_BE_ISOLATED（つながないピン）",
+    "variant_for_check": "B",
+    "excluded": "K-Line（ECU）の分。作っていないので KiCad の回路図に入れていない"
+  },
+  "modules": {
+    "ESP32": {
+      "ref": "U1",
+      "pin_rule": "Blender の ESP32.R<n>:<名前> と ESP32.L<n>:<名前> は、KiCad の U1 のピン番号 R<n> と L<n>（右列・左列の n 番目、USB 側から数える）",
+      "internal": [
+        [
+          "R1",
+          "R2"
+        ],
+        [
+          "R3",
+          "R4",
+          "R5",
+          "R20"
+        ],
+        [
+          "R7",
+          "L1",
+          "L2",
+          "L3",
+          "L4",
+          "L14",
+          "L20"
+        ]
+      ],
+      "internal_note": "5V・3V3・GND の同じ名前のピンは、ボードの中でつながっている。Blender は全部をネットに入れ、KiCad は線を挿していないピンに未接続の印を付けているので、照合ではボードの中のつながりを足してから比べる"
+    },
+    "GPS": {
+      "ref": "U3",
+      "pins": {
+        "VCC": "1",
+        "GND": "2",
+        "TX": "3",
+        "RX": "4",
+        "PPS": "5"
+      }
+    },
+    "GY291": {
+      "ref": "U2",
+      "pins": {
+        "GND": "1",
+        "VCC": "2",
+        "CS": "3",
+        "INT1": "4",
+        "INT2": "5",
+        "SDO": "6",
+        "SDA": "7",
+        "SCL": "8"
+      }
+    },
+    "SD": {
+      "ref": "J1",
+      "pins": {
+        "1 DAT2": "1",
+        "2 DAT3/CS": "2",
+        "3 CMD": "3",
+        "4 VDD": "4",
+        "5 CLK": "5",
+        "6 VSS": "6",
+        "7 DAT0": "7",
+        "8 DAT1": "8",
+        "9 検出B": "9",
+        "10 検出A": "10"
+      }
+    }
+  },
+  "parts": {
+    "R_DAT2": {
+      "ref": "R1",
+      "a": "2",
+      "b": "1"
+    },
+    "R_DAT3": {
+      "ref": "R2",
+      "a": "2",
+      "b": "1"
+    },
+    "R_CMD": {
+      "ref": "R3",
+      "a": "2",
+      "b": "1"
+    },
+    "R_DAT0": {
+      "ref": "R4",
+      "a": "2",
+      "b": "1"
+    },
+    "R_DAT1": {
+      "ref": "R5",
+      "a": "2",
+      "b": "1"
+    },
+    "C_0u1": {
+      "ref": "C1",
+      "a": "1",
+      "b": "2"
+    },
+    "C_1u": {
+      "ref": "C2",
+      "a": "1",
+      "b": "2"
+    }
+  },
+  "parts_note": "Blender の抵抗の a は信号の側、b は 3V3 の側。コンデンサの a は 3V3、b は GND",
+  "net_names": {
+    "3V3": "+3V3",
+    "GND": "GND",
+    "SD_SCK": "SD_SCK",
+    "SD_MISO_DAT0": "SD_MISO",
+    "SD_MOSI_CMD": "SD_MOSI",
+    "SD_CS_DAT3": "SD_CS",
+    "SD_DAT1_PU": "SD_DAT1",
+    "SD_DAT2_PU": "SD_DAT2",
+    "GPS_TX": "GPS_TX",
+    "GPS_RX": "GPS_RX",
+    "ADXL_SCK": "ADXL_SCK",
+    "ADXL_MOSI": "ADXL_MOSI",
+    "ADXL_MISO": "ADXL_MISO",
+    "ADXL_CS": "ADXL_CS"
+  }
+}

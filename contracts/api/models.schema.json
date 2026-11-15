@@ -21,7 +21,7 @@
           "commit": { "type": ["string", "null"] },
           "n_rides": { "type": ["integer", "null"], "description": "学習に使った走行の数" },
           "n_windows": { "type": ["integer", "null"], "description": "学習に使った窓の数" },
-          "has_record": { "type": "boolean", "description": "model.json があるか（作り直しの前に作った版には無い）。詳しくは GET /api/models/{version}、ナレッジは GET /api/models/{version}/notes" }
+          "has_record": { "type": "boolean", "description": "model.json があるか（記録を残す仕組みより前の古い形の版には無い）。詳しくは GET /api/models/{version}、ナレッジは GET /api/models/{version}/notes" }
         }
       }
     }

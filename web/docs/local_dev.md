@@ -4,9 +4,9 @@
 
 | 起動 | `/api/*` の中継先 | ログイン | 使う場面 |
 |---|---|---|---|
-| `npm run dev`（`start.bat`） | 公開ドメイン（https://drive.herdio-system.com） | 要る（公開版と同じ Cognito） | ふだん。公開版と同じデータ・同じ権限で見る |
+| `npm run dev`（`start.bat`） | 公開版のドメイン（`.env.development.local` の `API_ORIGIN`） | 要る（公開版と同じ Cognito） | ふだん。公開版と同じデータ・同じ権限で見る |
 | `npm run dev:local` | 手元で動かしたデータ API（http://localhost:8000） | 要らない（手元の開発者＝admin） | API と画面を一緒に直すとき |
-| `npm run dev:test`（`start.bat -Env test`） | test のドメイン（https://drive-test.herdio-system.com） | 要る（test の Cognito） | 本番に書かずに、つないだ動きを確かめるとき（docs/test_environment.md） |
+| `npm run dev:test`（`start.bat -Env test`） | test のドメイン（`.env.testenv.local` の `API_ORIGIN`） | 要る（test の Cognito） | 本番に書かずに、つないだ動きを確かめるとき（docs/test_environment.md） |
 
 ## いちばん簡単な起動（ダブルクリック）
 
@@ -14,10 +14,10 @@
 
 1. すでに起動していれば、ブラウザで http://localhost:5173 を開くだけ
 2. 初回は `npm install`
-3. ログインの設定（`.env.development.local`）を Terraform の出力から作る（公開版の `deploy.ps1` と同じ値。秘密ではない）。Terraform の出力を読めない PC（AWS のログインや `terraform -chdir=infra init` がまだ）では、読めない理由と次にやることを黄色で出し、コミットしてある `.env.development` の値で起動を続ける
+3. ログインの設定と `/api/*` の中継先（`.env.development.local`。コミットしない）を Terraform の出力から作る（公開版の `deploy.ps1` と同じ値。秘密ではない）。Terraform の出力を読めない PC（AWS のログインや `terraform init` がまだ）では、読めない理由と次にやることを黄色で出し、前に作ったか手で書いた `.env.development.local` で起動を続ける。そのファイルも無ければ止まる
 4. dev サーバーを起動し、準備ができたらブラウザを開く
 
-画面を見るだけなら、AWS と Terraform の準備は要らない（Node.js だけでよい）。`.env.development` の値が Terraform の出力と違っていると、`start-dev.ps1` と `deploy.ps1` が書き直して知らせるので、そのときはコミットする。
+画面を見るだけなら、AWS と Terraform の準備は要らない（Node.js と、`.env.example` を見本に手で書いた `.env.development.local` だけでよい）。
 
 止めるときは黒い画面で Ctrl+C（「バッチ ジョブを終了しますか」には Y）。ブラウザを開かずに起動するときは `start.bat -NoBrowser`。
 
@@ -61,9 +61,9 @@ npm run dev:local
 
 | 症状 | 原因と対処 |
 |---|---|
-| 起動時に「VITE_AUTH_AUTHORITY が設定されていません」 | `web/.env.development`（コミット済み）が消えていないか確かめる。`start.bat`（`scripts/start-dev.ps1`）で起動すると、Terraform が読める PC では出力からログインの設定も作る |
-| `start.bat` で「Terraform の出力を読めませんでした」と黄色で出る | 起動は続くので、画面を見るだけならそのままでよい。直すときは、続けて出る対処（プロファイルを作る・`aws login`・`terraform -chdir=infra init`）をする（`docs/setup_another_pc.md`） |
-| `npm run dev:local` で「走行一覧を読み込めませんでした」 | 手元のデータ API（http://localhost:8000）が動いているか、その AWS の認証が切れていないか（`aws sts get-caller-identity --profile ct125-logger`） |
+| 起動時に「API_ORIGIN がありません」「VITE_AUTH_AUTHORITY が設定されていません」 | `web/.env.development.local`（test は `.env.testenv.local`）が無いか、値が足りない。`start.bat`（`scripts/start-dev.ps1`）で起動すると、Terraform が読める PC では出力から作る。読めない PC では `.env.example` を見本に手で作る |
+| `start.bat` で「Terraform の出力を読めませんでした」と黄色で出る | 前に作った `.env.development.local` で起動は続くので、画面を見るだけならそのままでよい。直すときは、続けて出る対処（プロファイルを作る・`aws login`・`terraform init`）をする（`docs/setup_another_pc.md`） |
+| `npm run dev:local` で「走行一覧を読み込めませんでした」 | 手元のデータ API（http://localhost:8000）が動いているか、その AWS の認証が切れていないか（`aws sts get-caller-identity --profile <管理者のプロファイル>`） |
 | 「…がありません（HTTP 404）」 | 公開用のバケットの `datasets/shared/` にまだ無い。処理の Lambda（`ct125-ride-pipeline`）のログを確かめる |
 | 地図が出ない | 回線（OpenFreeMap のタイル）を確認。地図の枠の上にエラーの内容が出る |
 | 地図をホイールで拡大できない | Ctrl（Mac は ⌘）を押しながらホイール。ページのスクロールを妨げないため |

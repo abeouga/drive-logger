@@ -196,7 +196,9 @@ class Pipeline:
                 if run["status"] != "succeeded":
                     raise ValueError(f"処理 {run_id} は失敗しているので公開できません：{run['error']}")
                 self._models.set_current(run["model_version"])
-            self._update_ledger(lambda ledger: records.point_to_run(ledger, run, self._clock()))
+            self._update_ledger(lambda ledger: records.point_to_run(ledger, run, self._clock(), self._start_ms))
+        if records.needs_names(self._read_ledger()):  # 名前を足す前からある走行に、ここで 1 回だけ名前を付ける
+            self._update_ledger(lambda ledger: records.name_rides(ledger, self._start_ms))
         for _ in range(MAX_ATTEMPTS):
             ledger, etag = self._places.work.read_json_tagged(LEDGER)
             result = self._publish_view(ledger or records.empty_ledger(self._clock()))
@@ -235,7 +237,7 @@ class Pipeline:
         for ride_id in removed:
             for name in export.ride_output_files(ride_id, existing):
                 public.delete(name)
-        public.write_json("rides.json", export.rides_document(summaries))
+        public.write_json("rides.json", export.rides_document(summaries, {ride_id: ledger["rides"][ride_id].get("name") or ride_id for ride_id in visible}))
         work.write_json(PUBLISHED, {"published_at": records.iso(self._clock()), "rides": visible})
         self._log(f"公開：{len(visible)} 走行（入れ替え {len(copied)}、外した {len(removed)}）")
         return {"n_rides": len(visible), "copied": copied, "removed": removed}
@@ -257,7 +259,7 @@ class Pipeline:
         self._save_run(run)
         # 学習し直しは全部が成功したときだけ公開する。新しい走行は、成功した走行だけを公開する
         publish_now = publish and (run["status"] == "succeeded" or not switch_model)
-        self._update_ledger(lambda ledger: records.record_run(ledger, run, markers, publish_now, self._clock()))
+        self._update_ledger(lambda ledger: records.record_run(ledger, run, markers, publish_now, self._clock(), self._start_ms))
         result = {"run_id": run["run_id"], "action": run["action"], "status": run["status"], "error": run["error"], "model_version": run["model_version"], "rides": run["rides"]}
         if publish_now:
             if switch_model:
@@ -300,6 +302,15 @@ class Pipeline:
         for name, data in files.items():
             work.put(base + "app/" + name, data)
         return records.ride_result(pre.ride_id, analyzed.kind, analyzed.kind_metrics, int(len(scored)), int(summary["n_anomalies"]))
+
+    def _start_ms(self, ride_id: str, entry: dict) -> int | None:
+        """走り始めの時刻（要約の start_ms。GPS なしは None）。公開中の結果、無ければ新しい処理の結果から読む（名前の日付に使う）。"""
+        for run_id in dict.fromkeys([entry.get("published_run"), *entry.get("runs", [])]):
+            if run_id:
+                summary = self._places.work.read_json(f"runs/{run_id}/rides/{ride_id}/summary.json")
+                if summary is not None:
+                    return summary.get("start_ms")
+        return None
 
     def _save_run(self, run: dict) -> None:
         self._places.work.write_json(f"runs/{run['run_id']}/run.json", run)

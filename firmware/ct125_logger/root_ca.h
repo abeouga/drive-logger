@@ -1,4 +1,4 @@
-// HTTPS で信頼するルート証明書（デバイス API と S3 の両方がこの 2 つにつながる。2026-11-08 に openssl で確認）
+// HTTPS で信頼するルート証明書（デバイス API と S3 の両方がこの 2 つにつながる。openssl で確かめた）
 //   Amazon Root CA 1                                   SHA-256 8E:CD:E6:88:4F:3D:87:B1:12:5B:A3:1A:C3:FC:B1:3D:70:16:DE:7F:57:CC:90:4F:E1:CB:97:C6:AE:98:19:6E
 //   Starfield Services Root Certificate Authority - G2 SHA-256 56:8D:69:05:A2:C8:87:08:A4:B3:02:51:90:ED:CF:ED:B1:97:4A:60:6A:13:C6:E5:29:0F:CB:2A:E6:3E:DA:B5
 // 出どころ：certifi（Mozilla のルート証明書の一覧）。証明書を検証しない接続はしない。

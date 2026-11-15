@@ -6,8 +6,21 @@
 #include "logger_constants.h"
 #include "logger_state.h"
 
-File fAccel, fGps, fEvent;
+CsvFile csvAccel{"accel.csv"}, csvGps{"gps.csv"}, csvEvent{"events.csv"};
 String sessionDir;
+
+// sd_write_recovery.h が書き込み・開き直し・出来事の記録に使う
+struct CsvSink {
+  CsvFile &c;
+  size_t write(const char *d, size_t n) { return c.file.write((const uint8_t *)d, n); }
+  bool reopen() {
+    c.file.close();  // 閉じると FatFs のファイルのエラーが消える
+    c.file = SD.open(sessionDir + "/" + c.name, FILE_APPEND);
+    return (bool)c.file;
+  }
+  const char *name() const { return c.name; }
+  void logEvent(const char *type, const char *detail) { ::logEvent(type, detail); }
+};
 
 void listSessions() {
   File dir = SD.open("/sessions");
@@ -17,7 +30,7 @@ void listSessions() {
     if (!d.isDirectory()) continue;
     String base = String("/sessions/") + d.name();
     File a = SD.open(base + "/accel.csv"), g = SD.open(base + "/gps.csv");
-    if (!a) a = SD.open(base + "/sensors.csv");   // V1 の記録
+    if (!a) a = SD.open(base + "/sensors.csv");   // 古い形（V1）の記録を一覧に出すため
     Serial.printf("  %s accel=%u gps=%u bytes\n", d.name(), a ? (unsigned)a.size() : 0, g ? (unsigned)g.size() : 0);
     if (a) a.close();
     if (g) g.close();
@@ -58,29 +71,34 @@ bool openSession() {
              (unsigned long)FLUSH_MS);
     m.close();
   }
-  fAccel = openCsv("accel.csv", "n,t_us,ax_g,ay_g,az_g");
-  fGps = openCsv("gps.csv", PIN_PPS >= 0
+  csvAccel.file = openCsv("accel.csv", "n,t_us,ax_g,ay_g,az_g");
+  csvGps.file = openCsv("gps.csv", PIN_PPS >= 0
                                 ? "t_rx_us,utc,date,status,fix,sats,hdop,lat,lon,speed_kmh,course_deg,pps_us"
                                 : "t_rx_us,utc,date,status,fix,sats,hdop,lat,lon,speed_kmh,course_deg");
-  fEvent = openCsv("events.csv", "t_us,type,detail");
+  csvEvent.file = openCsv("events.csv", "t_us,type,detail");
   File s = openCsv("status.csv",
                    "t_us,samples,rate_hz,ring_drops,fifo_overruns,i2c_errors,sd_write_errors,bytes,gps_status,gps_sats,"
                    "period_us,dt_min_us,dt_max_us,pll_err_max_us,time_resyncs");
   if (s) s.close();
-  if (fEvent && pendingEvents.length()) {
-    fEvent.print(pendingEvents);
-    fEvent.flush();
+  if (csvEvent.file && pendingEvents.length()) {
+    csvEvent.file.print(pendingEvents);
+    csvEvent.file.flush();
   }
-  return fAccel && fGps && fEvent;
+  return csvAccel.file && csvGps.file && csvEvent.file;
 }
 
-void drain(RingbufHandle_t r, File &f, TickType_t wait) {
+void drain(RingbufHandle_t r, CsvFile &c, TickType_t wait) {
+  CsvSink sink{c};
+  if (!sdEnsureWritable(sink, c.guard, millis())) {
+    if (wait) vTaskDelay(wait);  // 取り出さないときも、待つはずだった分は待つ（loop() が空回りしないように）
+    return;
+  }
   size_t n = 0;
   char *data = (char *)xRingbufferReceiveUpTo(r, &n, wait, 4096);
   if (!data) return;
-  size_t w = f.write((const uint8_t *)data, n);
-  if (w != n) sdWriteErrors++;
-  bytesWritten += w;
+  SdWriteResult res = sdWriteChunk(sink, c.guard, data, n, millis());
+  sdWriteErrors += res.errors;
+  bytesWritten += res.written;
   vRingbufferReturnItem(r, data);
 }
 

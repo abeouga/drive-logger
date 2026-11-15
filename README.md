@@ -53,6 +53,7 @@ drive-logger/
 ├── README.md        このファイル
 ├── docs/            構成・解析の決まり・データ仕様・設計
 ├── firmware/        ESP32（Arduino）。記録と Wi-Fi での送信。設定スクリプト
+├── hardware/        KiCad の回路図（つながりの正本）と、Blender のモデルとの照合
 ├── pipeline/        Python。前処理・異常スコア・画面用データの書き出し・AWS の自動処理（Lambda コンテナ）・機器の登録
 ├── api/             FastAPI。データ API（画面用、読むだけ）とデバイス API（機器用、raw/ に置くだけ）
 ├── web/             React＋Vite。走行一覧・走行ページ・ログイン

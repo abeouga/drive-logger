@@ -1,4 +1,4 @@
-// ADXL345（I2C 0x53）のレジスタの読み書き、I2C の線の解放、初期化（±16g・400Hz・FIFO ストリーム）
+// ADXL345（I2C 0x53）のレジスタの読み書き、I2C の線の解放、初期化（±16g・ODR は ACCEL_HZ・FIFO ストリーム）
 #pragma once
 #include <Arduino.h>
 

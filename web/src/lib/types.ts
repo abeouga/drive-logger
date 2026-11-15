@@ -1,4 +1,4 @@
-// データの型。画面用 JSON の形（docs/data_contract.md と同じ）。
+// データの型。画面用 JSON の形（web/docs/data_contract.md と同じ）。
 // 作る側は pipeline/ の export.py・spectro.py。
 
 export type GpsKind = "full" | "partial" | "none";
@@ -11,7 +11,8 @@ type Num = number | null;
 
 /** rides.json の rides[] の 1 件（走行一覧のカード） */
 export interface RideSummary {
-  id: string;
+  id: string; // 走行 ID（S3・台帳・URL のキー。並べ替えにも使う）
+  name: string; // 見出しに出す名前（「2026/11/02の走行」「2026/11/02の走行(1)」。台帳で 1 回だけ付ける）
   start_ms: number | null; // 記録開始の UNIX ミリ秒。GPS なしは null
   duration_s: number;
   distance_km: number;
@@ -113,6 +114,7 @@ export type RideKind = "desk" | "idle" | "ride" | "ride_nogps";
 /** GET /api/rides の rides[] の 1 件（走行の台帳から作る） */
 export interface LedgerRide {
   id: string;
+  name: string | null; // 台帳の名前。処理の Lambda が付ける前は null
   original_name: string | null;
   kind: RideKind | null;
   deleted: boolean;

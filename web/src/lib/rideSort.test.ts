@@ -5,6 +5,7 @@ import { listHashWithSort, rideIdToMs, sortFromHash, sortRides } from "./rideSor
 function ride(id: string, over: Partial<RideSummary> = {}): RideSummary {
   return {
     id,
+    name: id,
     start_ms: null,
     duration_s: 600,
     distance_km: 0,

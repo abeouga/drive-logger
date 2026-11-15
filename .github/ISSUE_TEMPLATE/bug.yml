@@ -65,7 +65,7 @@ body:
       description: 必要に応じて、ファームの版・走行名・ブランチ・ブラウザなどを記載してください。
       placeholder: |
         例）
-        - CT125_LOGGER_V3.1 / COM5
+        - CT125_LOGGER_V3.1 / COMx
         - ride_013
         - main
 

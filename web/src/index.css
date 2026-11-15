@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-/* 色は文之助の画面（Flat Design 2.0）と同じ値。明るい配色だけを使い、役割の名前で使う */
+/* 色はフラットデザインの落ち着いた配色。明るい配色だけを使い、役割の名前で使う */
 :root {
   color-scheme: light;
   --page: #e2e8ee;
@@ -72,7 +72,7 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* 部品の形（文之助の Flat Design 2.0 の .primary・.secondary・.danger-button・.compact・.form-card・入力欄・.status-pill・.notice に合わせる）。
+/* 部品の形（.primary・.secondary・.danger-button・.compact・.form-card・入力欄・.status-pill・.notice）。
    各部品はこの名前で使い、余白や並べ方だけを Tailwind で足す */
 @layer components {
   .card {

@@ -15,7 +15,9 @@ function Row({ ride, onChanged, onPurge }: { ride: LedgerRide; onChanged: () => 
   return (
     <li className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
       <div className="flex flex-col">
-        <span className="font-semibold">{ride.id}</span>
+        <span className="font-semibold">{ride.name ?? ride.id}</span>
+        {/* 「完全に削除」は走行 ID を打ち込んで確かめるので、ID も見せる */}
+        {ride.name && <span className="text-xs text-ink-2">走行 ID {ride.id}</span>}
         <span className="text-xs text-ink-2">
           {KIND_LABEL[ride.kind ?? ""] ?? "未分類"}
           {ride.summary && `・${fmtDuration(ride.summary.duration_s)}`}
@@ -79,7 +81,10 @@ export default function Trash() {
         <ul className="flex flex-col gap-2">
           {hidden.map((r) => (
             <li key={r.id} className="flex items-center justify-between rounded-[12px] border border-dashed border-line-strong bg-surface-muted px-4 py-2 text-sm">
-              <span>{r.id}</span>
+              <span>
+                {r.name ?? r.id}
+                {r.name && <span className="ml-2 text-xs text-ink-2">{r.id}</span>}
+              </span>
               <span className="text-xs text-ink-2">{r.summary ? `振動 rms 中央値 ${r.summary.rms_median.toFixed(3)} g` : ""}</span>
             </li>
           ))}

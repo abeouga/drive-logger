@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""ノートブック用：1セッション（ride_NNN）を読み込んで日本時間を付ける（データ仕様.md v2 の形式用）。
+"""ノートブック用：1セッション（ride_NNN）を読み込んで日本時間を付ける（docs/data_spec_v2.md の形式用）。
 
     from ride import load
     r = load("data/raw/ride_004")
@@ -52,7 +52,7 @@ def load(d):
 
     offset = None
     if len(gv):
-        # 時刻の対応（データ仕様.md 第2章）：offset = 中央値(UTC − t_rx)
+        # 時刻の対応（docs/data_spec_v2.md の「2. 時計」）：offset = 中央値(UTC − t_rx)
         offset = float(np.median(_gps_unix(gv) - gv["t_s"]))
         for df in (acc, gps, events):
             t = df["t_s"] if "t_s" in df else df["t_us"] / 1e6
