@@ -4,7 +4,8 @@
 スペクトログラム
 - 走行の 1 秒窓（windows.parquet と同じ区切り）ごとに、3 軸それぞれの平均を引いて Hann 窓を掛けて FFT し、
   パワーを足す（合成加速度にすると整流で周波数が 2 倍に写るため。features.band_ratios と同じ考え方）。
-- 0〜199 Hz を 1 Hz ごとの行にして dB にし、走行の中の分位点で 0〜1 に正規化する。
+- 0 Hz からナイキストまでを 1 Hz ごとの行にして dB にし、走行の中の分位点で 0〜1 に正規化する。
+  上の周波数は走行の fs で決める（f_max_for。400 Hz の走行は 200 Hz、800 Hz の走行は 400 Hz）。
 - 画像は「強さ＝不透明度」の PNG（グレー＋アルファ）。画面側でテーマの色を当てて塗るので、明暗どちらでも 1 枚で済む。
 
 生波形
@@ -20,9 +21,17 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-F_MAX_HZ = 200          # ナイキスト（約 199 Hz）まで
-N_FFT = 400             # 1 秒窓（約 398 サンプル）をゼロ詰めして固定長に
+F_MAX_HZ = 200          # 400 Hz の走行の上の周波数（ナイキスト 約 199 Hz まで）
+N_FFT = 400             # 400 Hz の走行の FFT の長さ（1 秒窓 約 398 サンプルをゼロ詰めして固定長に）
+BASE_FS_HZ = 400        # F_MAX_HZ・N_FFT が前提にしている fs
 ALPHA_LEVELS = 16       # 不透明度の段階（減らすと PNG がよく縮む）
+
+
+def f_max_for(fs: float) -> int:
+    """走行の fs に合わせた上の周波数（Hz）。fs ≈ 400 なら 200、fs ≈ 800 なら 400。FFT の長さはこの 2 倍（1 Hz 刻み）。"""
+    if not np.isfinite(fs) or fs <= 0:
+        return F_MAX_HZ
+    return F_MAX_HZ * max(1, int(round(fs / BASE_FS_HZ)))
 
 
 def window_bounds(t_rel: np.ndarray, t_starts: np.ndarray, window_sec: float = 1.0) -> list[tuple[int, int]]:
@@ -32,8 +41,13 @@ def window_bounds(t_rel: np.ndarray, t_starts: np.ndarray, window_sec: float = 1
     return list(zip(lo.tolist(), hi.tolist()))
 
 
-def window_power(ax: np.ndarray, ay: np.ndarray, az: np.ndarray, fs: float, f_max: int = F_MAX_HZ, n_fft: int = N_FFT) -> np.ndarray:
-    """1 窓の 3 軸合計パワーを 0..f_max-1 Hz の 1 Hz 刻みで返す（長さ f_max）。サンプルが少なければ NaN。"""
+def window_power(ax: np.ndarray, ay: np.ndarray, az: np.ndarray, fs: float, f_max: int = F_MAX_HZ, n_fft: int | None = None) -> np.ndarray:
+    """1 窓の 3 軸合計パワーを 0..f_max-1 Hz の 1 Hz 刻みで返す（長さ f_max）。サンプルが少なければ NaN。
+
+    n_fft を省くと 2 × f_max（1 Hz 刻み。窓のサンプル数 約 fs 以上なので、窓の全部のサンプルを使う）。
+    """
+    if n_fft is None:
+        n_fft = 2 * f_max
     n = len(ax)
     if n < 8:
         return np.full(f_max, np.nan)
@@ -48,8 +62,10 @@ def window_power(ax: np.ndarray, ay: np.ndarray, az: np.ndarray, fs: float, f_ma
     return out
 
 
-def spectrogram(acc: pd.DataFrame, t_starts: np.ndarray, fs: float, window_sec: float = 1.0, f_max: int = F_MAX_HZ) -> np.ndarray:
-    """窓 × 周波数（1 Hz）のパワー行列。acc は t_rel・ax_g・ay_g・az_g を持ち t_rel で昇順。"""
+def spectrogram(acc: pd.DataFrame, t_starts: np.ndarray, fs: float, window_sec: float = 1.0, f_max: int | None = None) -> np.ndarray:
+    """窓 × 周波数（1 Hz）のパワー行列。acc は t_rel・ax_g・ay_g・az_g を持ち t_rel で昇順。f_max を省くと f_max_for(fs)。"""
+    if f_max is None:
+        f_max = f_max_for(fs)
     t = acc["t_rel"].to_numpy(float)
     ax = acc["ax_g"].to_numpy(float)
     ay = acc["ay_g"].to_numpy(float)

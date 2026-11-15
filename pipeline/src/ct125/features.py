@@ -5,13 +5,60 @@
 - 主に使うのは重力除去後の合成加速度 |a| = sqrt(ax²+ay²+az²)。
 - 帯域エネルギー比は、3 軸それぞれ（平均除去後）に Hann 窓を掛けて FFT し、パワーを足してから帯域で割合を取る。
   合成加速度（絶対値）に FFT を掛けると整流で周波数が 2 倍に写るため、ここだけ帯域の求め方を 3 軸ごとにしている（docs/analysis_policy.md 2.4）。
+- 特徴量は 400 Hz 相当で計算する（for_features）。800 Hz の走行は 200 Hz より上を落として 400 Hz に間引いてから計算し、
+  400 Hz の走行と同じ物差しで比べられるようにする（docs/analysis_policy.md 2.1）。スペクトログラムは間引かない。
 """
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from scipy.signal import resample_poly
+
+FEATURE_FS_HZ = 400.0   # 特徴量を計算する fs の目安（これの 2 倍以上の走行は間引く）
+GAP_PERIODS = 2.5       # サンプルの間隔がこの周期数を超えたら途切れとみなし、またいで間引かない
+MIN_FILTER_SAMPLES = 64 # これより短い区間は低域通過せずに間引くだけ（端の影響が大きいため）
 
 FEATURE_COLS = ["rms", "log_rms", "p2p", "std", "crest", "jerk_rms"]
+
+
+def decimation_factor(fs: float) -> int:
+    """特徴量のために間引く割合（1 なら間引かない）。fs ≈ 400 なら 1、fs ≈ 800 なら 2。"""
+    if not np.isfinite(fs) or fs <= 0:
+        return 1
+    return max(1, int(round(fs / FEATURE_FS_HZ)))
+
+
+def for_features(acc: pd.DataFrame, fs: float) -> tuple[pd.DataFrame, float]:
+    """特徴量を計算する加速度と fs。fs が 400 Hz 相当なら acc をそのまま返す。
+
+    間引くときは、記録が途切れていない区間ごとに 3 軸を resample_poly（低域通過＋間引き）し、
+    t_rel は区間の q 個ごとのサンプルの時刻を使う。is_clipped は間引いた q 個のどれかが振り切れていれば True。
+    """
+    q = decimation_factor(fs)
+    if q == 1 or len(acc) < 2:
+        return acc, fs
+    t = acc["t_rel"].to_numpy(float)
+    gaps = np.flatnonzero(np.diff(t) > GAP_PERIODS / fs) + 1
+    starts = np.concatenate([[0], gaps])
+    ends = np.concatenate([gaps, [len(t)]])
+    clipped = acc["is_clipped"].to_numpy(bool) if "is_clipped" in acc else None
+    parts = []
+    for lo, hi in zip(starts, ends):
+        idx = np.arange(lo, hi, q)
+        part = {"t_rel": t[idx]}
+        for col in ("ax_g", "ay_g", "az_g"):
+            x = acc[col].to_numpy(float)[lo:hi]
+            if hi - lo >= MIN_FILTER_SAMPLES:
+                y = resample_poly(x, 1, q, padtype="line")[: len(idx)]
+            else:
+                y = x[::q]
+            part[col] = y
+        if clipped is not None:
+            c = clipped[lo:hi]
+            pad = (-len(c)) % q
+            part["is_clipped"] = np.concatenate([c, np.zeros(pad, bool)]).reshape(-1, q).any(axis=1)
+        parts.append(pd.DataFrame(part))
+    return pd.concat(parts, ignore_index=True), fs / q
 
 
 def dynamic_magnitude(ax: np.ndarray, ay: np.ndarray, az: np.ndarray) -> np.ndarray:

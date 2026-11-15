@@ -184,7 +184,7 @@ def extras_payload(df: pd.DataFrame, acc: pd.DataFrame, wave_rows: list[int] | N
     body = power[:, 5:]
     peak = [None if not np.isfinite(row).any() else int(np.nanargmax(row)) + 5 for row in body]
     rid = str(df["ride_id"].iloc[0])
-    spec_meta = {"id": rid, "n_cols": int(img.shape[1]), "f_max_hz": spectro.F_MAX_HZ, "window_sec": window_sec, **scale, "peak_hz": peak}
+    spec_meta = {"id": rid, "n_cols": int(img.shape[1]), "f_max_hz": spectro.f_max_for(fs), "window_sec": window_sec, **scale, "peak_hz": peak}
     rows = list(range(len(df))) if wave_rows is None else sorted(wave_rows)
     windows = spectro.waveforms(acc, t_starts, rows, fs, window_sec)
     chunks: dict[int, list[dict]] = {}

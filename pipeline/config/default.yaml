@@ -51,7 +51,7 @@ environments:            # aws.env が prod 以外のとき、aws と upload に
       device_parameter_prefix: /ct125-test/devices/
     upload:
       token_file: config/pc01.test.token
-bands_hz:                # 帯域エネルギー比（fs ≈ 398 Hz、ナイキスト 199 Hz）
+bands_hz:                # 帯域エネルギー比（特徴量は 400 Hz 相当で計算する。ナイキスト 約 199 Hz。800 Hz の走行は間引いてから）
   band_1_5: [1, 5]
   band_5_15: [5, 15]
   band_15_40: [15, 40]

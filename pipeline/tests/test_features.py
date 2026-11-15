@@ -57,3 +57,53 @@ def test_compute_windows_splits_by_second():
     assert w["t_rel"].iloc[0] == pytest.approx(0.5)
     assert (w["n_samples"].iloc[:3] == 400).all()
     assert w["rms"].iloc[0] == pytest.approx(1 / np.sqrt(2), rel=1e-3)
+
+
+# ------------------------------------------------------------------ 800 Hz の走行（#112）
+def _acc(fs, seconds, comps, gap_at=None):
+    n = int(fs * seconds)
+    t = np.arange(n) / fs
+    if gap_at is not None:
+        t = np.where(t >= gap_at, t + 2.0, t)   # gap_at 秒で 2 秒途切れる
+    ax = sum(a * np.sin(2 * np.pi * f * t) for f, a in comps)
+    return pd.DataFrame({"t_rel": t, "ax_g": ax, "ay_g": 1.0, "az_g": 0.0, "is_clipped": False})
+
+
+def test_400hz_is_not_decimated():
+    acc = _acc(398.5, 2, [(10, 1.0)])
+    out, fs = features.for_features(acc, 398.5)
+    assert out is acc and fs == 398.5
+
+
+def test_800hz_features_match_400hz():
+    # 200 Hz より下だけの振動なら、800 Hz で記録しても 400 Hz と同じ特徴量になる
+    comps = [(24, 0.5), (90, 0.2)]
+    w4 = features.compute_windows(_acc(400.0, 4, comps), 400.0, 1.0, None)
+    a8, fs8 = features.for_features(_acc(800.0, 4, comps), 800.0)
+    assert fs8 == 400.0
+    w8 = features.compute_windows(a8, fs8, 1.0, None)
+    assert list(w8["n_samples"]) == list(w4["n_samples"])
+    mid = slice(1, 3)   # 走行の端（フィルターの端の影響）を除く
+    for col in ("rms", "std", "p2p"):
+        assert np.allclose(w8[col].iloc[mid], w4[col].iloc[mid], rtol=0.02), col
+
+
+def test_800hz_drops_above_200hz():
+    # 300 Hz の振動は特徴量に入らない（400 Hz の走行では記録されない帯域のため）
+    a8, fs8 = features.for_features(_acc(800.0, 4, [(300, 1.0)]), 800.0)
+    w8 = features.compute_windows(a8, fs8, 1.0, None)
+    assert (w8["rms"].iloc[1:3] < 0.01).all()
+
+
+def test_800hz_does_not_filter_across_gaps():
+    a8, _ = features.for_features(_acc(800.0, 4, [(24, 0.5)], gap_at=2.0), 800.0)
+    t = a8["t_rel"].to_numpy()
+    assert np.diff(t).max() > 1.9                 # 途切れはそのまま残る
+    assert np.all(np.diff(t) > 0)
+
+
+def test_800hz_clipped_flag_survives():
+    acc = _acc(800.0, 2, [(24, 0.5)])
+    acc.loc[801, "is_clipped"] = True              # 間引くと消える添字（奇数）でも残ること
+    a8, _ = features.for_features(acc, 800.0)
+    assert a8["is_clipped"].sum() == 1
