@@ -25,9 +25,17 @@ def get_device_settings() -> DeviceSettings:
     return DeviceSettings.from_env()
 
 
+def _region() -> str:
+    """署名する S3 のリージョン。Lambda では AWS_REGION（Lambda が入れる）、手元では使っているプロファイルのリージョン。"""
+    region = os.environ.get("AWS_REGION") or boto3.session.Session().region_name
+    if not region:
+        raise RuntimeError("リージョンが分かりません。環境変数 AWS_REGION か、AWS のプロファイルの region を設定してください")
+    return region
+
+
 @lru_cache
 def _s3_client():
-    return presigning_s3_client(os.environ.get("AWS_REGION", "ap-northeast-1"))
+    return presigning_s3_client(_region())
 
 
 @lru_cache

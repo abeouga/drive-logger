@@ -1,4 +1,4 @@
-# 走行データ（raw / processed / models）と走行ページ（site）を置く非公開バケット。
+# 画面（Web アプリのビルド結果 webapp/）を置く非公開バケット。走行データは役割ごとのバケット（buckets.tf）に置く。
 # バケット自体は公開しない。Web アプリは CloudFront（OAC）経由で webapp/ だけを配る（cloudfront.tf）。
 
 resource "aws_s3_bucket" "data" {

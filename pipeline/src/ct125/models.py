@@ -8,7 +8,7 @@ models/current.json   今使う版（{"version": "20261109-031500"}）
 Isolation Forest は skops で保存し、信頼する型を決め打ちで読む（読み込んでもコードが動かない。#23）。
 pickle（isolation_forest.pkl）しかない古い版は読まずに止める。学習し直して（retrain）、新しい版に切り替える。
 読むときは model.json のライブラリの版と今の版を突き合わせ、違えば止める（版がずれると読めない・スコアが変わることがある）。
-model.json の無い古い版（作り直しの前に作ったもの）は、突き合わせずに読む。
+model.json の無い古い形の版（記録を残す仕組みより前の形式）は、突き合わせずに読む。
 """
 from __future__ import annotations
 

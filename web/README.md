@@ -46,12 +46,10 @@ admin でログインすると、走行を消す・ゴミ箱から戻す（#19�
 ```
 web/
 ├── README.md  package.json  vite.config.ts  tsconfig.json  index.html
-├── .env.example                  dev の設定の見本（コミットする）
-├── .env.development              dev のログイン設定（秘密ではない。Terraform が無い PC でも起動できるようにコミットする）
-├── .env.development.local        dev のログイン設定。start-dev.ps1 が Terraform の出力から作る（コミットしない。.env.development より優先）
+├── .env.example                  dev の設定の見本（値は伏せてある。コミットする）
+├── .env.development.local        npm run dev のログインの設定と中継先。start-dev.ps1・deploy.ps1 が Terraform の出力から作る（コミットしない）
 ├── .env.production.local         公開版のログイン設定。deploy.ps1 が Terraform の出力から作る（コミットしない）
-├── .env.testenv                  test の環境につなぐ dev サーバー（npm run dev:test）の中継先（秘密ではない。コミットする）
-├── .env.testenv.local            test のログイン設定。start-dev.ps1 -Env test が Terraform（workspace の test）の出力から作る（コミットしない）
+├── .env.testenv.local            npm run dev:test のログインの設定と中継先。start-dev.ps1 -Env test が Terraform（workspace の test）の出力から作る（コミットしない）
 ├── start.bat                     ダブルクリックで npm run dev
 │
 ├── src/                   ブラウザで動くコード（React）
@@ -96,7 +94,15 @@ s3://ct125-logger-<アカウントID>/webapp/   React のビルド結果（Cloud
 
 ## 設定
 
-dev のログインの設定は、コミットしてある `.env.development` に入っている（ユーザープールとクライアント ID。秘密ではない）。Terraform が読める PC では `scripts/start-dev.ps1` が出力から `.env.development.local` も作り、こちらが優先される。`.env.development` が Terraform の出力と違っていると、`start-dev.ps1` と `deploy.ps1` が書き直して知らせるので、そのときはコミットする。
+環境に依る値（ログインのユーザープールとクライアント ID、`/api/*` を中継する先のドメイン）はコミットしない。dev サーバーは次の `.local` のファイルから読む。
+
+| 起動 | 読むファイル | 作るもの |
+|---|---|---|
+| `npm run dev` | `.env.development.local` | `scripts/start-dev.ps1`（と本番の `scripts/deploy.ps1`）が Terraform の出力から作る |
+| `npm run dev:test` | `.env.testenv.local` | `scripts/start-dev.ps1 -Env test` が Terraform（workspace の test）の出力から作る |
+| `npm run dev:local` | なし（中継先は既定の http://localhost:8000。変えるときは `.env.local` の `LOCAL_API_ORIGIN`） | — |
+
+Terraform を使わない PC では、`.env.example` を見本に手で作る（値は Terraform を使える人に聞く）。中継先（`API_ORIGIN`）が無いと、dev サーバーは起動せずに理由を出す。
 
 **注意：`VITE_` で始まる変数はブラウザに埋め込まれる。** `VITE_AUTH_*` はログイン画面の場所とクライアント ID で、ブラウザに見えてよい値。
 画面には AWS の鍵もバケット名も入らない（データは必ずデータ API を通す）。

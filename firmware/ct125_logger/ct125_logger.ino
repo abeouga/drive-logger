@@ -1,20 +1,20 @@
-// CT125ロガー フェーズ1：加速度（ADXL345）＋GPS（ATGM336H）を microSD に記録する
+// CT125ロガー：加速度（ADXL345）＋GPS（ATGM336H）を microSD に記録し、走行後に Wi-Fi で S3 へ送る
 // データの形は ../../docs/data_spec_v2.md（データ仕様 v2）に合わせている。
 //
-// 配線（ブレッドボード版 CT125-BB-R3、2026-11-02 に実機で確認済み）
+// 配線（ブレッドボード版 CT125-BB-R3、実機で確認済み）
 //   ADXL345 : SDA=IO21, SCL=IO22, CS=3V3, SDO=GND（I2C 0x53）
 //   GPS     : GPS TX → IO32（ESP受信）, GPS RX ← IO33, 9600bps, PPS は未接続（PIN_PPS で有効化）
 //   microSD : CS=IO5, SCK=IO18, MISO=IO19, MOSI=IO23（秋月105488、3.3V）
-//   LED     : IO2（ボード上のLEDと仮定。要確認）
+//   LED     : IO2（ボード上のLEDのはず。実機で点くかは未確認）
 //
 // 記録の仕組み
 //   - 電源を入れるたびに /sessions/ride_NNN/ を作り、accel.csv・gps.csv・events.csv・status.csv に書く。
 //   - すべての行に ESP の時計 t_us（起動からのマイクロ秒）を付ける。GPS の UTC は gps.csv で対応づける。
-//   - 加速度は ADXL345 の FIFO を使い 400Hz で読む（コア0）。GPS は別タスク（コア1）。
+//   - 加速度は ADXL345 の FIFO を使い 800Hz（ACCEL_HZ）で読む（コア0）。GPS は別タスク（コア1）。
 //   - SDへの書き込みは loop()（コア1）で、RAMのリングバッファから取り出して行う。
 //   - 1秒ごとに flush。電源が突然切れても失うのは最後の約1秒。
 //
-// V3：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
+// 送信：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
 //   記録中 →（止まって静か 2 分、または BOOT ボタン 2 秒）→ 記録を閉じる → 送信 → 待機
 //   待機中に動き出したら再起動して、新しい走行の記録を始める。記録と送信は同時にしない。
 //   送信の手順は uploader.cpp、Wi-Fi とトークンの設定は config_store.cpp（シリアルから書き込む）。
@@ -28,6 +28,7 @@
 //   accel_sampler.*     加速度のタスク（時刻の補正 PLL とサンプリング）→ accel.csv
 //   nmea.*・gps_task.*  NMEA の読み取りと GPS のタスク → gps.csv
 //   sd_session.*        走行のフォルダー・meta.json・CSV の見出し・書き出し・status.csv
+//   sd_write_recovery.h SD に書けなくなった CSV の開き直し（FatFs はファイルごとにエラーを覚え、以後を断るため）
 //   motion.*            静か・動き出しの判定（送信のきっかけ・送信の中断・待機からの起き上がり）
 //   led.*・boot_button.*・serial_commands.*  LED・BOOT ボタン・シリアルのコマンド
 //
@@ -93,7 +94,7 @@ void setup() {
     Serial.println("ADXL=NG 記録しません");
     return;
   }
-  Serial.println("ADXL=OK 400Hz +-16g FIFO");
+  Serial.printf("ADXL=OK %.0fHz +-16g FIFO\n", ACCEL_HZ);
   if (!openSession()) {
     Serial.println("SESSION=NG 記録しません");
     return;
@@ -116,14 +117,12 @@ void setup() {
 // ------------------------------------------------------------------ 記録中
 void loopLogging() {
   static uint32_t lastFlush = millis(), lastStatus = millis(), lastCheck = millis(), quietSeconds = 0;
-  drain(ringAccel, fAccel, pdMS_TO_TICKS(20));
-  drain(ringGps, fGps, 0);
-  drain(ringEvent, fEvent, 0);
+  drain(ringAccel, csvAccel, pdMS_TO_TICKS(20));
+  drain(ringGps, csvGps, 0);
+  drain(ringEvent, csvEvent, 0);
   uint32_t now = millis();
   if (now - lastFlush >= FLUSH_MS) {
-    fAccel.flush();
-    fGps.flush();
-    fEvent.flush();
+    for (CsvFile *c : {&csvAccel, &csvGps, &csvEvent}) c->file.flush();
     lastFlush = now;
   }
   if (now - lastStatus >= STATUS_MS) {
@@ -153,13 +152,11 @@ void finishSession(const char *reason) {
   uint32_t start = millis();
   while ((!accelStopped || !gpsStopped) && millis() - start < 2000) delay(10);
   for (RingbufHandle_t ring : {ringAccel, ringGps, ringEvent}) {
-    File &f = ring == ringAccel ? fAccel : ring == ringGps ? fGps : fEvent;
-    for (int i = 0; i < 64; i++) drain(ring, f, 0);  // 1 回 4KB まで。64KB のリングを空にするのに足りる
+    CsvFile &c = ring == ringAccel ? csvAccel : ring == ringGps ? csvGps : csvEvent;
+    for (int i = 0; i < 64; i++) drain(ring, c, 0);  // 1 回 4KB まで。64KB のリングを空にするのに足りる
   }
   writeStatus();
-  fAccel.close();
-  fGps.close();
-  fEvent.close();
+  for (CsvFile *c : {&csvAccel, &csvGps, &csvEvent}) c->file.close();
   running = false;
   vRingbufferDelete(ringAccel);
   vRingbufferDelete(ringGps);
@@ -171,7 +168,7 @@ void finishSession(const char *reason) {
 // ------------------------------------------------------------------ 送信
 // 自動で始めた送信は、走り出したら（動きが約 1 秒続いたら）ファイルの合間でやめる（記録が優先）。
 // 手で始めた送信（BOOT ボタン・シリアル）はやめない：ボタンを押す手で基板が揺れるので、
-// 一瞬の揺れでやめると送れない（2026-11-08 の机上試験で、最初の 1 回がこれで止まった）。
+// 一瞬の揺れでやめると、手で始めた送信がすぐに止まってしまう。
 bool neverAbort() { return false; }
 
 void runUpload(bool automatic) {

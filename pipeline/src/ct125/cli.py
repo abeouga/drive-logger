@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
     us.add_argument("paths", nargs="+", help="SD の走行のフォルダー（accel.csv がある所）か、その親（/sessions など）")
     us.add_argument("--device-id", default=None, help="機器 ID（既定は config の upload.device_id）")
     us.add_argument("--token-file", default=None, help="register-device --token-file で作ったファイル（既定は config の upload.token_file）")
-    us.add_argument("--base-url", default=None, help="公開ドメイン（既定は config の upload.base_url）")
+    us.add_argument("--base-url", default=None, help="送り先の URL（既定は config/local.yaml の upload.base_url）")
     us.add_argument("--resume", default=None, metavar="RIDE_ID", help="途中で切れたとき：前回の走行 ID（フォルダーを 1 つだけ渡す）")
     rg = sub.add_parser("register-device", help="ESP32 の機器トークンを作り、ハッシュだけを SSM に登録する")
     rg.add_argument("--id", required=True, help="機器 ID（英小文字・数字・-。例 d01）")
@@ -163,7 +163,10 @@ def _upload_sd(cfg: dict, args) -> int:
         print(f"機器 ID とトークンのファイルが要ります（{token_path}）。作るとき：python -m ct125 register-device --id {device_id or 'pc01'} --token-file {token_path}", file=sys.stderr)
         return 2
     token = token_path.read_text(encoding="ascii").strip()
-    base_url = args.base_url or ucfg.get("base_url", "https://drive.herdio-system.com")
+    base_url = args.base_url or ucfg.get("base_url")
+    if not base_url:
+        print("送り先の URL が要ります。config/local.yaml の upload.base_url（test は environments.test.upload.base_url）に書くか、--base-url で渡してください", file=sys.stderr)
+        return 2
     folders = [folder for path in args.paths for folder in session_folders(Path(path))]
     if args.resume and len(folders) != 1:
         print("--resume はフォルダーを 1 つだけ渡すときに使います", file=sys.stderr)

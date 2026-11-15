@@ -1,4 +1,4 @@
-// データの型。画面用 JSON の形（docs/data_contract.md と同じ）。
+// データの型。画面用 JSON の形（web/docs/data_contract.md と同じ）。
 // 作る側は pipeline/ の export.py・spectro.py。
 
 export type GpsKind = "full" | "partial" | "none";

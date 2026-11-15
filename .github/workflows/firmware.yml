@@ -51,3 +51,7 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Werror -I firmware/tests/host -I firmware/ct125_logger firmware/tests/host/test_json_lite.cpp -o /tmp/test_json_lite
           /tmp/test_json_lite
+      - name: SD に書けなくなった CSV の開き直し（sd_write_recovery.h）
+        run: |
+          g++ -std=c++17 -Wall -Werror -I firmware/tests/host -I firmware/ct125_logger firmware/tests/host/test_sd_write_recovery.cpp -o /tmp/test_sd_write_recovery
+          /tmp/test_sd_write_recovery

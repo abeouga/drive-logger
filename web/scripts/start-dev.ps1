@@ -43,8 +43,9 @@ if (-not (Test-Path (Join-Path $root "node_modules"))) {
     if ($LASTEXITCODE -ne 0) { throw "npm install に失敗しました" }
 }
 
-# ログインの設定を Terraform の出力から .env.development.local に作る（公開版の deploy.ps1 と同じ値。秘密ではない）。
-# Terraform が読めない PC（AWS のログインや terraform init がまだ）でも、コミットしてある .env.development の値で起動を続ける
+# ログインの設定と /api/* の中継先を Terraform の出力から .env.development.local（test は .env.testenv.local）に作る
+# （公開版の deploy.ps1 と同じ値。秘密ではない。どちらもコミットしない）。
+# Terraform が読めない PC（AWS のログインや terraform init がまだ）でも、前に作ったか手で書いた（見本は .env.example）ファイルで起動を続ける
 . (Join-Path $PSScriptRoot "auth-env.ps1")
 $envFile = Join-Path $root $envFileName
 $terraformDir = Join-Path (Split-Path -Parent $root) "infra"
@@ -73,21 +74,16 @@ if ($ok) {
     # env の出力が無い（古い state）のは本番だけ
     $actual = if ($outputs.env) { $outputs.env.value } else { "prod" }
     if ($actual -ne $Environment) { throw "Terraform の出力の環境（$actual）が -Env（$Environment）と違います" }
-    Write-AuthEnvFile $envFile "# scripts/start-dev.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない）" $outputs
-    if ($isProd) { Sync-CommittedAuthEnv $root $outputs }
+    Write-AuthEnvFile $envFile "# scripts/start-dev.ps1 が Terraform の出力から作る。手で直さない（秘密の値はない。コミットしない）" $outputs -WithApiOrigin
     Write-Host "ログインの設定を作りました（$envFile）。データは $($outputs.app_url.value) のデータ API から読みます（ログインが要ります）"
-} elseif (-not $isProd -and -not (Test-Path $envFile)) {
-    # test にはコミットしたログインの設定が無い（本番の設定で test に入ることはできない）
-    $hint = Get-TerraformFailureHint $terraformDir "ct125-logger" $terraformError
-    throw "test のログインの設定を Terraform の出力から作れませんでした：$hint"
+} elseif (-not (Test-Path $envFile)) {
+    # ログインの設定と中継先はコミットしていないので、無ければ起動できない
+    $hint = Get-TerraformFailureHint $terraformDir (Get-AdminProfileName $terraformDir) $terraformError
+    throw "$Environment のログインの設定（$envFile）を Terraform の出力から作れませんでした：$hint。Terraform を使わないなら、.env.example を見本に $envFile を手で作ってください"
 } else {
-    $hint = Get-TerraformFailureHint $terraformDir "ct125-logger" $terraformError
+    $hint = Get-TerraformFailureHint $terraformDir (Get-AdminProfileName $terraformDir) $terraformError
     Write-Host "Terraform の出力を読めませんでした：$hint" -ForegroundColor Yellow
-    if (Test-Path $envFile) {
-        Write-Host "前に作った $envFile のログインの設定で起動します" -ForegroundColor Yellow
-    } else {
-        Write-Host "コミットしてある .env.development のログインの設定で起動します（画面を見るだけならこのままでよい）" -ForegroundColor Yellow
-    }
+    Write-Host "前に作ったか手で書いた $envFile の設定で起動します" -ForegroundColor Yellow
 }
 
 # 起動を待ってブラウザを開く（裏で待つ）

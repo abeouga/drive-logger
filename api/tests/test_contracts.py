@@ -52,9 +52,10 @@ def test_marker_names_and_url_seconds_match():
     upload = load("upload/upload.json")
     assert s3_raw_upload_repository.SESSION_FILE == upload["raw_files"]["session"]["name"]
     assert s3_raw_upload_repository.COMPLETE_MARKER == upload["raw_files"]["complete"]["name"]
-    saved = {name: os.environ.pop(name, None) for name in ("RAW_BUCKET", "UPLOAD_URL_SECONDS")}
+    saved = {name: os.environ.pop(name, None) for name in ("RAW_BUCKET", "UPLOAD_URL_SECONDS", "DEVICE_TOKEN_PARAMETER_PREFIX")}
     try:
         os.environ["RAW_BUCKET"] = "bucket"
+        os.environ["DEVICE_TOKEN_PARAMETER_PREFIX"] = "/prefix/devices/"
         assert DeviceSettings.from_env().upload_url_seconds == upload["url_seconds"]
     finally:
         for name, value in saved.items():

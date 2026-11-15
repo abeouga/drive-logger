@@ -43,7 +43,7 @@ class DeviceSettings:
     # 生データを置くバケットとフォルダー（raw/<走行>/）
     raw_bucket: str
     raw_prefix: str
-    # 機器のトークンのハッシュを置いた SSM パラメーターの親（<prefix><機器ID>/token-sha256）
+    # 機器のトークンのハッシュを置いた SSM パラメーターの親（<prefix><機器ID>/token-sha256）。環境ごとに違うので既定は持たない（Terraform が渡す）
     device_token_parameter_prefix: str
     # 機器に渡す PUT 用 URL の有効期間（秒）
     upload_url_seconds: int
@@ -53,7 +53,7 @@ class DeviceSettings:
         return cls(
             raw_bucket=_required("RAW_BUCKET"),
             raw_prefix=os.environ.get("RAW_PREFIX", "raw/"),
-            device_token_parameter_prefix=os.environ.get("DEVICE_TOKEN_PARAMETER_PREFIX", "/ct125/devices/"),
+            device_token_parameter_prefix=_required("DEVICE_TOKEN_PARAMETER_PREFIX"),
             upload_url_seconds=int(os.environ.get("UPLOAD_URL_SECONDS", "900")),
         )
 

@@ -8,7 +8,7 @@ Terraform の state は S3 にあるので、PC ごとに持つ必要はあり�
 | ツール | 使うところ | 備考 |
 |---|---|---|
 | Git・GitHub CLI（`gh`） | 全部 | リポジトリが非公開のときは、`gh auth login` でログインしてから clone |
-| AWS CLI v2 | 全部 | プロファイル名は **`ct125-logger`** に固定（Terraform の backend とスクリプトがこの名前を使う） |
+| AWS CLI v2 | 全部 | 管理者のプロファイルの名前は自由（例：`ct125-logger`）。決めた名前を `infra/terraform.tfvars` の `aws_profile`・`infra/backend.hcl`・`pipeline/config/local.yaml` に書く（スクリプトは Terraform の出力の `aws_profile` から読む） |
 | uv | `api/`・`pipeline/` | Python も uv が入れる（api は 3.13、pipeline は 3.12） |
 | Node.js（LTS） | `web/` | |
 | Terraform 1.10 以上 | `infra/` | S3 だけでロックする機能（`use_lockfile`）に 1.10 以上が要る |
@@ -27,10 +27,10 @@ gh repo clone abeouga/drive-logger
 
 ## 3. AWS にログインする
 
-リージョンは `ap-northeast-1`（AWS Settings > View all projects > Overview > Additional Info > Region で確認）。
+リージョンは AWS の project のリージョン（AWS Settings > View all projects > Overview > Additional Info > Region で確認）。下の例のプロファイル名は `ct125-logger`。
 
 ```bash
-aws configure set region ap-northeast-1 --profile ct125-logger
+aws configure set region <project のリージョン> --profile ct125-logger
 ```
 
 おすすめは `aws login`（短い期限の認証情報。PC に鍵を残さない）。
@@ -49,18 +49,19 @@ aws sts get-caller-identity --profile ct125-logger
 
 | ファイル | 中身 | 作り方 |
 |---|---|---|
-| `infra/terraform.tfvars` | アプリのユーザーとパスワード（**秘密**） | `example.tfvars` をコピーし、**いま使っているパスワードと同じ値**を入れる。違う値を入れると apply でパスワードが変わる。値はパスワード管理ソフトなどで受け渡し、チャットや Git には書かない |
-| `pipeline/config/local.yaml` | ローカルの処理に使う AWS のプロファイル（`pipeline_profile`）。バケット名を決まりと違うものにするときだけ、その名前 | `pipeline/config/local.example.yaml` をコピーして埋める |
+| `infra/terraform.tfvars` | 管理者のプロファイル・アカウント ID・リージョン・画面のドメインの親と、アプリのユーザーとパスワード（**秘密**） | `example.tfvars` をコピーし、**いま使っているパスワードと同じ値**を入れる。違う値を入れると apply でパスワードが変わる。値はパスワード管理ソフトなどで受け渡し、チャットや Git には書かない |
+| `infra/backend.hcl` | state のバケット名（アカウント ID が入る）・リージョン・プロファイル | `infra/backend.hcl.example` をコピーして埋める |
+| `pipeline/config/local.yaml` | 管理者と処理のロールの AWS のプロファイル（`profile`・`pipeline_profile`）、`upload-sd` の送り先（`upload.base_url`）、test の同じ値（`environments.test`）。バケット名を決まりと違うものにするときだけ、その名前 | `pipeline/config/local.example.yaml` をコピーして埋める |
+| `web/.env.development.local`（test は `web/.env.testenv.local`） | 画面のログインの設定と `/api/*` の中継先（秘密ではないが、環境に依るのでコミットしない） | Terraform が読める PC では `web/scripts/start-dev.ps1`（`-Env test`）が出力から作る。読めない PC では `web/.env.example` を見本に手で作る |
 | `api/dist/lambda.zip` | データ API・デバイス API の Lambda | `api/scripts/build-lambda.ps1` で作る（Terraform が読む） |
 | `CLAUDE.md` | AI 向けの短い案内（開発用の文書のリポジトリを指す） | 開発用の文書のリポジトリ（abeouga/agorack-document、非公開）をクローンし、`drive-logger/` の案内のとおりに置く |
 | `.claude/launch.json` | 手元の開発サーバーの起動の設定（画面の `npm run dev` など） | 開発用の文書のリポジトリ（abeouga/agorack-document、非公開）の `drive-logger/` から写す |
 
 次のものは自動で作られるか、要りません。
 
-- 画面のログインの設定：コミット済みの `web/.env.development` に入っている（秘密ではない）。そのため、画面を見るだけなら AWS と Terraform の準備（3.・5. の `terraform init`）をしていなくても `start.bat` で起動できる。Terraform が読める PC では `web/scripts/start-dev.ps1` が出力から `web/.env.development.local` も作る
-- `web/.env.local`：`/api/*` の中継先（`API_ORIGIN`・`LOCAL_API_ORIGIN`）を既定から変えるときだけ。`web/.env.example` を見る
+- `web/.env.local`：`npm run dev:local` の中継先（`LOCAL_API_ORIGIN`）を既定の http://localhost:8000 から変えるときだけ。`web/.env.example` を見る
 - `web/.env.production.local`：`web/scripts/deploy.ps1` が Terraform の出力から作る
-- `infra/pipeline_image.auto.tfvars`：コミット済み。コンテナを作り直すと `build-pipeline-image.ps1` が書き換えるので、それもコミットする
+- `infra/pipeline_image.auto.tfvars`：コミット済み（イメージの digest だけ。ECR の住所は Terraform が組み立てる）。コンテナを作り直すと `build-pipeline-image.ps1` が書き換えるので、それもコミットする
 - 走行データ：S3 にだけある。手元にデータのフォルダーは無く、処理も画面も S3 とデータ API から読む
 - Wi-Fi のパスワードと機器トークン：ESP32 の中にある。ESP32 にまた書き込むときだけ要る（`firmware/scripts/provision-device.ps1`）
 
@@ -79,7 +80,7 @@ cd web && npm ci
 ```
 
 ```bash
-terraform -chdir=infra init
+terraform -chdir=infra init -reconfigure -backend-config=backend.hcl
 ```
 
 確かめ方：
@@ -98,7 +99,7 @@ Lambda の zip を作り直したばかりだと、データ API とデバイス
 
 ## Terraform の state の置き場
 
-- S3 バケット `ct125-logger-tfstate-<アカウントID>` の `infra/terraform.tfstate`（ap-northeast-1）
+- S3 バケット `ct125-logger-tfstate-<アカウントID>` の `infra/terraform.tfstate`（プロジェクトのリージョン。`infra/backend.hcl` に書く）
 - 非公開・SSE-S3・HTTPS のみ・バージョニングあり。壊れたら前の版に戻せる
 - このバケットは Terraform の外で AWS CLI から作った（state を置く場所を、その state 自身で管理することはできないため）。消さないこと
 - state にはユーザーのパスワードが入る。バケットを公開しない・ほかの人に読ませない
