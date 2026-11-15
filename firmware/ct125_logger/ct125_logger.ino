@@ -28,6 +28,7 @@
 //   accel_sampler.*     加速度のタスク（時刻の補正 PLL とサンプリング）→ accel.csv
 //   nmea.*・gps_task.*  NMEA の読み取りと GPS のタスク → gps.csv
 //   sd_session.*        走行のフォルダー・meta.json・CSV の見出し・書き出し・status.csv
+//   sd_write_recovery.h SD に書けなくなった CSV の開き直し（FatFs はファイルごとにエラーを覚え、以後を断るため）
 //   motion.*            静か・動き出しの判定（送信のきっかけ・送信の中断・待機からの起き上がり）
 //   led.*・boot_button.*・serial_commands.*  LED・BOOT ボタン・シリアルのコマンド
 //
@@ -116,14 +117,12 @@ void setup() {
 // ------------------------------------------------------------------ 記録中
 void loopLogging() {
   static uint32_t lastFlush = millis(), lastStatus = millis(), lastCheck = millis(), quietSeconds = 0;
-  drain(ringAccel, fAccel, pdMS_TO_TICKS(20));
-  drain(ringGps, fGps, 0);
-  drain(ringEvent, fEvent, 0);
+  drain(ringAccel, csvAccel, pdMS_TO_TICKS(20));
+  drain(ringGps, csvGps, 0);
+  drain(ringEvent, csvEvent, 0);
   uint32_t now = millis();
   if (now - lastFlush >= FLUSH_MS) {
-    fAccel.flush();
-    fGps.flush();
-    fEvent.flush();
+    for (CsvFile *c : {&csvAccel, &csvGps, &csvEvent}) c->file.flush();
     lastFlush = now;
   }
   if (now - lastStatus >= STATUS_MS) {
@@ -153,13 +152,11 @@ void finishSession(const char *reason) {
   uint32_t start = millis();
   while ((!accelStopped || !gpsStopped) && millis() - start < 2000) delay(10);
   for (RingbufHandle_t ring : {ringAccel, ringGps, ringEvent}) {
-    File &f = ring == ringAccel ? fAccel : ring == ringGps ? fGps : fEvent;
-    for (int i = 0; i < 64; i++) drain(ring, f, 0);  // 1 回 4KB まで。64KB のリングを空にするのに足りる
+    CsvFile &c = ring == ringAccel ? csvAccel : ring == ringGps ? csvGps : csvEvent;
+    for (int i = 0; i < 64; i++) drain(ring, c, 0);  // 1 回 4KB まで。64KB のリングを空にするのに足りる
   }
   writeStatus();
-  fAccel.close();
-  fGps.close();
-  fEvent.close();
+  for (CsvFile *c : {&csvAccel, &csvGps, &csvEvent}) c->file.close();
   running = false;
   vRingbufferDelete(ringAccel);
   vRingbufferDelete(ringGps);

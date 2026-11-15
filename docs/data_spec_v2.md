@@ -79,7 +79,7 @@
 | 列 | 内容 |
 |---|---|
 | `t_us` | 出来事の時刻 |
-| `type` | `boot`、`sd_retry`、`adxl_retry`、`fifo_overrun`、`gps_valid`、`gps_lost`、`time_resync`、`session_end`（V3。記録を閉じた理由）。リングバッファの取りこぼしと SD の書き込みエラーは出来事ではなく `status.csv` の `ring_drops`・`sd_write_errors` に数える |
+| `type` | `boot`、`sd_retry`、`adxl_retry`、`fifo_overrun`、`gps_valid`、`gps_lost`、`time_resync`、`sd_write_error`・`sd_reopen`（V3.4。開いたままの CSV に書けなくなった・開き直して書き続けた。detail は `file=ファイル名`）、`session_end`（V3。記録を閉じた理由）。リングバッファの取りこぼしと SD の書き込みエラーの回数は `status.csv` の `ring_drops`・`sd_write_errors` に数える |
 | `detail` | 補足（回数など） |
 
 ### status.csv（10秒ごと）

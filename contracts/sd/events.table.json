@@ -8,10 +8,10 @@
     {
       "name": "type",
       "type": "string",
-      "constraints": { "enum": ["boot", "sd_retry", "adxl_retry", "fifo_overrun", "gps_valid", "gps_lost", "time_resync", "session_end"] },
-      "description": "boot＝起動（detail は版）、sd_retry・adxl_retry＝初期化のやり直し、fifo_overrun＝ADXL345 の FIFO のあふれ、gps_valid・gps_lost＝GPS の有効・無効の切り替わり、time_resync＝時刻の合わせ直し（ずれが 20 ms 超）、session_end＝記録を閉じた（detail は理由）"
+      "constraints": { "enum": ["boot", "sd_retry", "adxl_retry", "fifo_overrun", "gps_valid", "gps_lost", "time_resync", "sd_write_error", "sd_reopen", "session_end"] },
+      "description": "boot＝起動（detail は版）、sd_retry・adxl_retry＝初期化のやり直し、fifo_overrun＝ADXL345 の FIFO のあふれ、gps_valid・gps_lost＝GPS の有効・無効の切り替わり、time_resync＝時刻の合わせ直し（ずれが 20 ms 超）、sd_write_error＝開いたままの CSV に書けなくなった（detail は file=ファイル名。V3.4 から）、sd_reopen＝その CSV を開き直し、切れた行の次の行の頭から書き続けた（detail は file=ファイル名 tries=試した回数）、session_end＝記録を閉じた（detail は理由）"
     },
     { "name": "detail", "type": "string", "description": "補足（回数・版・理由など）" }
   ],
-  "note": "リングバッファの取りこぼしと SD の書き込みエラーは、出来事ではなく status.csv の ring_drops・sd_write_errors に数える"
+  "note": "リングバッファの取りこぼしと SD の書き込みエラーの回数は、status.csv の ring_drops・sd_write_errors に数える。SD の書き込みエラーは、書けなくなったときと開き直したときだけ出来事にも残す"
 }

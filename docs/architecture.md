@@ -8,7 +8,7 @@
 ```mermaid
 flowchart LR
     subgraph bike[バイク側]
-        GPS[ATGM336H GPS<br/>9600bps・1Hz] --> ESP[ESP32<br/>CT125_LOGGER_V3.3]
+        GPS[ATGM336H GPS<br/>9600bps・1Hz] --> ESP[ESP32<br/>CT125_LOGGER_V3.4]
         ACC[ADXL345 振動<br/>400Hz・±16g] --> ESP
         ESP --> SD[(microSD<br/>accel.csv / gps.csv / ...)]
     end
@@ -39,7 +39,7 @@ flowchart LR
 
 | 段階 | 実装 | 場所 |
 |---|---|---|
-| 記録・送信 | ESP32 Arduino スケッチ（V3.3）。GPS と加速度を別 CSV、時計は `t_us`。走行後に Wi-Fi でデバイス API から S3 へ送る | `firmware/ct125_logger/`、`api/`（デバイス API） |
+| 記録・送信 | ESP32 Arduino スケッチ（V3.4）。GPS と加速度を別 CSV、時計は `t_us`。走行後に Wi-Fi でデバイス API から S3 へ送る | `firmware/ct125_logger/`、`api/`（デバイス API） |
 | 読み込み・時刻 | `t_us` と GPS UTC の対応付け、JST | `pipeline/src/ct125/io.py` |
 | クリーニング | 重複・振り切れ、GPS の status/sats/hdop/飛び/速度不整合 | `pipeline/src/ct125/clean.py` |
 | 特徴量 | 1 秒窓の振動特徴量、帯域比 | `pipeline/src/ct125/features.py` |
