@@ -60,3 +60,35 @@ def test_waveforms_are_demeaned_mg():
     assert abs(ax.mean()) < 5                                 # 平均を引いてある（mg）
     assert ax.max() == pytest.approx(200, abs=5)              # 振幅 0.2 g = 200 mg
     assert set(w[0]["ay"]) == {0}                             # 一定の軸は 0
+
+
+# ------------------------------------------------------------------ 800 Hz の走行（#112）
+FS_800 = 797.0
+
+
+def _acc800(seconds=3, freq=300.0, amp=0.5):
+    n = int(FS_800 * seconds)
+    t = np.arange(n) / FS_800
+    return pd.DataFrame({"t_rel": t, "ax_g": 0.1 + amp * np.sin(2 * np.pi * freq * t), "ay_g": 0.95, "az_g": -0.3})
+
+
+def test_f_max_follows_fs():
+    assert spectro.f_max_for(398.5) == spectro.F_MAX_HZ == 200   # 400 Hz の走行は今のまま
+    assert spectro.f_max_for(797.0) == 400
+    assert spectro.f_max_for(float("nan")) == spectro.F_MAX_HZ
+
+
+def test_800hz_draws_up_to_400hz():
+    # 200 Hz より上（300 Hz）が、その行に出ること
+    p = spectro.spectrogram(_acc800(), np.array([0.0, 1.0]), FS_800)
+    assert p.shape == (2, 400)
+    assert all(int(np.nanargmax(row)) == 300 for row in p)
+
+
+def test_800hz_uses_the_whole_window():
+    # 1 秒窓の後半だけに振動がある。窓の全部のサンプルを使っていれば、その周波数に出る
+    acc = _acc800(seconds=1, freq=120.0)
+    half = acc["t_rel"] < 0.5
+    acc.loc[half, "ax_g"] = 0.1
+    p = spectro.spectrogram(acc, np.array([0.0]), FS_800)
+    assert int(np.nanargmax(p[0][5:])) + 5 == 120

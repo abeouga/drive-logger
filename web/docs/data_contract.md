@@ -80,14 +80,14 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 
 ## `spec_<id>.png` と `spec_<id>.json`
 
-- PNG：8 bit のグレー＋アルファ。**列＝窓**（`ride_<id>.json` の添字と同じ順）、**行＝周波数**（上の行が高い周波数。1 行 1 Hz、0〜199 Hz）。**不透明度＝その周波数の強さ**（dB を走行の中で正規化し 16 段階）。色は付けていないので、表示側でテーマの色を当てる（`mask-image`）
+- PNG：8 bit のグレー＋アルファ。**列＝窓**（`ride_<id>.json` の添字と同じ順）、**行＝周波数**（上の行が高い周波数。1 行 1 Hz、0〜`f_max_hz`−1 Hz）。**不透明度＝その周波数の強さ**（dB を走行の中で正規化し 16 段階）。色は付けていないので、表示側でテーマの色を当てる（`mask-image`）
 - JSON：
 
 | キー | 型 | 意味 |
 |---|---|---|
 | `id` | string | 走行 ID |
 | `n_cols` | number | 画像の列数（＝窓の数） |
-| `f_max_hz` | number | 200 |
+| `f_max_hz` | number | 画像の行数（Hz）。400 Hz の走行は 200、800 Hz の走行は 400 |
 | `window_sec` | number | 1 |
 | `db_min` / `db_max` | number | 不透明度 0 と 1 にあてた dB |
 | `pct` | [number, number] | その dB を決めた分位点（5, 99.5） |

@@ -24,7 +24,7 @@
 
 | ファイル | 列 | 周期 | 備考 |
 |---|---|---|---|
-| `accel.csv` | `n, t_us, ax_g, ay_g, az_g` | 約 400Hz | 単位 g、重力込み、±16g フル分解能（3.9mg/LSB） |
+| `accel.csv` | `n, t_us, ax_g, ay_g, az_g` | 約 400Hz（firmware V3.5 以降は約 800Hz。この文書の値は 400Hz の走行のもの） | 単位 g、重力込み、±16g フル分解能（3.9mg/LSB） |
 | `gps.csv` | `t_rx_us, utc, date, status, fix, sats, hdop, lat, lon, speed_kmh, course_deg` | 1Hz | `status=A` が有効。`utc` は `hhmmss.sss`、`date` は `ddmmyy` |
 | `events.csv` | `t_us, type, detail` | 随時 | `boot / gps_valid / gps_lost / fifo_overrun / time_resync` など |
 | `status.csv` | 10 秒ごとの件数・実測周波数・取りこぼし・時刻のなめらかさ | 10 秒 | 点検用 |

@@ -32,7 +32,8 @@ class Preprocessed:
 def preprocess(ride: io.Ride, cfg: dict) -> Preprocessed:
     gcfg = cfg.get("gps", {})
     acc = clean.clean_accel(ride.acc, cfg["clip_g"])
-    win = features.compute_windows(acc, ride.fs, cfg["window_sec"], cfg.get("bands_hz"))
+    facc, ffs = features.for_features(acc, ride.fs)   # 800 Hz の走行は 400 Hz に間引いて特徴量を計算する
+    win = features.compute_windows(facc, ffs, cfg["window_sec"], cfg.get("bands_hz"))
 
     gps = clean.validate_gps(ride.gps, gcfg)
     gv = gps[gps["valid"]].sort_values("t_rel").copy()
