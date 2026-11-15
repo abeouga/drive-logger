@@ -8,6 +8,9 @@ K-Line（ECU）の分は作っていないので比べない。
 使い方:
     python hardware/tools/check_blender_nets.py --layout <Blender のモデルの layout.py> [--kicad-cli <kicad-cli>]
 
+案の回路図と案のモデルを比べるときは、回路図と対応表を選ぶ:
+    python hardware/tools/check_blender_nets.py --layout <案のモデルの layout.py>         --sch hardware/kicad/ct125_logger_adxl_spi/ct125_logger_adxl_spi.kicad_sch         --map hardware/kicad/blender_correspondence_adxl_spi.json
+
 kicad-cli は、引数・環境変数 KICAD_CLI・PATH の順に探す。一致すれば 0、食い違いがあれば 1 で終わる。
 Python の標準ライブラリだけで動く。
 """
@@ -91,10 +94,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--layout", required=True, type=Path, help="Blender のモデルの layout.py")
     ap.add_argument("--kicad-cli", default=os.environ.get("KICAD_CLI") or shutil.which("kicad-cli") or "kicad-cli")
-    ap.add_argument("--sch", type=Path, default=SCH)
+    ap.add_argument("--sch", type=Path, default=SCH, help="KiCad の回路図（既定は今の配線）")
+    ap.add_argument("--map", type=Path, default=MAP, help="対応表（既定は今の配線の分）")
     args = ap.parse_args()
 
-    cmap = json.loads(MAP.read_text(encoding="utf-8-sig"))  # Windows で保存して BOM が付いても読む
+    cmap = json.loads(args.map.read_text(encoding="utf-8-sig"))  # Windows で保存して BOM が付いても読む
     L = load_layout(args.layout, cmap["blender_model"]["variant_for_check"])
     internal = cmap["modules"]["ESP32"]["internal"]
     esp = cmap["modules"]["ESP32"]["ref"]
