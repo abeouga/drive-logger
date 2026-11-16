@@ -22,7 +22,7 @@ ESP32・ADXL345・GPS・microSD のつながり（回路）の正本を、KiCad 
 | GPS（ATGM336H、U3） | UART 9600 bps：GPS の TX→IO32、IO33→GPS の RX。PPS は使わない |
 | microSD（秋月 AE-MICRO-SD-DIP、J1） | SPI：CS=IO5、SCK=IO18、MISO=IO19、MOSI=IO23。3.3 V だけ。DAT2・CS・CMD・DAT0・DAT1 を 10 kΩ（R1〜R5）で引き上げる。0.1 µF・1 µF（C1・C2）を電源のそばに置く |
 
-K-Line（ECU）の回路は作っていないので、回路図に入れていない。
+K-Line（ECU）の回路は作っていないので、回路図に入れていない。自作の回路は今後も作らない。ECU は、市販の変換ケーブルと ELM327 互換アダプターを診断カプラーにつなぎ、ESP32 から Bluetooth で読む（[../docs/analysis_policy.md](../docs/analysis_policy.md) 1.3）。
 
 ESP32・GY-291・GPS・microSD の記号は、KiCad の標準の部品集に無いので、[kicad/ct125_logger/ct125.kicad_sym](kicad/ct125_logger/ct125.kicad_sym) に作った（プロジェクトの `sym-lib-table` から読む）。抵抗・コンデンサ・電源の記号は標準の部品集（`Device`・`power`）のもの。
 

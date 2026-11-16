@@ -16,7 +16,7 @@
 | ADXL345 | I2C **0x53**（SDO=GND）、I2C 400kHz。`DATA_FORMAT=0x0B`（**FULL_RES、±16g**）、`BW_RATE=0x0C`（**ODR 400Hz**。V3.5 からは `0x0D`＝ODR 800Hz）、FIFO ストリームモード。生 LSB × **0.0039 g/LSB** で g に変換して書く（CSV の値は 0.0039 の整数倍。小数 4 桁） | 「レンジ・ODR 未確認」→ ±16g・400Hz で確定 |
 | SD 書き込み | SPI（CS=IO5）。電源オンごとに `/sessions/ride_NNN/` を作り、CSV 4 種＋`meta.json`。1 秒ごとに flush。加速度はコア 0 のタスクが FIFO から読み、リングバッファ経由でコア 1 の `loop()` が書く | — |
 | 時刻の生成 | すべて **`t_us` ＝ ESP32 `esp_timer_get_time()`（起動からのマイクロ秒、64bit）**。RTC なし。加速度の `t_us` は V2.1 の PLL 方式（前サンプル＋周期で進め、FIFO を読んだ時刻とのずれを少しずつ戻す）。GPS 行の `t_rx_us` は RMC 文の先頭 `$` を受けた時刻。UTC への対応付けは PC 側（下記 4.） | 「millis と GPS UTC の組み合わせ」の推定どおり（単位は ms でなく us） |
-| K-Line / ECU 関連コード | **なし**（`kline`、`l9637`、`ecu` に該当する記述はスケッチ中に存在しない）。あっても触らない方針は変わらない | — |
+| K-Line / ECU 関連コード | **なし**（`kline`、`l9637`、`ecu` に該当する記述はスケッチ中に存在しない）。当時の方針は「あっても触らない」。2026-11-16 から、市販のアダプター越しの読み出しに限って認める（[analysis_policy.md](analysis_policy.md) 1.3） | — |
 
 ## 2. ファイル構成と列（9 本すべて同じ）
 
