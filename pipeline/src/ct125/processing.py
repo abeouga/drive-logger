@@ -27,6 +27,35 @@ class Preprocessed:
     fs: float
     duration_s: float
     has_abs_time: bool
+    recording: dict | None = None  # 記録の設定（recording_settings。画面で走行ごとの設定を見分ける）
+
+
+def _number(value) -> float | None:
+    return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+
+def recording_settings(meta: dict, fs: float, feature_fs: float) -> dict:
+    """走行の記録の設定（rides.json の recording）。meta.json の値と、実測の fs・特徴量を計算した fs から作る。
+
+    meta.json に無い・形が違う値は None。つなぎ方（accel.bus）は V3.7 から書くので、無ければ I2C とみなす
+    （V3.6 までの firmware は I2C でしか読まない）。
+    """
+    meta = meta if isinstance(meta, dict) else {}
+    accel = meta.get("accel") if isinstance(meta.get("accel"), dict) else {}
+    firmware = meta.get("firmware")
+    chip = accel.get("chip")
+    bus = accel.get("bus", "i2c")
+    odr = _number(accel.get("odr_hz"))
+    rng = _number(accel.get("range_g"))
+    return {
+        "firmware": firmware if isinstance(firmware, str) else None,
+        "accel_chip": chip if isinstance(chip, str) else None,
+        "accel_bus": bus if bus in ("i2c", "spi") else None,
+        "accel_odr_hz": None if odr is None else round(odr, 1),
+        "accel_fs_hz": round(float(fs), 1),
+        "accel_range_g": None if rng is None else round(rng, 1),
+        "feature_fs_hz": round(float(feature_fs), 1),
+    }
 
 
 def preprocess(ride: io.Ride, cfg: dict) -> Preprocessed:
@@ -54,7 +83,10 @@ def preprocess(ride: io.Ride, cfg: dict) -> Preprocessed:
     out["is_edge"] = clean.flag_edges(out["t_rel"], ride.duration_s(), cfg["edge_sec"])
     out["is_clipped"] = out["n_clipped"] > 0
     out = out[WINDOW_COLS_FRONT + [c for c in out.columns if c not in WINDOW_COLS_FRONT]]
-    return Preprocessed(ride.ride_id, out, acc[ACCEL_EXPORT_COLS].copy(), gps, ride.memo, ride.fs, ride.duration_s(), ride.has_abs_time)
+    return Preprocessed(
+        ride.ride_id, out, acc[ACCEL_EXPORT_COLS].copy(), gps, ride.memo, ride.fs, ride.duration_s(), ride.has_abs_time,
+        recording_settings(ride.meta, ride.fs, ffs),
+    )
 
 
 def describe(pre: Preprocessed) -> str:

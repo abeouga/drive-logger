@@ -18,6 +18,7 @@ import Tabs from "../components/Tabs";
 import LoadState from "../components/LoadState";
 import TrashButton from "../components/TrashButton";
 import RunHistory from "../components/RunHistory";
+import RecordingInfo from "../components/RecordingInfo";
 import { pageHeaderClass, pageTitleClass } from "../components/PageHeader";
 
 type ChartKey = "timeline" | "spectrogram";
@@ -145,6 +146,7 @@ export default function Ride({ id }: { id: string }) {
           {summary.gps !== "none" && <span><span className="text-ink-2">距離 </span>{fmtKm(summary.distance_km)} km</span>}
           {summary.max_speed_kmh !== null && <span><span className="text-ink-2">最高 </span>{summary.max_speed_kmh.toFixed(0)} km/h</span>}
           <span><span className="text-ink-2">GPS 有効 </span>{Math.round(summary.fix_ratio * 100)}%</span>
+          <RecordingInfo recording={summary.recording} />
           {isAdmin && (
             <TrashButton
               rideId={summary.id}

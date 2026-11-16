@@ -33,7 +33,23 @@
         "n_clipped": { "type": "integer", "minimum": 0 },
         "rms_median": { "type": "number" },
         "spark": { "type": "array", "items": { "$ref": "#/$defs/nullableNumber" }, "maxItems": 60, "description": "rms を最大 60 区間に平均したもの" },
-        "memo": { "type": "string", "description": "走行メモ（notes.md・memo.txt・readme.txt）" }
+        "memo": { "type": "string", "description": "走行メモ（notes.md・memo.txt・readme.txt）" },
+        "recording": { "$ref": "#/$defs/recording" }
+      }
+    },
+    "recording": {
+      "type": "object",
+      "required": ["firmware", "accel_chip", "accel_bus", "accel_odr_hz", "accel_fs_hz", "accel_range_g", "feature_fs_hz"],
+      "additionalProperties": false,
+      "description": "加速度の記録の設定（meta.json と実測から作る）。走行ごとの設定を画面で見分けるため。任意の項目で、この項目を足す前に処理した走行には無い",
+      "properties": {
+        "firmware": { "type": ["string", "null"], "description": "firmware の版（meta.json の firmware）" },
+        "accel_chip": { "type": ["string", "null"], "description": "センサーの名前（meta.json の accel.chip）" },
+        "accel_bus": { "enum": ["i2c", "spi", null], "description": "つなぎ方（meta.json の accel.bus。V3.6 までは書いていないので i2c とみなす）" },
+        "accel_odr_hz": { "type": ["number", "null"], "description": "出力の速さの設定（meta.json の accel.odr_hz）" },
+        "accel_fs_hz": { "type": "number", "description": "実測の速さ（サンプル数 − 1）÷ 記録の長さ。小数 1 桁" },
+        "accel_range_g": { "type": ["number", "null"], "description": "振り切れる大きさ ±g（meta.json の accel.range_g）" },
+        "feature_fs_hz": { "type": "number", "description": "振動の特徴量を計算した速さ（800 Hz の走行は 400 Hz に間引く）。小数 1 桁" }
       }
     }
   }

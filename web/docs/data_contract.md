@@ -46,6 +46,7 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `rms_median` | number | rms の中央値（g） |
 | `spark` | (number \| null)[] | rms を 60 区間に平均したもの（カードの小さなグラフ） |
 | `memo` | string | 走行メモ（`notes.md`。古い名前の `memo.txt`・`readme.txt` もこの順につなぐ） |
+| `recording`（任意） | object | 加速度の記録の設定（#124）。`firmware`（版）・`accel_chip`・`accel_bus`（`"i2c"` \| `"spi"`。V3.6 までは meta.json に無いので `"i2c"` とみなす）・`accel_odr_hz`（設定）・`accel_fs_hz`（実測）・`accel_range_g`・`feature_fs_hz`（振動の特徴量を計算した速さ。800 Hz の走行は 400 Hz に間引く）。meta.json に無い値は null。この項目を足す前に処理した走行には項目ごと無く、画面は「記録 不明」と出す |
 
 ## `ride_<id>.json`
 
