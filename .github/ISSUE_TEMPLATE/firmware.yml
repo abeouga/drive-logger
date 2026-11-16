@@ -54,7 +54,7 @@ body:
     attributes:
       label: 確認
       options:
-        - label: ECU / K-Line 関連のコード・配線には触れていない
+        - label: K-Line の配線・回路には触れていない。ECU にはアダプター越しの読み出しの要求だけを送る（docs/analysis_policy.md 1.3）
           required: true
         - label: Wi-Fi のパスワード・機器トークンをコードやログに書いていない
           required: true

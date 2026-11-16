@@ -39,7 +39,7 @@ body:
       placeholder: |
         例）
         - 走行中のリアルタイム送信
-        - ECU / K-Line（安全を確かめるまで触れない）
+        - K-Line の自作の回路（ECU は市販のアダプター越しの読み出しだけ）
 
   - type: textarea
     id: related

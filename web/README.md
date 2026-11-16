@@ -5,7 +5,7 @@
 - 公開先：**https://drive.herdio-system.com/**（ログインが必要。ユーザーは `infra` の `terraform.tfvars` で管理）
 - データを作る側は `pipeline/`。生データのバケットに走行が届くと、AWS の Lambda（`ct125-ride-pipeline`）が前処理・点数付けをして、公開用のバケットの `datasets/shared/` に書き出す
 - ログインした人にだけデータを返すデータ API は `api/`（FastAPI）。AWS のリソースは `infra/` の Terraform
-- 表現上の制約（「故障予測」と言わない等）と「ECU / K-Line に触れない」は [../docs/analysis_policy.md](../docs/analysis_policy.md) 1. のとおり
+- 表現上の制約（「故障予測」と言わない等）と、ECU に触れるときの決まり（市販のアダプター越しの読み出しだけ）は [../docs/analysis_policy.md](../docs/analysis_policy.md) 1. のとおり
 
 手順は [docs/local_dev.md](docs/local_dev.md)、データの形は [docs/data_contract.md](docs/data_contract.md)。
 
