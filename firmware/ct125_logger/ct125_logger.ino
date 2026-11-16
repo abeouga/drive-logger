@@ -128,20 +128,21 @@ void startLogging() {
   }
   Serial.printf("SESSION=%s\n", sessionDir.c_str());
   Serial.printf("HEAP before_rings free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
-  ringAccel = xRingbufferCreate(64 * 1024, RINGBUF_TYPE_BYTEBUF);
-  ringGps = xRingbufferCreate(8 * 1024, RINGBUF_TYPE_BYTEBUF);
+  ringAccel = xRingbufferCreate(48 * 1024, RINGBUF_TYPE_BYTEBUF);
+  ringGps = xRingbufferCreate(4 * 1024, RINGBUF_TYPE_BYTEBUF);
   ringEvent = xRingbufferCreate(4 * 1024, RINGBUF_TYPE_BYTEBUF);
-  if (ecu && csvEcu.file) ringEcu = xRingbufferCreate(4 * 1024, RINGBUF_TYPE_BYTEBUF);
+  if (ecu && csvEcu.file) ringEcu = xRingbufferCreate(2 * 1024, RINGBUF_TYPE_BYTEBUF);
   running = true;
+  // ECU（V3.8）：アダプターのアドレスがあれば、BLE でつなぐタスクを始める。無ければ今までどおり。
+  // BLE を始めるとき core 0 が約 0.16 秒ふさがるので、加速度のタスクを作る前に始める（読み出しを止めないため）
+  Serial.printf("HEAP before_bt free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+  if (ringEcu && !startEcuTask(cfg.ecuAddr)) Serial.println("ECU=NG アドレスの形が違うか、空きメモリが足りません");
   if (PIN_PPS >= 0) {
     pinMode(PIN_PPS, INPUT);
     attachInterrupt(digitalPinToInterrupt(PIN_PPS), onPps, RISING);
   }
   xTaskCreatePinnedToCore(gpsTask, "gps", 6144, nullptr, 3, nullptr, 1);
   xTaskCreatePinnedToCore(sensorTask, "accel", 6144, nullptr, 5, nullptr, 0);
-  Serial.printf("HEAP before_bt free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
-  // ECU（V3.8）：アダプターのアドレスがあれば、Bluetooth でつなぐタスクを始める。無ければ今までどおり
-  if (ringEcu && !startEcuTask(cfg.ecuAddr)) Serial.println("ECU=NG アドレスの形が違うか、Bluetooth を始められません");
   Serial.printf("ECU=%s heap_free=%u\n", !ringEcu ? "OFF" : ecuStopped ? "NG" : "ON", (unsigned)ESP.getFreeHeap());
   mode = MODE_LOGGING;
   Serial.println("LOGGING (電源を切れば終了。直前約1秒までは保存されます)");

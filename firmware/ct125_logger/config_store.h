@@ -3,7 +3,7 @@
 //
 // シリアルのコマンド（1 行ずつ。値は画面に出さない）
 //   CFG SET <キー> <値>   キー：wifi_ssid wifi_pass wifi2_ssid wifi2_pass device_id device_token api_base ecu_addr
-//                         ecu_addr は ECU のアダプター（ELM327 互換）の Bluetooth のアドレス（例 AA:BB:CC:11:22:33。秘密ではない）。
+//                         ecu_addr は ECU のアダプター（ELM327 互換）の BLE のアドレス（例 AA:BB:CC:12:22:33。Bluetooth Classic のアドレスとは違う。秘密ではない）。
 //                         入っていなければ ECU は読まない（V3.8）
 //   CFG STATUS            どのキーが入っているか（値は出さない）
 //   CFG CLEAR             全部消す
@@ -15,7 +15,7 @@ struct DeviceConfig {
   String wifi2Ssid, wifi2Pass;  // 予備（スマホのテザリングなど。無くてよい）
   String deviceId, deviceToken; // register-device で作った機器 ID とトークン
   String apiBase;               // 送り先（既定 https://drive.herdio-system.com）
-  String ecuAddr;               // ECU のアダプターの Bluetooth のアドレス（無ければ ECU は読まない）
+  String ecuAddr;               // ECU のアダプターの BLE のアドレス（無ければ ECU は読まない）
 
   bool hasWifi() const { return wifiSsid.length() > 0 || wifi2Ssid.length() > 0; }
   bool hasDevice() const { return deviceId.length() > 0 && deviceToken.length() > 0; }

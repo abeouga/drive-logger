@@ -18,6 +18,7 @@ permissions:
 
 env:
   ESP32_CORE: "esp32:esp32@3.3.12"
+  NIMBLE_LIB: "NimBLE-Arduino@2.5.2"
   FQBN: "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M,PartitionScheme=huge_app"
 
 jobs:
@@ -38,6 +39,9 @@ jobs:
         run: |
           arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core install "$ESP32_CORE" --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+      # ECU のアダプターに BLE でつなぐ（V3.8）。標準の BLE（Bluedroid）は約 9 万バイト使い、記録中に入らないため
+      - name: ライブラリを入れる
+        run: arduino-cli lib install "$NIMBLE_LIB"
       - name: コンパイル
         working-directory: firmware/ct125_logger
         run: arduino-cli compile --fqbn "$FQBN" --warnings default .

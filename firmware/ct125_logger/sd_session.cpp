@@ -69,7 +69,7 @@ bool openSession(bool ecu) {
              "\"axes\": \"センサー基板の軸のまま\"},\n", ACCEL_HZ);
     m.printf("  \"gps\": {\"chip\": \"ATGM336H\", \"baud\": %lu, \"t_rx_us\": \"RMC文の先頭を受け取った時刻\", "
              "\"pps_pin\": %d},\n", (unsigned long)GPS_BAUD, PIN_PPS);
-    m.printf("  \"ecu\": {\"adapter\": \"ELM327\", \"link\": \"bluetooth_spp\", \"configured\": %s},\n", ecu ? "true" : "false");
+    m.printf("  \"ecu\": {\"adapter\": \"ELM327\", \"link\": \"ble\", \"configured\": %s},\n", ecu ? "true" : "false");
     m.printf("  \"mounting\": \"未記入（取り付けたら notes.md に書く）\",\n  \"flush_ms\": %lu\n}\n",
              (unsigned long)FLUSH_MS);
     m.close();
