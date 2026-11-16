@@ -63,7 +63,7 @@ bool openSession() {
     m.printf("{\n  \"spec\": \"データ仕様.md v2\",\n  \"firmware\": \"%s\",\n  \"build\": \"%s %s\",\n", FW_VERSION,
              __DATE__, __TIME__);
     m.printf("  \"clock\": \"t_us = ESP32 esp_timer（起動からのマイクロ秒）\",\n");
-    m.printf("  \"accel\": {\"chip\": \"ADXL345\", \"odr_hz\": %.0f, \"range_g\": 16, \"lsb_g\": 0.0039, \"unit\": \"g\", "
+    m.printf("  \"accel\": {\"chip\": \"ADXL345\", \"bus\": \"i2c\", \"odr_hz\": %.0f, \"range_g\": 16, \"lsb_g\": 0.0039, \"unit\": \"g\", "
              "\"axes\": \"センサー基板の軸のまま\"},\n", ACCEL_HZ);
     m.printf("  \"gps\": {\"chip\": \"ATGM336H\", \"baud\": %lu, \"t_rx_us\": \"RMC文の先頭を受け取った時刻\", "
              "\"pps_pin\": %d},\n", (unsigned long)GPS_BAUD, PIN_PPS);

@@ -18,7 +18,7 @@ import yaml
 from jsonschema import Draft202012Validator, FormatChecker
 from referencing import Registry, Resource
 
-from ct125 import devices, export, flow, io, records
+from ct125 import devices, export, flow, io, processing, records
 from ct125.cloud import commands
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -145,7 +145,10 @@ def _accel(n_windows: int = 12, fs: float = 40.0) -> pd.DataFrame:
 
 def build_app_examples() -> dict[str, dict]:
     df = _windows()
-    summary, payload = export.ride_payload(df, memo="# 例\n家の前で 2 分アイドリングしてから出発", model_version=EXAMPLE_MODEL_VERSION)
+    recording = processing.recording_settings(
+        {"firmware": "CT125_LOGGER_V3.7", "accel": {"chip": "ADXL345", "bus": "i2c", "odr_hz": 800, "range_g": 16}}, 798.64, 399.32
+    )
+    summary, payload = export.ride_payload(df, memo="# 例\n家の前で 2 分アイドリングしてから出発", model_version=EXAMPLE_MODEL_VERSION, recording=recording)
     rows = [i for i, flag in enumerate(payload["columns"]["anomaly"]) if flag][:2]
     _, spec, waves = export.extras_payload(df, _accel(), rows)
     nogps_summary, _ = export.ride_payload(_windows(gps=False), model_version=EXAMPLE_MODEL_VERSION)

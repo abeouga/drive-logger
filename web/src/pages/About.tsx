@@ -97,7 +97,7 @@ export default function About() {
 
       <Section title="構成">
         <div className="flex flex-col gap-2 md:flex-row md:items-stretch">
-          <Box title="記録と送信（ESP32）" body="加速度 約 400 Hz・GPS 1 Hz を microSD に記録し、走行後に家の Wi-Fi で S3 の生データの場所へ送る" />
+          <Box title="記録と送信（ESP32）" body="加速度 約 800 Hz（V3.4 までの走行は約 400 Hz。走行の画面の「記録」に出る）・GPS 1 Hz を microSD に記録し、走行後に家の Wi-Fi で S3 の生データの場所へ送る" />
           <Arrow />
           <Box title="処理（AWS Lambda）" body="届いたら前処理・走行の分類・点数付け。処理ごとの記録と走行の台帳を残し、台帳が指す結果だけを公開する" />
           <Arrow />

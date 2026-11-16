@@ -15,6 +15,7 @@
       "required": ["chip", "odr_hz", "range_g", "lsb_g", "unit", "axes"],
       "properties": {
         "chip": { "const": "ADXL345" },
+        "bus": { "enum": ["i2c", "spi"], "description": "センサーのつなぎ方（V3.7 から。書いていない走行は I2C）" },
         "odr_hz": { "type": "number" },
         "range_g": { "type": "number" },
         "lsb_g": { "type": "number" },

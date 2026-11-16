@@ -110,12 +110,13 @@ def sparkline(rms: pd.Series, points: int = SPARK_POINTS) -> list:
 
 
 # ------------------------------------------------------------------ 書き出し
-def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = None, rule: AnomalyRule = DEFAULT_RULE) -> tuple[dict, dict]:
+def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = None, rule: AnomalyRule = DEFAULT_RULE, recording: dict | None = None) -> tuple[dict, dict]:
     """1 走行分の (一覧用の要約, 窓の列データ) を作る。df は scored.parquet。
 
     「いつもと違う振動」の判定は model.judge_anomalies に任せ、その方法・しきい値・モデルの版を一緒に書き出す。
     画面は判定（anomaly 列）と方法の名前・しきい値だけを読むので、モデルを差し替えても画面を直さずに済む。
     rule は判定の決め方（model.anomaly_rule で config と今使うモデルから作る）。
+    recording は記録の設定（processing.recording_settings）。あれば要約に載せる（無い走行は項目ごと出さない）。
     """
     df = df.sort_values("win").reset_index(drop=True)
     rid = str(df["ride_id"].iloc[0])
@@ -162,6 +163,8 @@ def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = N
         "spark": sparkline(df["rms"]),
         "memo": memo,
     }
+    if recording is not None:
+        summary["recording"] = recording
     anomaly = {"method": method, "threshold": None if threshold is None else round(float(threshold), 4), "model_version": model_version}
     payload = {"id": rid, "n": int(len(df)), "has_abs_time": bool(has_abs), "anomaly": anomaly, "columns": cols}
     return summary, payload
@@ -231,7 +234,7 @@ def dump_json(obj) -> bytes:
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
 
 
-def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "", model_version: str | None = None, rule: AnomalyRule = DEFAULT_RULE) -> tuple[dict, dict[str, bytes]]:
+def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "", model_version: str | None = None, rule: AnomalyRule = DEFAULT_RULE, recording: dict | None = None) -> tuple[dict, dict[str, bytes]]:
     """1 走行分の (rides.json に載せる要約, {ファイル名: 中身})。ファイルには書かない。
 
     scored は点数付きの窓、accel はクリーニング後の加速度（t_rel・ax_g・ay_g・az_g）。
@@ -240,7 +243,7 @@ def ride_files(scored: pd.DataFrame, accel: pd.DataFrame | None, memo: str = "",
     from . import spectro
 
     df = scored.sort_values("win").reset_index(drop=True)
-    summary, payload = ride_payload(df, memo, model_version, rule)
+    summary, payload = ride_payload(df, memo, model_version, rule, recording)
     ride_id = summary["id"]
     files = {f"ride_{ride_id}.json": dump_json(payload)}
     if accel is not None:

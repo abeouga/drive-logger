@@ -293,7 +293,7 @@ class Pipeline:
     def _save_ride(self, run_id: str, analyzed: _Analyzed, scored: pd.DataFrame, model_version: str, forest_info: dict) -> dict:
         pre = analyzed.pre
         rule = anomaly_rule(self._cfg.get("model", {}), forest_info)
-        summary, files = export.ride_files(scored, pre.accel, pre.memo, model_version, rule)
+        summary, files = export.ride_files(scored, pre.accel, pre.memo, model_version, rule, pre.recording)
         base = f"runs/{run_id}/rides/{pre.ride_id}/"
         work = self._places.work
         work.put(base + "windows.parquet", _parquet(pre.windows))

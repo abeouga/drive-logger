@@ -3,6 +3,7 @@ import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { rideHref } from "../lib/route";
 import { isJudged } from "../lib/rideSort";
+import { rateBadge } from "../lib/recording";
 import Sparkline from "./Sparkline";
 import TrashButton from "./TrashButton";
 
@@ -45,6 +46,8 @@ export default function RideCard({ ride }: { ride: RideSummary }) {
         <div className="flex flex-wrap justify-end gap-1">
           <Badge tone={ride.gps === "none" ? "muted" : "accent"}>{GPS_LABEL[ride.gps]}</Badge>
           {short && <Badge>短い記録</Badge>}
+          {/* 加速度の速さ（400 Hz と 800 Hz の走行が混ざるので見分ける）。設定が分からない走行は出さない */}
+          {ride.recording && <Badge>{rateBadge(ride.recording)}</Badge>}
         </div>
       </div>
 

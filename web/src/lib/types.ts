@@ -28,6 +28,20 @@ export interface RideSummary {
   rms_median: number;
   spark: Num[]; // rms を 60 区間に平均したもの
   memo: string;
+  recording?: RecordingSettings; // 記録の設定。この項目を足す前に処理した走行には無い
+}
+
+export type AccelBus = "i2c" | "spi";
+
+/** rides.json の recording（加速度の記録の設定。meta.json と実測から作る） */
+export interface RecordingSettings {
+  firmware: string | null; // firmware の版（CT125_LOGGER_V3.7 など）
+  accel_chip: string | null; // センサーの名前（ADXL345）
+  accel_bus: AccelBus | null; // つなぎ方（V3.6 までは書いていないので i2c とみなしている）
+  accel_odr_hz: number | null; // 出力の速さの設定
+  accel_fs_hz: number; // 実測の速さ
+  accel_range_g: number | null; // 振り切れる大きさ ±g
+  feature_fs_hz: number; // 振動の特徴量を計算した速さ（800 Hz の走行は 400 Hz に間引く）
 }
 
 export interface RidesFile {
