@@ -82,7 +82,7 @@ bool openSession(bool ecu) {
   if (ecu) csvEcu.file = openCsv("ecu.csv", "t_us,pid,value,raw");
   File s = openCsv("status.csv",
                    "t_us,samples,rate_hz,ring_drops,fifo_overruns,i2c_errors,sd_write_errors,bytes,gps_status,gps_sats,"
-                   "period_us,dt_min_us,dt_max_us,pll_err_max_us,time_resyncs");
+                   "period_us,dt_min_us,dt_max_us,pll_err_max_us,time_resyncs,heap_free,heap_min");
   if (s) s.close();
   if (csvEvent.file && pendingEvents.length()) {
     csvEvent.file.print(pendingEvents);
@@ -109,12 +109,13 @@ void drain(RingbufHandle_t r, CsvFile &c, TickType_t wait) {
 void writeStatus() {
   float secs = firstSampleUs < 0 ? 0 : (lastSampleUs - firstSampleUs) / 1e6f;
   char buf[260];
-  // dt_min/dt_max/pll_err_max はこの10秒間の値（時刻のなめらかさの確認用）
-  snprintf(buf, sizeof(buf), "%lld,%lu,%.2f,%lu,%lu,%lu,%lu,%llu,%c,%d,%.2f,%ld,%ld,%ld,%lu", (long long)nowUs(),
+  // dt_min/dt_max/pll_err_max はこの10秒間の値（時刻のなめらかさの確認用）。
+  // heap_free・heap_min は空きメモリ（今・起動からの最小。V3.8。走行中に止まったときに、メモリが原因かを後から見るため）
+  snprintf(buf, sizeof(buf), "%lld,%lu,%.2f,%lu,%lu,%lu,%lu,%llu,%c,%d,%.2f,%ld,%ld,%ld,%lu,%lu,%lu", (long long)nowUs(),
            (unsigned long)samples, secs > 0 ? (samples - 1) / secs : 0, (unsigned long)ringDrops,
            (unsigned long)fifoOverruns, (unsigned long)i2cErrors, (unsigned long)sdWriteErrors,
            (unsigned long long)bytesWritten, gpsStatus, gpsSats, (double)pllPeriodUs, (long)statDtMin, (long)statDtMax,
-           (long)statErrMax, (unsigned long)timeResyncs);
+           (long)statErrMax, (unsigned long)timeResyncs, (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getMinFreeHeap());
   statDtMin = INT32_MAX;
   statDtMax = 0;
   statErrMax = 0;

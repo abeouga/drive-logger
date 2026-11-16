@@ -49,6 +49,11 @@ void logUpload(const String &session, const String &rideId, const char *what, co
   f.close();
 }
 
+// 空きメモリ（今・起動からの最小）。送信の記録の detail の末尾に足す（V3.8。HTTPS はメモリを多く使うため）
+String heapText() {
+  return " heap=" + String((unsigned long)ESP.getFreeHeap()) + " min=" + String((unsigned long)ESP.getMinFreeHeap());
+}
+
 // ---------------------------------------------------------------- Wi-Fi と時計
 bool tryWifi(const String &ssid, const String &pass) {
   if (ssid.isEmpty()) return false;
@@ -239,7 +244,7 @@ bool sendFiles(const DeviceConfig &cfg, const String &session, Ticket &ticket, b
       i--;
       continue;
     }
-    logUpload(session, ticket.rideId, code == 200 ? "put_ok" : "put_error", target.name + " " + String(code));
+    logUpload(session, ticket.rideId, code == 200 ? "put_ok" : "put_error", target.name + " " + String(code) + heapText());
     if (code != 200) return false;
   }
   return true;
@@ -259,7 +264,7 @@ SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool
   }
   if (code != 200) return SessionResult::Failed;
   writeSmallFile(sessionPath(session, STATE_FILE), "{\"ride_id\":\"" + ticket.rideId + "\"}\n");
-  logUpload(session, ticket.rideId, "ticket", String(ticket.targets.size()) + " files");
+  logUpload(session, ticket.rideId, "ticket", String(ticket.targets.size()) + " files" + heapText());
 
   bool aborted = false;
   if (!sendFiles(cfg, session, ticket, shouldAbort, aborted)) {
@@ -269,7 +274,7 @@ SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool
 
   String response;
   code = postJson(cfg, "/api/device/uploads/" + ticket.rideId + "/complete", "{}", response);
-  logUpload(session, ticket.rideId, code == 200 ? "complete" : "complete_error", String(code) + " " + response.substring(0, 120));
+  logUpload(session, ticket.rideId, code == 200 ? "complete" : "complete_error", String(code) + " " + response.substring(0, 120) + heapText());
   if (code != 200) return SessionResult::Failed;
   markUploaded(session, ticket.rideId);
   return SessionResult::Sent;
@@ -300,6 +305,7 @@ UploadSummary uploadPendingSessions(const DeviceConfig &cfg, bool (*shouldAbort)
     summary.result = UploadResult::NoWifi;
     return summary;
   }
+  logUpload("-", "-", "wifi", "connected" + heapText());
   if (!syncClock()) logUpload("-", "-", "clock_warning", "ntp_failed");
   for (const String &session : sessions) {
     SessionResult result = uploadSession(cfg, session, shouldAbort);

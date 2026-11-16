@@ -210,7 +210,8 @@ void finishSession(const char *reason) {
     vRingbufferDelete(ringEcu);
     ringEcu = nullptr;
   }
-  Serial.printf("SESSION_END %s reason=%s\n", sessionDir.c_str(), reason);
+  Serial.printf("SESSION_END %s reason=%s ecu_stopped=%d heap_free=%u heap_min=%u largest=%u\n", sessionDir.c_str(), reason,
+                ecuStopped ? 1 : 0, (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
 }
 
 // ------------------------------------------------------------------ 送信

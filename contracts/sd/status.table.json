@@ -18,6 +18,8 @@
     { "name": "dt_min_us", "type": "integer", "unit": "us", "description": "この 10 秒の t_us の間隔の最小" },
     { "name": "dt_max_us", "type": "integer", "unit": "us", "description": "この 10 秒の t_us の間隔の最大" },
     { "name": "pll_err_max_us", "type": "integer", "unit": "us", "description": "この 10 秒の、読んだ時刻とのずれの最大" },
-    { "name": "time_resyncs", "type": "integer", "description": "時刻の合わせ直しの回数（累計）" }
+    { "name": "time_resyncs", "type": "integer", "description": "時刻の合わせ直しの回数（累計）" },
+    { "name": "heap_free", "type": "integer", "unit": "byte", "description": "今の空きメモリ（V3.8 から。前の版の走行には無い）。走行中に止まったときに、メモリが原因かを後から見るため" },
+    { "name": "heap_min", "type": "integer", "unit": "byte", "description": "起動してからの空きメモリの最小（V3.8 から。前の版の走行には無い）" }
   ]
 }
