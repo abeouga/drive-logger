@@ -205,6 +205,10 @@ bool startEcuTask(const String &address) {
   }
   elmAddress = std::string(address.c_str());
   NimBLEDevice::init("");
+#ifdef ECU_BLE_TX_DBM
+  NimBLEDevice::setPower(ECU_BLE_TX_DBM);  // 診断（#132）：送信の強さを変えて、加速度の速さが戻るかを見る
+#endif
+  Serial.printf("ECU ble_tx_dbm=%d\n", NimBLEDevice::getPower());
   client = NimBLEDevice::createClient();
   client->setConnectTimeout(5000);
   // つながりの間隔を短くして、返事を早く受け取る（7.5〜15 ms）

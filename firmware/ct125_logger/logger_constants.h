@@ -8,6 +8,10 @@ const int PIN_SDA = 21, PIN_SCL = 22;
 const int PIN_GPS_RX = 32, PIN_GPS_TX = 33;
 const int PIN_PPS = -1;              // PPS をつないだら 34 などにする（-1＝使わない）
 const int PIN_LED = 2;
+// 加速度のタスクを動かすコア（#132 の確かめ中）
+#ifndef ACCEL_CORE
+#define ACCEL_CORE 1
+#endif
 const int PIN_BOOT = 0;              // 開発ボードの BOOT ボタン（押すと LOW）。起動後は普通の入力として使える
 const uint32_t GPS_BAUD = 9600;
 const int PIN_SD_CS = 5;
