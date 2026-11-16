@@ -1,12 +1,14 @@
 #include "sd_session.h"
 
 #include "accel_sampler.h"
+#include "ecu_reader.h"
 #include "event_log.h"
 #include "gps_task.h"
 #include "logger_constants.h"
 #include "logger_state.h"
 
 CsvFile csvAccel{"accel.csv"}, csvGps{"gps.csv"}, csvEvent{"events.csv"};
+CsvFile csvEcu{"ecu.csv"};
 String sessionDir;
 
 // sd_write_recovery.h が書き込み・開き直し・出来事の記録に使う
@@ -47,7 +49,7 @@ static File openCsv(const char *name, const char *header) {
   return f;
 }
 
-bool openSession() {
+bool openSession(bool ecu) {
   SD.mkdir("/sessions");
   for (int i = 1; i < 1000; i++) {
     char p[32];
@@ -67,6 +69,7 @@ bool openSession() {
              "\"axes\": \"センサー基板の軸のまま\"},\n", ACCEL_HZ);
     m.printf("  \"gps\": {\"chip\": \"ATGM336H\", \"baud\": %lu, \"t_rx_us\": \"RMC文の先頭を受け取った時刻\", "
              "\"pps_pin\": %d},\n", (unsigned long)GPS_BAUD, PIN_PPS);
+    m.printf("  \"ecu\": {\"adapter\": \"ELM327\", \"link\": \"bluetooth_spp\", \"configured\": %s},\n", ecu ? "true" : "false");
     m.printf("  \"mounting\": \"未記入（取り付けたら notes.md に書く）\",\n  \"flush_ms\": %lu\n}\n",
              (unsigned long)FLUSH_MS);
     m.close();
@@ -76,6 +79,7 @@ bool openSession() {
                                 ? "t_rx_us,utc,date,status,fix,sats,hdop,lat,lon,speed_kmh,course_deg,pps_us"
                                 : "t_rx_us,utc,date,status,fix,sats,hdop,lat,lon,speed_kmh,course_deg");
   csvEvent.file = openCsv("events.csv", "t_us,type,detail");
+  if (ecu) csvEcu.file = openCsv("ecu.csv", "t_us,pid,value,raw");
   File s = openCsv("status.csv",
                    "t_us,samples,rate_hz,ring_drops,fifo_overruns,i2c_errors,sd_write_errors,bytes,gps_status,gps_sats,"
                    "period_us,dt_min_us,dt_max_us,pll_err_max_us,time_resyncs");
@@ -115,6 +119,8 @@ void writeStatus() {
   statDtMax = 0;
   statErrMax = 0;
   Serial.printf("STATUS %s\n", buf);
+  Serial.printf("ECU connected=%d reads=%lu errors=%lu heap_free=%u heap_min=%u\n", ecuConnected ? 1 : 0,
+                (unsigned long)ecuReads, (unsigned long)ecuErrors, (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap());
   File s = SD.open(sessionDir + "/status.csv", FILE_APPEND);
   if (s) {
     s.println(buf);

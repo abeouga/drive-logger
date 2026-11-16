@@ -33,6 +33,16 @@
         "pps_pin": { "type": "integer", "description": "-1＝PPS なし" }
       }
     },
+    "ecu": {
+      "type": "object",
+      "description": "ECU の読み出しの設定（V3.8 から。書いていない走行は ECU を読んでいない）",
+      "required": ["adapter", "link", "configured"],
+      "properties": {
+        "adapter": { "const": "ELM327", "description": "アダプターの種類（ELM327 互換）" },
+        "link": { "const": "bluetooth_spp", "description": "アダプターとのつなぎ方" },
+        "configured": { "type": "boolean", "description": "アダプターのアドレスが設定されていたか。false なら ecu.csv は作らない" }
+      }
+    },
     "mounting": { "type": "string", "description": "取り付けの説明（未記入なら notes.md に書く）" },
     "flush_ms": { "type": "integer" }
   }

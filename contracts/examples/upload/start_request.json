@@ -5,6 +5,7 @@
     { "name": "gps.csv", "size": 20480 },
     { "name": "events.csv", "size": 120 },
     { "name": "status.csv", "size": 2048 },
+    { "name": "ecu.csv", "size": 30720 },
     { "name": "meta.json", "size": 522 },
     { "name": "notes.md", "size": 64 }
   ]

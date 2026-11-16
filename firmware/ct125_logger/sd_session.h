@@ -16,12 +16,14 @@ struct CsvFile {
   SdFileGuard guard;
 };
 extern CsvFile csvAccel, csvGps, csvEvent;
+extern CsvFile csvEcu;  // ECU の値（V3.8。ECU を読む走行だけ開く）
 
 // 起動時に、SD にある走行と accel.csv・gps.csv の大きさをシリアルに出す
 void listSessions();
 
-// 走行のフォルダーを作り、meta.json と 4 つの CSV（列の見出し付き）を書く。pendingEvents を events.csv に書く
-bool openSession();
+// 走行のフォルダーを作り、meta.json と 4 つの CSV（列の見出し付き）を書く。pendingEvents を events.csv に書く。
+// ecu が true なら ecu.csv も作る（開けなくても記録は続ける）
+bool openSession(bool ecu);
 
 // リングバッファからたまった分（1 回 4KB まで）を取り出して c に書く。
 // c が書けなくなっていて、まだ開き直せていなければ取り出さない（データはリングに残り、あふれたら ring_drops に数える）

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # 送るファイル（contracts/upload/upload.json の files.allowed。tests/test_contracts.py で突き合わせる）。無いファイルは飛ばす
-SEND_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"]
+SEND_FILES = ["accel.csv", "gps.csv", "events.csv", "status.csv", "ecu.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"]
 
 
 class UploadError(RuntimeError):

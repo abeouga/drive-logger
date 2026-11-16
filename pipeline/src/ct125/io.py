@@ -19,6 +19,7 @@ JST = "Asia/Tokyo"
 ACCEL_COLS = ["n", "t_us", "ax_g", "ay_g", "az_g"]
 GPS_COLS = ["t_rx_us", "utc", "date", "status", "fix", "sats", "hdop", "lat", "lon", "speed_kmh", "course_deg"]
 EVENT_COLS = ["t_us", "type", "detail"]
+ECU_COLS = ["t_us", "pid", "value", "raw"]  # contracts/sd/ecu.table.json（V3.8 から。無い走行もある）
 REQUIRED_FILES = ("accel.csv", "gps.csv", "meta.json")
 MEMO_FILES = ("notes.md", "memo.txt", "readme.txt")  # 走行メモ。notes.md が今の名前、残りは古い名前
 
@@ -35,6 +36,7 @@ class Ride:
     fs: float
     offset_s: float | None  # UTC の UNIX 秒 − t_us/1e6。GPS なしなら None
     status: pd.DataFrame | None = field(default=None, repr=False)
+    ecu: pd.DataFrame | None = field(default=None, repr=False)  # ECU の値。ecu.csv が無い走行は None
 
     @property
     def has_abs_time(self) -> bool:
@@ -86,6 +88,7 @@ def load_ride(ride_id: str, raw_dir: Path | str) -> Ride:
     gps = pd.read_csv(d / "gps.csv", dtype={"utc": str, "date": str, "status": str})
     events = pd.read_csv(d / "events.csv") if (d / "events.csv").exists() else pd.DataFrame(columns=EVENT_COLS)
     status = pd.read_csv(d / "status.csv") if (d / "status.csv").exists() else None
+    ecu = read_ecu(d / "ecu.csv")
     meta = json.loads((d / "meta.json").read_text(encoding="utf-8"))
     memo = read_memo(d)
 
@@ -94,7 +97,23 @@ def load_ride(ride_id: str, raw_dir: Path | str) -> Ride:
     acc["t_rel"] = (acc["t_us"] - t0) / 1e6
     gps["t_rel"] = (gps["t_rx_us"] - t0) / 1e6
     fs = (len(acc) - 1) / float(acc["t_rel"].iloc[-1]) if len(acc) > 1 else float("nan")
-    return Ride(ride_id, acc, gps, events, meta, memo, t0, fs, utc_offset(gps), status)
+    if ecu is not None:
+        ecu["t_rel"] = (ecu["t_us"] - t0) / 1e6
+    return Ride(ride_id, acc, gps, events, meta, memo, t0, fs, utc_offset(gps), status, ecu)
+
+
+def read_ecu(path: Path) -> pd.DataFrame | None:
+    """ecu.csv（ECU の値。1 行に 1 つの値）を読む。ファイルが無い・列名の行だけなら None。
+
+    pid は 16 進の文字列（"0C" など）のまま読む（数として読むと "0E" などが壊れるため）。読めなかった値は NaN。
+    """
+    if not path.exists():
+        return None
+    ecu = pd.read_csv(path, dtype={"pid": str, "raw": str})
+    if len(ecu) == 0:
+        return None
+    ecu["value"] = pd.to_numeric(ecu["value"], errors="coerce")
+    return ecu.sort_values("t_us", kind="stable").reset_index(drop=True)
 
 
 def read_memo(ride_dir: Path | str) -> str:

@@ -16,7 +16,7 @@ namespace {
 
 // 送るファイル（contracts/upload/upload.json の files.allowed のうち、SD にありうるもの。無いファイルは飛ばす）
 // notes.md が走行メモ。memo.txt は古い名前
-const char *SEND_FILES[] = {"accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt"};
+const char *SEND_FILES[] = {"accel.csv", "gps.csv", "events.csv", "status.csv", "ecu.csv", "meta.json", "notes.md", "memo.txt"};
 // この版以降のファームウェアが書いた走行だけを送る（それより前の走行は PC から上げ済み・机上の試験）。
 // meta.json の "firmware" の値（例 CT125_LOGGER_V3.2）を JSON として読み、V の後の数（版の上の数）で比べる
 // （判定は json_lite.h の isUploadableFirmware。名前と版の数も json_lite.h にある）
