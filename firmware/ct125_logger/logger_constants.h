@@ -12,6 +12,11 @@ const int PIN_LED = 2;
 #ifndef ACCEL_CORE
 #define ACCEL_CORE 1
 #endif
+// SD に書いている間の loop() の優先度（#132 の確かめ中）
+#ifndef SD_WRITE_PRIO
+#define SD_WRITE_PRIO 6
+#endif
+const UBaseType_t SD_WRITE_PRIORITY = SD_WRITE_PRIO;
 const int PIN_BOOT = 0;              // 開発ボードの BOOT ボタン（押すと LOW）。起動後は普通の入力として使える
 const uint32_t GPS_BAUD = 9600;
 const int PIN_SD_CS = 5;

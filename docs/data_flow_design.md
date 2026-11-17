@@ -47,7 +47,7 @@ flowchart LR
 
 ```
 raw バケット
-  <ride_id>/accel.csv・gps.csv・events.csv・status.csv・meta.json・notes.md（または memo.txt）
+  <ride_id>/accel.csv・gps.csv・events.csv・status.csv・ecu.csv（V3.8 から。ECU を読んだ走行だけ）・meta.json・notes.md（または memo.txt）
   <ride_id>/upload_session.json   受け付けの記録（デバイス API）
   <ride_id>/upload_complete.json  完了の合図。これが置かれると処理が動く
   _uploads/<印>.json              送り終えた SD の走行の印（同じ走行を 2 回受け付けないため。#14。走行 ID の形でないので処理は数えない）

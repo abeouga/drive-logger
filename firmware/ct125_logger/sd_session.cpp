@@ -91,16 +91,37 @@ bool openSession(bool ecu) {
   return csvAccel.file && csvGps.file && csvEvent.file;
 }
 
+volatile int32_t statSdUsMax = 0;
+
+SdBoost::SdBoost() : start(nowUs()), old(uxTaskPriorityGet(nullptr)) {
+  if (old < SD_WRITE_PRIORITY) vTaskPrioritySet(nullptr, SD_WRITE_PRIORITY);
+}
+
+SdBoost::~SdBoost() {
+  if (old < SD_WRITE_PRIORITY) vTaskPrioritySet(nullptr, old);
+  int32_t us = (int32_t)(nowUs() - start);
+  if (us > statSdUsMax) statSdUsMax = us;
+}
+
 void drain(RingbufHandle_t r, CsvFile &c, TickType_t wait) {
   CsvSink sink{c};
-  if (!sdEnsureWritable(sink, c.guard, millis())) {
+  bool writable;
+  {
+    SdBoost boost;
+    writable = sdEnsureWritable(sink, c.guard, millis());
+  }
+  if (!writable) {
     if (wait) vTaskDelay(wait);  // 取り出さないときも、待つはずだった分は待つ（loop() が空回りしないように）
     return;
   }
   size_t n = 0;
   char *data = (char *)xRingbufferReceiveUpTo(r, &n, wait, 4096);
   if (!data) return;
-  SdWriteResult res = sdWriteChunk(sink, c.guard, data, n, millis());
+  SdWriteResult res;
+  {
+    SdBoost boost;
+    res = sdWriteChunk(sink, c.guard, data, n, millis());
+  }
   sdWriteErrors += res.errors;
   bytesWritten += res.written;
   vRingbufferReturnItem(r, data);
@@ -130,8 +151,11 @@ void writeStatus() {
   statFifoMax = 0;
   statPollGapMax = 0;
   statBatchUsMax = 0;
+  Serial.printf("DIAG3 sd_us_max=%ld\n", (long)statSdUsMax);
+  statSdUsMax = 0;
   Serial.printf("ECU connected=%d reads=%lu errors=%lu heap_free=%u heap_min=%u\n", ecuConnected ? 1 : 0,
                 (unsigned long)ecuReads, (unsigned long)ecuErrors, (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap());
+  SdBoost boost;
   File s = SD.open(sessionDir + "/status.csv", FILE_APPEND);
   if (s) {
     s.println(buf);

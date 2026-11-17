@@ -157,6 +157,7 @@ void loopLogging() {
   if (ringEcu) drain(ringEcu, csvEcu, 0);
   uint32_t now = millis();
   if (now - lastFlush >= FLUSH_MS) {
+    SdBoost boost;
     for (CsvFile *c : {&csvAccel, &csvGps, &csvEvent}) c->file.flush();
     if (ringEcu) csvEcu.file.flush();
     lastFlush = now;

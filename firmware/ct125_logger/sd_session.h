@@ -31,3 +31,14 @@ void drain(RingbufHandle_t r, CsvFile &c, TickType_t wait);
 
 // status.csv に 1 行足す（10 秒ごと・記録を閉じるとき）
 void writeStatus();
+
+// SD に書いている間だけ、呼んだタスクの優先度を SD_WRITE_PRIORITY に上げる（#132）。
+// 加速度のタスクと同じコアで書くとき、書き込みの途中で割り込まれないようにするため（割り込まれると SD の書き込みが失敗する）。
+// 診断：statSdUsMax は、この 10 秒で SD に書くのにかかった時間の最大（この間、加速度の読み出しは待たされる）
+struct SdBoost {
+  int64_t start;
+  UBaseType_t old;
+  SdBoost();
+  ~SdBoost();
+};
+extern volatile int32_t statSdUsMax;
