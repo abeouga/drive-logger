@@ -205,18 +205,11 @@ bool startEcuTask(const String &address) {
   }
   elmAddress = std::string(address.c_str());
   NimBLEDevice::init("");
-#ifdef ECU_BLE_TX_DBM
-  NimBLEDevice::setPower(ECU_BLE_TX_DBM);  // 診断（#132）：送信の強さを変えて、加速度の速さが戻るかを見る
-#endif
-  Serial.printf("ECU ble_tx_dbm=%d\n", NimBLEDevice::getPower());
   client = NimBLEDevice::createClient();
   client->setConnectTimeout(5000);
-  // つながりの間隔（1.25 ms 単位）。短いほど返事が早いが、core 0 の Bluetooth の仕事が増える（#132 の確かめ中）
-#ifndef ECU_CONN_MIN
-#define ECU_CONN_MIN 6
-#define ECU_CONN_MAX 12
-#endif
-  client->setConnectionParams(ECU_CONN_MIN, ECU_CONN_MAX, 0, 200);
+  // つながりの間隔（1.25 ms 単位で 6〜12＝7.5〜15 ms）。短いほど返事が早い（ECU を 1 秒に約 5 回読める）。
+  // 30〜50 ms にしても SD の書き込みエラーは無くならなかった（#132）ので、短いままにする
+  client->setConnectionParams(6, 12, 0, 200);
   ecuStopped = false;
   xTaskCreatePinnedToCore(ecuTask, "ecu", 6144, nullptr, 2, nullptr, 1);
   return true;

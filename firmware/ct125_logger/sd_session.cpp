@@ -141,20 +141,10 @@ void writeStatus() {
   statDtMax = 0;
   statErrMax = 0;
   Serial.printf("STATUS %s\n", buf);
-  Serial.printf("DIAG fifo_max=%ld poll_gap_max_us=%ld batch_us_max=%ld gps_sec_us=%.0f n=%ld samples=%lu\n", (long)statFifoMax,
-                (long)statPollGapMax, (long)statBatchUsMax,
-                statGpsSecN > 0 ? (double)statGpsSecSumUs / statGpsSecN : 0.0, (long)statGpsSecN, (unsigned long)samples);
-  statGpsSecSumUs = 0;
-  statGpsSecN = 0;
-  Serial.printf("DIAG2 gps_elapsed_s=%ld esp_vs_gps_ppm=%ld adxl_hz_by_gps=%.2f\n", (long)statGpsElapsedS, (long)statEspPerGpsPpm,
-                (double)statAdxlHzGps);
-  statFifoMax = 0;
-  statPollGapMax = 0;
-  statBatchUsMax = 0;
-  Serial.printf("DIAG3 sd_us_max=%ld\n", (long)statSdUsMax);
+  // シリアルだけに出す：ECU の読み出しの数と、この 10 秒で SD に書くのにかかった時間の最大（この間 core 0 の Bluetooth は待たされる）
+  Serial.printf("ECU connected=%d reads=%lu errors=%lu sd_us_max=%ld\n", ecuConnected ? 1 : 0, (unsigned long)ecuReads,
+                (unsigned long)ecuErrors, (long)statSdUsMax);
   statSdUsMax = 0;
-  Serial.printf("ECU connected=%d reads=%lu errors=%lu heap_free=%u heap_min=%u\n", ecuConnected ? 1 : 0,
-                (unsigned long)ecuReads, (unsigned long)ecuErrors, (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap());
   SdBoost boost;
   File s = SD.open(sessionDir + "/status.csv", FILE_APPEND);
   if (s) {

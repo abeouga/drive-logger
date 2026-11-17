@@ -9,10 +9,6 @@ volatile char gpsStatus = 'V';
 volatile int gpsSats = 0;
 volatile int64_t ppsUs = -1;
 volatile float gpsSpeedKmh = -1;
-volatile int64_t statGpsSecSumUs = 0;
-volatile int32_t statGpsSecN = 0;
-volatile int32_t statGpsElapsedS = 0, statEspPerGpsPpm = 0;
-volatile float statAdxlHzGps = 0;
 
 void IRAM_ATTR onPps() { ppsUs = esp_timer_get_time(); }
 
@@ -46,40 +42,6 @@ void gpsTask(void *) {
         ggaHdop = nmeaField(line, 8);
         gpsSats = ggaSats.toInt();
       } else if (type == "RMC") {
-        // 診断（#132）：RMC は GPS の 1 秒ごとに来る。受けた間隔（ESP32 の時計）を足していく。1 秒前後のときだけ数える
-        static int64_t lastRmcUs = -1;
-        if (lastRmcUs >= 0) {
-          int64_t d = lineStartUs - lastRmcUs;
-          if (d > 900000 && d < 1100000) {
-            statGpsSecSumUs += d;
-            statGpsSecN = statGpsSecN + 1;
-          }
-        }
-        lastRmcUs = lineStartUs;
-        // 診断（#132）：記録の始めからの累計。GPS の時刻で何秒たったか・ESP32 の時計で何 µs たったか・加速度が何件来たか
-        {
-          String u = nmeaField(line, 1);
-          char stc = nmeaField(line, 2).length() ? nmeaField(line, 2)[0] : 'V';
-          if (stc == 'A' && u.length() >= 6) {
-            long sod = u.substring(0, 2).toInt() * 3600L + u.substring(2, 4).toInt() * 60L + u.substring(4, 6).toInt();
-            static long sod0 = -1;
-            static int64_t t0 = 0;
-            static uint32_t s0 = 0;
-            if (sod0 < 0) {
-              sod0 = sod;
-              t0 = lineStartUs;
-              s0 = samples;
-            } else {
-              long dSec = sod - sod0;
-              if (dSec < 0) dSec += 86400;
-              if (dSec > 0) {
-                statGpsElapsedS = dSec;
-                statEspPerGpsPpm = (int32_t)(((double)(lineStartUs - t0) - dSec * 1e6) / dSec);
-                statAdxlHzGps = (float)((double)(samples - s0) / dSec);
-              }
-            }
-          }
-        }
         String st = nmeaField(line, 2);
         char status = st.length() ? st[0] : 'V';
         String sp = nmeaField(line, 7);

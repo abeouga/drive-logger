@@ -22,7 +22,6 @@ const double RESYNC_US = 20000;
 volatile double pllPeriodUs = 1e6 / ACCEL_HZ;
 volatile int32_t statDtMin = INT32_MAX, statDtMax = 0, statErrMax = 0;
 volatile uint32_t timeResyncs = 0;
-volatile int32_t statFifoMax = 0, statPollGapMax = 0, statBatchUsMax = 0;
 
 // 記録中に ADXL345 が外れたとき（V3.6）
 //   読み出しの失敗が ADXL_LOST_AFTER_ERRORS 回続いたら外れたとみなし、events.csv に adxl_lost を残す。
@@ -56,7 +55,6 @@ void sensorTask(void *) {
   double periodUs = 1e6 / ACCEL_HZ;   // 実測に合わせて PLL が更新する
   double tNext = -1;                  // 次のサンプルに付ける時刻
   int64_t tPrev = -1;
-  int64_t lastPollUs = -1;
   // 設定から記録開始までの間に FIFO があふれているので、空にしてから始める
   writeReg(0x38, 0x00);
   writeReg(0x38, 0x80 | 16);
@@ -92,9 +90,6 @@ void sensorTask(void *) {
       continue;
     }
     uint8_t st = 0, src = 0;
-    int64_t pollUs = nowUs();
-    if (lastPollUs >= 0 && pollUs - lastPollUs > statPollGapMax) statPollGapMax = (int32_t)(pollUs - lastPollUs);
-    lastPollUs = pollUs;
     if (!readRegs(0x39, &st, 1) || !readRegs(0x30, &src, 1)) {
       onReadFailed();
       vTaskDelay(1);
@@ -108,7 +103,6 @@ void sensorTask(void *) {
       logEvent("fifo_overrun", d);
     }
     int n = st & 0x3F;
-    if (n > statFifoMax) statFifoMax = n;
     if (n < 4) {                      // 数件たまってからまとめて読む（FIFO は32件＝800Hz で約40ms分あるので余裕あり）
       vTaskDelay(2);
       continue;
@@ -165,8 +159,6 @@ void sensorTask(void *) {
     }
     tNext += got * periodUs;
     pllPeriodUs = periodUs;
-    int32_t batchUs = (int32_t)(nowUs() - now);
-    if (batchUs > statBatchUsMax) statBatchUsMax = batchUs;
     if (len) pushTo(ringAccel, buf, len);
   }
 }

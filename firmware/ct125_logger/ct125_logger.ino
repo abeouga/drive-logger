@@ -8,10 +8,11 @@
 //   LED     : IO2（ボード上のLEDのはず。実機で点くかは未確認）
 //
 // 記録の仕組み
-//   - 電源を入れるたびに /sessions/ride_NNN/ を作り、accel.csv・gps.csv・events.csv・status.csv に書く。
+//   - 電源を入れるたびに /sessions/ride_NNN/ を作り、accel.csv・gps.csv・events.csv・status.csv（V3.8 から ecu.csv も）に書く。
 //   - すべての行に ESP の時計 t_us（起動からのマイクロ秒）を付ける。GPS の UTC は gps.csv で対応づける。
-//   - 加速度は ADXL345 の FIFO を使い 800Hz（ACCEL_HZ）で読む（コア0）。GPS は別タスク（コア1）。
-//   - SDへの書き込みは loop()（コア1）で、RAMのリングバッファから取り出して行う。
+//   - 加速度は ADXL345 の FIFO を使い 800Hz（ACCEL_HZ）で読む（core 1。V3.7 までは core 0）。GPS・ECU も別タスク（core 1）。
+//   - SDへの書き込みは loop()（core 0。V3.7 までは core 1）で、RAMのリングバッファから取り出して行う。
+//     書いている間だけ優先度を上げ、Bluetooth に割り込まれないようにする（SdBoost。コアの割り振りの理由は logger_constants.h）。
 //   - 1秒ごとに flush。電源が突然切れても失うのは最後の約1秒。
 //
 // 送信：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
@@ -80,6 +81,7 @@ void setup() {
   Serial.begin(115200);
   delay(300);
   Serial.printf("\n%s READY\n", FW_VERSION);
+  // 空きメモリ（シリアルだけ。起動・リングバッファを作る前・BLE を始める前に出す。メモリの余裕を見るため。#133）
   Serial.printf("HEAP boot free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
   pinMode(PIN_BOOT, INPUT_PULLUP);
   xTaskCreatePinnedToCore(ledTask, "led", 2048, nullptr, 1, nullptr, 1);

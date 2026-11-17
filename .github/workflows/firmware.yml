@@ -19,7 +19,8 @@ permissions:
 env:
   ESP32_CORE: "esp32:esp32@3.3.12"
   NIMBLE_LIB: "NimBLE-Arduino@2.5.2"
-  FQBN: "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M,PartitionScheme=huge_app"
+  # V3.8：loop() を core 0 で動かす（LoopCore=0。#132）。ECU の BLE（NimBLE）を入れると 1.25 MB を超えるので huge_app
+  FQBN: "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M,PartitionScheme=huge_app,LoopCore=0"
 
 jobs:
   compile:
