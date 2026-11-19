@@ -1,4 +1,7 @@
 # drive-logger
+<img width="1391" height="1043" alt="image" src="https://github.com/user-attachments/assets/537432bf-10f5-4a9c-81a3-543833cb0eaa" />
+<img width="1854" height="1043" alt="image" src="https://github.com/user-attachments/assets/a242bb14-4c95-4e92-9524-0481c3565db2" />
+
 
 ハンターカブ CT125 に載せた ESP32 のロガーで、走行中の **GPS と振動（加速度 400Hz）** を記録し、
 AWS で前処理・異常スコアの計算をして、**地図とタイムラインで見る** までを一本につないだ個人プロジェクトです。
