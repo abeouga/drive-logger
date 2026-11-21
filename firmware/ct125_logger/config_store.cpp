@@ -6,7 +6,7 @@ namespace {
 
 const char *NAMESPACE = "ct125";
 const char *DEFAULT_API_BASE = "https://drive.herdio-system.com";
-const char *KEYS[] = {"wifi_ssid", "wifi_pass", "wifi2_ssid", "wifi2_pass", "device_id", "device_token", "api_base", "ecu_addr"};
+const char *KEYS[] = {"wifi_ssid", "wifi_pass", "wifi2_ssid", "wifi2_pass", "device_id", "device_token", "api_base", "ecu_addr", "auto_upload"};
 
 bool isKnownKey(const String &key) {
   for (const char *k : KEYS) {
@@ -62,6 +62,7 @@ DeviceConfig loadConfig() {
   cfg.deviceToken = readKey(prefs, "device_token");
   cfg.apiBase = readKey(prefs, "api_base");
   cfg.ecuAddr = readKey(prefs, "ecu_addr");
+  cfg.autoUpload = readKey(prefs, "auto_upload") != "off";
   prefs.end();
   if (cfg.apiBase.isEmpty()) cfg.apiBase = DEFAULT_API_BASE;
   return cfg;

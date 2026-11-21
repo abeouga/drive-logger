@@ -75,12 +75,16 @@ void runUpload(bool automatic);
 void startLogging();
 
 AdxlWait adxlWait;  // 起動時に ADXL345 が無かったときの待ち
+// 自動の送信をするか（CFG SET auto_upload off で切る。机の上の試し用。手で始める送信は変わらない。V3.8）
+bool autoUploadEnabled = true;
 
 // ------------------------------------------------------------------ main
 void setup() {
   Serial.begin(115200);
   delay(300);
   Serial.printf("\n%s READY\n", FW_VERSION);
+  autoUploadEnabled = loadConfig().autoUpload;
+  Serial.printf("AUTO_UPLOAD=%s\n", autoUploadEnabled ? "ON" : "OFF");
   // 空きメモリ（シリアルだけ。起動・リングバッファを作る前・BLE を始める前に出す。メモリの余裕を見るため。#133）
   Serial.printf("HEAP boot free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
   pinMode(PIN_BOOT, INPUT_PULLUP);
@@ -173,7 +177,7 @@ void loopLogging() {
   if (uploadRequestedBySerial) reason = "serial";
   if (now - lastCheck >= 1000) {
     lastCheck = now;
-    const char *quiet = uploadTrigger(quietSeconds);
+    const char *quiet = autoUploadEnabled ? uploadTrigger(quietSeconds) : nullptr;  // 自動の送信を切っていれば閉じない
     if (!reason) reason = quiet;
   }
   if (reason) {
@@ -304,7 +308,7 @@ void loopWaitAdxl() {
     startLogging();
     return;
   }
-  if (adxlWaitShouldUpload(adxlWait, millis())) uploadWhileWaiting();
+  if (autoUploadEnabled && adxlWaitShouldUpload(adxlWait, millis())) uploadWhileWaiting();
 }
 
 void loop() {
