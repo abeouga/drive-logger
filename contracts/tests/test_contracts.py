@@ -174,7 +174,7 @@ def test_firmware_csv_headers_match_tables():
     headers = {}
     for name, header in re.findall(r'openCsv\("([a-z_]+)\.csv",\s*((?:"[^"]*"\s*)+)\)', source):
         headers[name] = "".join(re.findall(r'"([^"]*)"', header)).split(",")
-    for name in ("accel", "events", "status"):
+    for name in ("accel", "events", "status", "ecu"):
         assert headers[name] == [f["name"] for f in load(f"sd/{name}.table.json")["fields"]], name
     gps = load("sd/gps.table.json")
     gps_headers = re.findall(r'"(t_rx_us,utc,[a-z_,]+)"', source)

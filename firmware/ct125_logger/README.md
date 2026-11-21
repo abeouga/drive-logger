@@ -15,6 +15,7 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 > V3.5（2026-11-15）は、加速度の ODR を 400 → 800 Hz にした（I2C 400 kHz のまま、`BW_RATE=0x0D`）。見える周波数が約 200 → 約 400 Hz に広がる。meta.json の `odr_hz` が 800 になり、accel.csv は 1 時間で約 115 MB（2 倍）。**コンパイルと PC のテストだけ確かめた。**
 > V3.6（2026-11-16）は、ADXL345 を外したり後からつないだりしても動くようにした（ADXL345 を車両のフレームに付け、走るときに起動後につなぎ、送るときは外す使い方のため）。下の「ADXL345 の抜き差し」。**コンパイルと PC のテストだけ確かめた。**
 > V3.7（2026-11-16）は、meta.json の `accel` に、センサーのつなぎ方 `bus`（今は `"i2c"`）を足した。画面で走行ごとの記録の設定を見分けるため（#124）。SPI（#118）が入ると `"spi"` になる。
+> V3.8（作業中、#129）は、記録中に ECU の値を BLE で読み、`ecu.csv` に書く。下の「ECU の読み出し（V3.8）」。**コンパイルの設定が変わった**（`LoopCore=0`・`huge_app`・NimBLE-Arduino。下の「書き込み方」）。机の上で記録 → 送信まで確かめた。走行ではまだ確かめていない。
 > 2026-11-10、1 つだった `ct125_logger.ino` を役割ごとのファイルに分けた（#27。関数の中身・定数・CSV と meta.json の書き出しは変えていないので、版は V3.3 のまま）。分けた後の版は、コンパイルだけ確かめた。
 > **バッテリーでの「静か 2 分」からの自動送信と、実車での確認はまだです。**
 
@@ -33,8 +34,10 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
 | `led.cpp/.h`・`boot_button.cpp/.h`・`serial_commands.cpp/.h` | LED、BOOT ボタン、シリアルのコマンド（`UPLOAD`・`LOG`・`CFG`） |
 | `uploader.cpp/.h` | Wi-Fi・HTTPS・送信の手順（PC から送る `python -m ct125 upload-sd` と同じ手順） |
 | `json_lite.h` | 小さな JSON の読み取り（応答・meta.json）と、送る走行の判定。Arduino の String だけに頼るので PC でテストできる（`../tests/host/`） |
-| `config_store.cpp/.h` | Wi-Fi と機器トークンの保存（NVS）と、シリアルからの設定 |
+| `config_store.cpp/.h` | Wi-Fi と機器トークン・ECU のアダプターのアドレスの保存（NVS）と、シリアルからの設定 |
 | `root_ca.h` | HTTPS で信頼するルート証明書（Amazon Root CA 1 など） |
+| `ecu_reader.cpp/.h` | ECU の値の読み出し（V3.8）。ELM327 互換アダプターに BLE（NimBLE）でつなぎ、ECU を読むタスク（core 1）→ ecu.csv |
+| `elm_parse.h` | 送ってよい命令の判定・返事の読み取りと単位への換算・読む順番。PC でテストできる（`../tests/host/test_elm_parse.cpp`） |
 
 ## 配線（実機で確認済み）
 
@@ -55,7 +58,8 @@ ESP32 の電源を入れると自動で記録を始めます。プログラム�
   accel.csv     n, t_us, ax_g, ay_g, az_g          （800Hz。V3.4 までは 400Hz）
   gps.csv       t_rx_us, utc, date, status, fix, sats, hdop, lat, lon, speed_kmh, course_deg（1Hz）
   events.csv    t_us, type, detail                  （起動・再試行・あふれ・GPS 有効/無効）
-  status.csv    10秒ごとの件数・実測周波数・取りこぼし数
+  status.csv    10秒ごとの件数・実測周波数・取りこぼし数・空きメモリ（V3.8 から heap_free・heap_min）
+  ecu.csv       t_us, pid, value, raw                （V3.8。ECU の値。アダプターを設定した走行だけ。1 秒に約 5 行）
   notes.md      走行メモ（PC で後から入れる。古い名前の memo.txt も送る）
   upload_state.json・uploaded.json   送信の途中・送り終えた印（V3）
 /upload_log.csv         送信の記録（V3）
@@ -146,17 +150,69 @@ python pipeline/tools/check_session.py <SD の sessions フォルダー>
 （リポジトリの直下から。`<SD の sessions フォルダー>` はカードリーダーに挿した SD の `/sessions`）
 記録時間・実測周波数・サンプルの飛び・GPS の有効率・UTC の開始時刻・t_us と UTC のずれのばらつきを表示する。
 
+## ECU の読み出し（V3.8）
+
+市販の ELM327 互換アダプターを CT125 の診断カプラーにつなぎ、記録中に BLE で ECU の値を読む（`docs/analysis_policy.md` 1.3。送るのは読み出しの要求だけ。命令は `elm_parse.h` の `allowedCommand()` で縛る）。
+
+- 設定：シリアルから `CFG SET ecu_addr AA:BB:CC:12:22:33`（アダプターの **BLE の** アドレス。Classic のアドレスとは違う。秘密ではない）。入っていなければ ECU は読まず、今までどおり記録する
+- つなぎ方：NimBLE で、サービス `FFF0` の `FFF2` に命令を書き、`FFF1` の通知で返事を受ける。初期化は `ATZ`・`ATE0`・`ATH0`・`ATSP5`・`ATAT2`・`0100`
+- 読む順番：回転数を 2 回に 1 回、残りでスロットル開度・負荷・吸気圧・点火時期を順番に、油温・吸気温・ECU の電圧は 10 秒に 1 回。机の上で 1 秒に約 5 回
+- 切れたら 10 秒おいてつなぎ直す（`events.csv` に `ecu_connected`・`ecu_lost`・`ecu_init_ng`）。キーを OFF にするとアダプターの電源も切れる
+- 空きメモリが足りなければ BLE を始めない（空き 52,000 未満、またはひと続きで 16,000 未満。足りないまま始めると落ちることがあった）。標準の Bluetooth（Bluedroid）は約 9 万バイト使い、記録中に入らなかったので NimBLE（約 2 万）にした
+- 記録を閉じるときに BLE を止めてメモリを返す（送信の Wi-Fi・HTTPS のため）
+
+### 机の上で試すとき：自動の送信を切る（V3.8）
+
+`CFG SET auto_upload off` のあと再起動すると、自動の送信（止まって静か 2 分で記録を閉じて送る・起動時に ADXL345 が無く 30 秒待っても来ないときに送り残しを送る）をしない。
+起動ログに `AUTO_UPLOAD=OFF` と出る。
+手で始める送信（BOOT ボタン 2 秒・シリアルの `UPLOAD`）と送信の手順は変わらない。
+走る前に `CFG SET auto_upload on` に戻す（入れていなければ自動で送る）。
+
+### コアの割り振りと SD の書き込みの優先度（#132）
+
+| コア | 動くもの |
+|---|---|
+| core 0 | `loop()`（SD への書き込み・送信）、Bluetooth（コントローラーと NimBLE のホスト） |
+| core 1 | 加速度の読み出し（優先度 5）、GPS、ECU を読むタスク、LED |
+
+- 加速度の読み出しが core 0 で Bluetooth のコントローラーと同居すると、ECU を読んでいる間、加速度の件数が約 0.5% 減った（FIFO はあふれていないのに減る）。そのため加速度を core 1 に移し、`loop()` を core 0 に移した（V3.7 までは逆）
+- SD の書き込みは、途中で割り込まれると失敗する（SD のドライバーは何も表示しない）。`loop()` が core 0 の Bluetooth のコントローラー（優先度 23）に割り込まれないよう、SD に書いている間だけ優先度を 24 に上げる（`SdBoost`）。書くのに最長 約 140 ms かかり、その間 core 0 の Bluetooth は待たされるが、BLE は切れなかった
+- 机の上（540 秒、ECU を読みながら）：加速度は ECU なしと同じ速さ、SD の書き込みエラー・FIFO のあふれ・時刻の合わせ直しは 0。送信も成功した。走行ではまだ確かめていない
+- 走行で問題が出たとき（BLE が切れる・SD の書き込みエラーが出るなど）は、V3.7 と同じ配置に戻す（加速度が約 0.5% 減るのを受け入れる）
+- 測った値と試した配置：agorack-document の `drive-logger/notes/2026-11-18-v38-progress/`
+
+### メモリとリングバッファの大きさ（#133）
+
+BLE（約 2 万バイト）を入れる空きを作るため、リングバッファを V3.7 から小さくした。
+
+| リングバッファ | V3.7 まで | V3.8 | 何秒分か |
+|---|---|---|---|
+| 加速度 | 64 KB | 48 KB | 約 1.5 秒（800 Hz × 1 行約 40 バイト＝約 32 KB/秒） |
+| GPS | 8 KB | 4 KB | 約 40 秒 |
+| 出来事 | 4 KB | 4 KB | — |
+| ECU | — | 2 KB | 約 8 秒 |
+
+- 加速度を 48 KB にしてよい理由：SD に 1 回書くのにかかる時間は最長でも約 140 ms（2026-11-18〜21 の測定。30 分の記録では最長 57 ms）で、1.5 秒分に十分収まる。30 分の記録で取りこぼし（`ring_drops`）は 0
+- 元の大きさのままだと、BLE を始める直前の空きが約 3.2 万になり、BLE を始めない判定（52,000 未満）になる
+- 記録中の空きメモリ（2026-11-21、ECU を読みながら 30 分）：約 29,250 で一定、起動からの最小は約 24,400 で下がり続けない（漏れていない）。送信中の最小も約 21,000〜24,000。どちらも `status.csv` の `heap_free`・`heap_min` と `/upload_log.csv` に残る
+
 ## 書き込み方
 
+V3.8 から、コンパイルに次の 3 つが要る。
+
+- **`LoopCore=0`**（`loop()` を core 0 で動かす。付け忘れるとコンパイルが止まる）
+- **`PartitionScheme=huge_app`**（BLE を入れると 1.25 MB を超えるため。OTA は使っていない。NVS の位置は既定と同じなので、Wi-Fi の設定と機器トークンは残る）
+- **NimBLE-Arduino 2.5.2**（`arduino-cli lib install "NimBLE-Arduino@2.5.2"`）
+
 ```bash
-arduino-cli compile --fqbn "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M" --output-dir build .
+arduino-cli compile --fqbn "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M,PartitionScheme=huge_app,LoopCore=0" --output-dir build .
 ```
 
 ```bash
 "<arduino-cli のデータのフォルダー>/packages/esp32/tools/esptool_py/5.3.1/esptool.exe" --chip esp32 --port <ポート> --baud 230400 write-flash 0x1000 build/ct125_logger.ino.bootloader.bin 0x8000 build/ct125_logger.ino.partitions.bin 0x10000 build/ct125_logger.ino.bin
 ```
 
-（ポートは PC によって変わる。`arduino-cli board list` で確かめる）
+（ポートは PC によって変わる。`arduino-cli board list` で確かめる。区画を `huge_app` に変えるので、V3.7 以前から書き換えるときは区画の表 `0x8000` も一緒に書く）
 
 ## バッテリー単体テストの手順
 

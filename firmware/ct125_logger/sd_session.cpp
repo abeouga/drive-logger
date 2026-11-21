@@ -1,12 +1,14 @@
 #include "sd_session.h"
 
 #include "accel_sampler.h"
+#include "ecu_reader.h"
 #include "event_log.h"
 #include "gps_task.h"
 #include "logger_constants.h"
 #include "logger_state.h"
 
 CsvFile csvAccel{"accel.csv"}, csvGps{"gps.csv"}, csvEvent{"events.csv"};
+CsvFile csvEcu{"ecu.csv"};
 String sessionDir;
 
 // sd_write_recovery.h が書き込み・開き直し・出来事の記録に使う
@@ -47,7 +49,7 @@ static File openCsv(const char *name, const char *header) {
   return f;
 }
 
-bool openSession() {
+bool openSession(bool ecu) {
   SD.mkdir("/sessions");
   for (int i = 1; i < 1000; i++) {
     char p[32];
@@ -67,6 +69,7 @@ bool openSession() {
              "\"axes\": \"センサー基板の軸のまま\"},\n", ACCEL_HZ);
     m.printf("  \"gps\": {\"chip\": \"ATGM336H\", \"baud\": %lu, \"t_rx_us\": \"RMC文の先頭を受け取った時刻\", "
              "\"pps_pin\": %d},\n", (unsigned long)GPS_BAUD, PIN_PPS);
+    m.printf("  \"ecu\": {\"adapter\": \"ELM327\", \"link\": \"ble\", \"configured\": %s},\n", ecu ? "true" : "false");
     m.printf("  \"mounting\": \"未記入（取り付けたら notes.md に書く）\",\n  \"flush_ms\": %lu\n}\n",
              (unsigned long)FLUSH_MS);
     m.close();
@@ -76,9 +79,10 @@ bool openSession() {
                                 ? "t_rx_us,utc,date,status,fix,sats,hdop,lat,lon,speed_kmh,course_deg,pps_us"
                                 : "t_rx_us,utc,date,status,fix,sats,hdop,lat,lon,speed_kmh,course_deg");
   csvEvent.file = openCsv("events.csv", "t_us,type,detail");
+  if (ecu) csvEcu.file = openCsv("ecu.csv", "t_us,pid,value,raw");
   File s = openCsv("status.csv",
                    "t_us,samples,rate_hz,ring_drops,fifo_overruns,i2c_errors,sd_write_errors,bytes,gps_status,gps_sats,"
-                   "period_us,dt_min_us,dt_max_us,pll_err_max_us,time_resyncs");
+                   "period_us,dt_min_us,dt_max_us,pll_err_max_us,time_resyncs,heap_free,heap_min");
   if (s) s.close();
   if (csvEvent.file && pendingEvents.length()) {
     csvEvent.file.print(pendingEvents);
@@ -87,16 +91,37 @@ bool openSession() {
   return csvAccel.file && csvGps.file && csvEvent.file;
 }
 
+volatile int32_t statSdUsMax = 0;
+
+SdBoost::SdBoost() : start(nowUs()), old(uxTaskPriorityGet(nullptr)) {
+  if (old < SD_WRITE_PRIORITY) vTaskPrioritySet(nullptr, SD_WRITE_PRIORITY);
+}
+
+SdBoost::~SdBoost() {
+  if (old < SD_WRITE_PRIORITY) vTaskPrioritySet(nullptr, old);
+  int32_t us = (int32_t)(nowUs() - start);
+  if (us > statSdUsMax) statSdUsMax = us;
+}
+
 void drain(RingbufHandle_t r, CsvFile &c, TickType_t wait) {
   CsvSink sink{c};
-  if (!sdEnsureWritable(sink, c.guard, millis())) {
+  bool writable;
+  {
+    SdBoost boost;
+    writable = sdEnsureWritable(sink, c.guard, millis());
+  }
+  if (!writable) {
     if (wait) vTaskDelay(wait);  // 取り出さないときも、待つはずだった分は待つ（loop() が空回りしないように）
     return;
   }
   size_t n = 0;
   char *data = (char *)xRingbufferReceiveUpTo(r, &n, wait, 4096);
   if (!data) return;
-  SdWriteResult res = sdWriteChunk(sink, c.guard, data, n, millis());
+  SdWriteResult res;
+  {
+    SdBoost boost;
+    res = sdWriteChunk(sink, c.guard, data, n, millis());
+  }
   sdWriteErrors += res.errors;
   bytesWritten += res.written;
   vRingbufferReturnItem(r, data);
@@ -105,16 +130,22 @@ void drain(RingbufHandle_t r, CsvFile &c, TickType_t wait) {
 void writeStatus() {
   float secs = firstSampleUs < 0 ? 0 : (lastSampleUs - firstSampleUs) / 1e6f;
   char buf[260];
-  // dt_min/dt_max/pll_err_max はこの10秒間の値（時刻のなめらかさの確認用）
-  snprintf(buf, sizeof(buf), "%lld,%lu,%.2f,%lu,%lu,%lu,%lu,%llu,%c,%d,%.2f,%ld,%ld,%ld,%lu", (long long)nowUs(),
+  // dt_min/dt_max/pll_err_max はこの10秒間の値（時刻のなめらかさの確認用）。
+  // heap_free・heap_min は空きメモリ（今・起動からの最小。V3.8。走行中に止まったときに、メモリが原因かを後から見るため）
+  snprintf(buf, sizeof(buf), "%lld,%lu,%.2f,%lu,%lu,%lu,%lu,%llu,%c,%d,%.2f,%ld,%ld,%ld,%lu,%lu,%lu", (long long)nowUs(),
            (unsigned long)samples, secs > 0 ? (samples - 1) / secs : 0, (unsigned long)ringDrops,
            (unsigned long)fifoOverruns, (unsigned long)i2cErrors, (unsigned long)sdWriteErrors,
            (unsigned long long)bytesWritten, gpsStatus, gpsSats, (double)pllPeriodUs, (long)statDtMin, (long)statDtMax,
-           (long)statErrMax, (unsigned long)timeResyncs);
+           (long)statErrMax, (unsigned long)timeResyncs, (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getMinFreeHeap());
   statDtMin = INT32_MAX;
   statDtMax = 0;
   statErrMax = 0;
   Serial.printf("STATUS %s\n", buf);
+  // シリアルだけに出す：ECU の読み出しの数と、この 10 秒で SD に書くのにかかった時間の最大（この間 core 0 の Bluetooth は待たされる）
+  Serial.printf("ECU connected=%d reads=%lu errors=%lu sd_us_max=%ld\n", ecuConnected ? 1 : 0, (unsigned long)ecuReads,
+                (unsigned long)ecuErrors, (long)statSdUsMax);
+  statSdUsMax = 0;
+  SdBoost boost;
   File s = SD.open(sessionDir + "/status.csv", FILE_APPEND);
   if (s) {
     s.println(buf);

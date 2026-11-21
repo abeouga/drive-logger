@@ -47,6 +47,32 @@ def test_csv_columns_match_tables():
     assert io.ACCEL_COLS == table_fields("accel")
     assert io.GPS_COLS == table_fields("gps")
     assert io.EVENT_COLS == table_fields("events")
+    assert io.ECU_COLS == table_fields("ecu")
+
+
+def write_minimal_ride(folder: Path) -> None:
+    folder.mkdir()
+    (folder / "accel.csv").write_text("n,t_us,ax_g,ay_g,az_g\n0,1000000,0,0,1\n1,1001250,0,0,1\n", encoding="utf-8")
+    (folder / "gps.csv").write_text(",".join(io.GPS_COLS) + "\n", encoding="utf-8")
+    (folder / "meta.json").write_text('{"firmware": "CT125_LOGGER_V3.8"}', encoding="utf-8")
+
+
+def test_load_ride_reads_ecu_csv(tmp_path):
+    write_minimal_ride(tmp_path / "ride_001")
+    (tmp_path / "ride_001" / "ecu.csv").write_text(
+        "t_us,pid,value,raw\n1500000,0C,1706.00,41 0C 1A A8\n1660000,0E,0.00,41 0E 80\n1820000,0C,,NO DATA\n", encoding="utf-8")
+    ride = io.load_ride("ride_001", tmp_path)
+    assert list(ride.ecu["pid"]) == ["0C", "0E", "0C"]  # 0E を数として読まない
+    assert ride.ecu["value"].iloc[0] == 1706.0
+    assert np.isnan(ride.ecu["value"].iloc[2])  # 読めなかった値は NaN
+    assert ride.ecu["t_rel"].iloc[0] == pytest.approx(0.5)  # 加速度の最初の時刻からの秒
+
+
+def test_load_ride_without_ecu_csv(tmp_path):
+    write_minimal_ride(tmp_path / "ride_001")
+    assert io.load_ride("ride_001", tmp_path).ecu is None
+    (tmp_path / "ride_001" / "ecu.csv").write_text("t_us,pid,value,raw\n", encoding="utf-8")  # つながらなかった走行
+    assert io.load_ride("ride_001", tmp_path).ecu is None
 
 
 def test_required_and_memo_files_match_session():

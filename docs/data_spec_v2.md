@@ -42,7 +42,8 @@
   accel.csv     加速度（800Hz。V3.4 までは 400Hz）
   gps.csv       GPS（1Hz）
   events.csv    起動・あふれ・再試行などの出来事
-  status.csv    10秒ごとの件数・実測周波数
+  status.csv    10秒ごとの件数・実測周波数・空きメモリ（V3.8 から）
+  ecu.csv       ECU の値（V3.8 から。アダプターを設定した走行だけ）
   notes.md      走行メモ（PC で後から追加。古い名前の memo.txt・readme.txt も同じに読む）
   upload_state.json  送信の途中（V3。切れたら続きから）
   uploaded.json      送り終えた印（V3。あればもう送らない）
@@ -79,16 +80,32 @@
 | 列 | 内容 |
 |---|---|
 | `t_us` | 出来事の時刻 |
-| `type` | `boot`、`sd_retry`、`adxl_retry`、`fifo_overrun`、`gps_valid`、`gps_lost`、`time_resync`、`sd_write_error`・`sd_reopen`（V3.4。開いたままの CSV に書けなくなった・開き直して書き続けた。detail は `file=ファイル名`）、`adxl_missing`・`adxl_found`（V3.6。起動時に ADXL345 が無かった・待っていてつながった。detail は `waited_ms=待った時間`）、`adxl_lost`・`adxl_back`（V3.6。記録中に ADXL345 が外れた・戻った。detail は `n=サンプル数`、`tries=試した回数 lost_ms=外れていた時間`）、`session_end`（V3。記録を閉じた理由）。リングバッファの取りこぼしと SD の書き込みエラーの回数は `status.csv` の `ring_drops`・`sd_write_errors` に数える |
+| `type` | `boot`、`sd_retry`、`adxl_retry`、`fifo_overrun`、`gps_valid`、`gps_lost`、`time_resync`、`sd_write_error`・`sd_reopen`（V3.4。開いたままの CSV に書けなくなった・開き直して書き続けた。detail は `file=ファイル名`）、`adxl_missing`・`adxl_found`（V3.6。起動時に ADXL345 が無かった・待っていてつながった。detail は `waited_ms=待った時間`）、`adxl_lost`・`adxl_back`（V3.6。記録中に ADXL345 が外れた・戻った。detail は `n=サンプル数`、`tries=試した回数 lost_ms=外れていた時間`）、`ecu_connected`・`ecu_lost`・`ecu_init_ng`（V3.8。ECU のアダプターにつながった・切れた・ECU が応答しなかったか空きメモリが足りず BLE を始めなかった。detail は `ms=つながるまでの時間`、`reason=理由`、`reply=返事の先頭`）、`session_end`（V3。記録を閉じた理由）。リングバッファの取りこぼしと SD の書き込みエラーの回数は `status.csv` の `ring_drops`・`sd_write_errors` に数える |
 | `detail` | 補足（回数など） |
 
 ### status.csv（10秒ごと）
 
-`t_us, samples, rate_hz, ring_drops, fifo_overruns, i2c_errors, sd_write_errors, bytes, gps_status, gps_sats, period_us, dt_min_us, dt_max_us, pll_err_max_us, time_resyncs`
+`t_us, samples, rate_hz, ring_drops, fifo_overruns, i2c_errors, sd_write_errors, bytes, gps_status, gps_sats, period_us, dt_min_us, dt_max_us, pll_err_max_us, time_resyncs, heap_free, heap_min`
 
+- `heap_free`・`heap_min`：今の空きメモリと、起動してからの最小（バイト。V3.8 から。前の版の走行には無い）。走行中に止まったときに、メモリが原因かを後から確かめるため。
 - `period_us`：PLL が求めた今の周期。`dt_min_us`・`dt_max_us`：この10秒間の `t_us` の間隔の最小・最大。`pll_err_max_us`：この10秒間の、読んだ時刻とのずれの最大（V2.1 から）。
 
 > **V2 の記録について**（V2 で記録したのは机上の試験だけ。実車の走行は V2.1 から）：`t_us` が約1ms単位で丸められ、間隔が 2ms と 3ms に割れている。平均の周期は正しいので、解析では1秒程度の窓ごとに等間隔として扱えばよい。
+
+### ecu.csv（V3.8 から。ECU を読んだ走行だけ）
+
+市販の ELM327 互換アダプター越しに、ECU の値を BLE で読んだもの（`docs/analysis_policy.md` 1.3。読み出しの要求だけを送る）。
+項目を順番に読むので、1 行に 1 つの値。回転数を 2 回に 1 回、残りでスロットル開度・負荷・吸気圧・点火時期を順番に読み、油温・吸気温・ECU の電圧は 10 秒に 1 回。
+全体で 1 秒に約 5.7 回、回転数は 1 秒に約 3 回。
+アダプターの設定（`CFG SET ecu_addr`）が無い走行では作らない。つながらなかった走行では、列名の行だけになる。
+正式な定義は `contracts/sd/ecu.table.json`。
+
+| 列 | 内容 |
+|---|---|
+| `t_us` | 返事を受け取り終えた時刻（ESP の時計。加速度・GPS と同じ）。要求を送ってから約 0.16〜0.2 秒後 |
+| `pid` | OBD のモード 01 の項目（16 進 2 桁の文字列）。`0C`＝回転数 rpm、`11`＝スロットル開度 %、`04`＝負荷 %、`0B`＝吸気圧 kPa、`0E`＝点火時期 度（上死点前が正）、`5C`＝油温 ℃、`0F`＝吸気温 ℃、`42`＝ECU の電圧 V |
+| `value` | 単位に直した値。読めなかったときは空 |
+| `raw` | アダプターの返事そのもの（例 `41 0C 1A A8`。`NO DATA` などもそのまま） |
 
 ## 5. 軸と取り付け
 

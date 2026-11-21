@@ -37,6 +37,7 @@
       "gps.csv",
       "events.csv",
       "status.csv",
+      "ecu.csv",
       "meta.json",
       "notes.md",
       "memo.txt",

@@ -1,4 +1,4 @@
-// 加速度のサンプリング（コア0）：ADXL345 の FIFO を読み、時刻を補正して（PLL）accel.csv の行をリングバッファに入れる
+// 加速度のサンプリング（core 1。V3.7 までは core 0）：ADXL345 の FIFO を読み、時刻を補正して（PLL）accel.csv の行をリングバッファに入れる
 #pragma once
 #include <Arduino.h>
 

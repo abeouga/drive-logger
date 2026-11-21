@@ -16,7 +16,7 @@
         "required": ["name", "size"],
         "additionalProperties": false,
         "properties": {
-          "name": { "enum": ["accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"] },
+          "name": { "enum": ["accel.csv", "gps.csv", "events.csv", "status.csv", "ecu.csv", "meta.json", "notes.md", "memo.txt", "readme.txt"] },
           "size": { "type": "integer", "minimum": 0, "maximum": 209715200 }
         }
       }

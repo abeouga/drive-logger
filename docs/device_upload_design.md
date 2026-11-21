@@ -111,7 +111,7 @@ sequenceDiagram
 | デバイス API | `api` の `routers/device_upload_router.py`。Lambda は**画面用のデータ API とは別の関数**（`ct125-device-api`）にして、権限を分ける（画面用は生データを読めない、デバイス用は生データのバケットに置くだけ） |
 | トークンの確認 | 機器は `Authorization: Device <機器ID>.<トークン>`。サーバーは SSM（`/ct125/devices/<機器ID>/token-sha256`）のハッシュと定数時間で比べる。トークンそのものは保存しない |
 | 走行名 | サーバーが付ける：`ride_<受け付けた日時 JST の年月日>_<時分秒>`（例 ride_20261108_153012）。重なったら末尾に `_2`・`_3`… |
-| 受け付ける中身 | ファイル名は accel.csv・gps.csv・events.csv・status.csv・meta.json と、走行メモ（notes.md。古い名前の memo.txt・readme.txt）だけ。必須は accel.csv・gps.csv・meta.json。大きさの上限（1 ファイル 200MB） |
+| 受け付ける中身 | ファイル名は accel.csv・gps.csv・events.csv・status.csv・ecu.csv（V3.8 から）・meta.json と、走行メモ（notes.md。古い名前の memo.txt・readme.txt）だけ。必須は accel.csv・gps.csv・meta.json。大きさの上限（1 ファイル 200MB） |
 | 完了の確認 | S3 の大きさが申告と一致したら `upload_complete.json` を置く（処理の Lambda が動く）。一致しなければ 409 を返し、機器はやり直す |
 | 後から書いた走行メモ（#100） | 送り終えた走行でも、送ってきた走行メモ（notes.md・memo.txt・readme.txt）が S3 に無いか大きさが違えば、start は `status=memo_added` でメモの分だけ URL を返し、`upload_addition.json` に記録する。メモを足した機器が complete を呼ぶと大きさを確かめ、`upload_complete.json` の files にメモを足して `memo_added_at` を付けて置き直す（処理の Lambda がもう一度動き、メモが画面と台帳に出る）。最初に送った機器でなくてよい（ESP32 で送り、PC で書いたメモを `upload-sd` で足す）。メモ以外のファイルは上書きできないまま。大きさで見分けるので、大きさが同じまま中身だけ変えたメモは足せない |
 | 機器の登録 | `python -m ct125 register-device --id d01`：トークンを作り、ハッシュを SSM に置き、トークンは画面に 1 回だけ出す（利用者がシリアルで機器に入れる） |

@@ -8,6 +8,7 @@
     { "name": "gps.csv", "required": true, "written_by": "firmware", "definition": "gps.table.json", "send": true },
     { "name": "events.csv", "required": false, "written_by": "firmware", "definition": "events.table.json", "send": true },
     { "name": "status.csv", "required": false, "written_by": "firmware", "definition": "status.table.json", "send": true },
+    { "name": "ecu.csv", "required": false, "written_by": "firmware", "definition": "ecu.table.json", "send": true, "description": "ECU の値（V3.8 から。アダプターを設定した走行だけ）" },
     { "name": "notes.md", "required": false, "written_by": "person", "format": "Markdown", "send": true, "description": "走行メモ（区間・路面・天気・取り付け）。PC で後から入れる" },
     { "name": "memo.txt", "required": false, "written_by": "person", "format": "text", "send": true, "legacy": true, "description": "走行メモの古い名前。notes.md と同じに読む" },
     { "name": "readme.txt", "required": false, "written_by": "person", "format": "text", "send": true, "legacy": true, "description": "走行メモの古い名前（ride_001〜003）。notes.md と同じに読む" },

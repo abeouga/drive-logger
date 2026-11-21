@@ -16,12 +16,14 @@ struct CsvFile {
   SdFileGuard guard;
 };
 extern CsvFile csvAccel, csvGps, csvEvent;
+extern CsvFile csvEcu;  // ECU の値（V3.8。ECU を読む走行だけ開く）
 
 // 起動時に、SD にある走行と accel.csv・gps.csv の大きさをシリアルに出す
 void listSessions();
 
-// 走行のフォルダーを作り、meta.json と 4 つの CSV（列の見出し付き）を書く。pendingEvents を events.csv に書く
-bool openSession();
+// 走行のフォルダーを作り、meta.json と 4 つの CSV（列の見出し付き）を書く。pendingEvents を events.csv に書く。
+// ecu が true なら ecu.csv も作る（開けなくても記録は続ける）
+bool openSession(bool ecu);
 
 // リングバッファからたまった分（1 回 4KB まで）を取り出して c に書く。
 // c が書けなくなっていて、まだ開き直せていなければ取り出さない（データはリングに残り、あふれたら ring_drops に数える）
@@ -29,3 +31,15 @@ void drain(RingbufHandle_t r, CsvFile &c, TickType_t wait);
 
 // status.csv に 1 行足す（10 秒ごと・記録を閉じるとき）
 void writeStatus();
+
+// SD に書いている間だけ、呼んだタスクの優先度を SD_WRITE_PRIORITY に上げる（V3.8、#132）。
+// SD の書き込みは途中で割り込まれると失敗する（SD のドライバーは何も表示しない）。loop() と同じ core 0 にいる
+// Bluetooth のコントローラー（優先度 23）に割り込まれないようにするため。使う所：drain・flush・status.csv の書き込み。
+// statSdUsMax は、この 10 秒で SD に書くのにかかった時間の最大（シリアルの ECU の行に出す。この間 core 0 の Bluetooth は待たされる）
+struct SdBoost {
+  int64_t start;
+  UBaseType_t old;
+  SdBoost();
+  ~SdBoost();
+};
+extern volatile int32_t statSdUsMax;

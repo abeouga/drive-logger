@@ -18,7 +18,9 @@ permissions:
 
 env:
   ESP32_CORE: "esp32:esp32@3.3.12"
-  FQBN: "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M"
+  NIMBLE_LIB: "NimBLE-Arduino@2.5.2"
+  # V3.8：loop() を core 0 で動かす（LoopCore=0。#132）。ECU の BLE（NimBLE）を入れると 1.25 MB を超えるので huge_app
+  FQBN: "esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,FlashSize=4M,PartitionScheme=huge_app,LoopCore=0"
 
 jobs:
   compile:
@@ -38,6 +40,9 @@ jobs:
         run: |
           arduino-cli core update-index --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
           arduino-cli core install "$ESP32_CORE" --additional-urls https://espressif.github.io/arduino-esp32/package_esp32_index.json
+      # ECU のアダプターに BLE でつなぐ（V3.8）。標準の BLE（Bluedroid）は約 9 万バイト使い、記録中に入らないため
+      - name: ライブラリを入れる
+        run: arduino-cli lib install "$NIMBLE_LIB"
       - name: コンパイル
         working-directory: firmware/ct125_logger
         run: arduino-cli compile --fqbn "$FQBN" --warnings default .
@@ -59,3 +64,7 @@ jobs:
         run: |
           g++ -std=c++17 -Wall -Werror -I firmware/tests/host -I firmware/ct125_logger firmware/tests/host/test_adxl_link.cpp -o /tmp/test_adxl_link
           /tmp/test_adxl_link
+      - name: ELM327 の命令の縛りと返事の読み取り（elm_parse.h）
+        run: |
+          g++ -std=c++17 -Wall -Werror -I firmware/tests/host -I firmware/ct125_logger firmware/tests/host/test_elm_parse.cpp -o /tmp/test_elm_parse
+          /tmp/test_elm_parse

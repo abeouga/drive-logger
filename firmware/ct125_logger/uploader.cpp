@@ -16,7 +16,7 @@ namespace {
 
 // 送るファイル（contracts/upload/upload.json の files.allowed のうち、SD にありうるもの。無いファイルは飛ばす）
 // notes.md が走行メモ。memo.txt は古い名前
-const char *SEND_FILES[] = {"accel.csv", "gps.csv", "events.csv", "status.csv", "meta.json", "notes.md", "memo.txt"};
+const char *SEND_FILES[] = {"accel.csv", "gps.csv", "events.csv", "status.csv", "ecu.csv", "meta.json", "notes.md", "memo.txt"};
 // この版以降のファームウェアが書いた走行だけを送る（それより前の走行は PC から上げ済み・机上の試験）。
 // meta.json の "firmware" の値（例 CT125_LOGGER_V3.2）を JSON として読み、V の後の数（版の上の数）で比べる
 // （判定は json_lite.h の isUploadableFirmware。名前と版の数も json_lite.h にある）
@@ -47,6 +47,11 @@ void logUpload(const String &session, const String &rideId, const char *what, co
   f.printf("%lld,%ld,%s,%s,%s,%s\n", (long long)esp_timer_get_time(), (long)time(nullptr), session.c_str(), rideId.c_str(), what,
            detail.c_str());
   f.close();
+}
+
+// 空きメモリ（今・起動からの最小）。送信の記録の detail の末尾に足す（V3.8。HTTPS はメモリを多く使うため）
+String heapText() {
+  return " heap=" + String((unsigned long)ESP.getFreeHeap()) + " min=" + String((unsigned long)ESP.getMinFreeHeap());
 }
 
 // ---------------------------------------------------------------- Wi-Fi と時計
@@ -179,6 +184,32 @@ int postJson(const DeviceConfig &cfg, const String &path, const String &body, St
   return code;
 }
 
+// SD から読みながら送るときに、YIELD_BYTES ごとに 1 ティック休む（V3.8）。
+// V3.8 から loop() は core 0 で動く（logger_constants.h）。送信と Wi-Fi の処理が core 0 を休みなく使い続けると、
+// core 0 の IDLE タスクが 5 秒動けず、タスク・ウォッチドッグに止められた（2026-11-21、約 4 MB の accel.csv を送る途中）。
+class YieldingFile : public Stream {
+ public:
+  explicit YieldingFile(File &f) : f_(f) {}
+  int available() override { return f_.available(); }
+  int read() override { return f_.read(); }
+  int peek() override { return f_.peek(); }
+  size_t write(uint8_t) override { return 0; }
+  size_t readBytes(char *buffer, size_t length) override {
+    size_t n = f_.readBytes(buffer, length);
+    sinceYield_ += n;
+    if (sinceYield_ >= YIELD_BYTES) {
+      sinceYield_ = 0;
+      vTaskDelay(1);
+    }
+    return n;
+  }
+
+ private:
+  static const size_t YIELD_BYTES = 16 * 1024;
+  File &f_;
+  size_t sinceYield_ = 0;
+};
+
 int putFile(const String &url, const String &path) {
   File f = SD.open(path);
   if (!f) return -1;
@@ -188,7 +219,8 @@ int putFile(const String &url, const String &path) {
   http.setTimeout(HTTP_TIMEOUT_MS);
   int code = -1;
   if (http.begin(client, url)) {
-    code = http.sendRequest("PUT", &f, f.size());  // SD から流しながら送る（全部をメモリに載せない）
+    YieldingFile body(f);
+    code = http.sendRequest("PUT", &body, f.size());  // SD から流しながら送る（全部をメモリに載せない）
     http.end();
   }
   f.close();
@@ -239,7 +271,7 @@ bool sendFiles(const DeviceConfig &cfg, const String &session, Ticket &ticket, b
       i--;
       continue;
     }
-    logUpload(session, ticket.rideId, code == 200 ? "put_ok" : "put_error", target.name + " " + String(code));
+    logUpload(session, ticket.rideId, code == 200 ? "put_ok" : "put_error", target.name + " " + String(code) + heapText());
     if (code != 200) return false;
   }
   return true;
@@ -259,7 +291,7 @@ SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool
   }
   if (code != 200) return SessionResult::Failed;
   writeSmallFile(sessionPath(session, STATE_FILE), "{\"ride_id\":\"" + ticket.rideId + "\"}\n");
-  logUpload(session, ticket.rideId, "ticket", String(ticket.targets.size()) + " files");
+  logUpload(session, ticket.rideId, "ticket", String(ticket.targets.size()) + " files" + heapText());
 
   bool aborted = false;
   if (!sendFiles(cfg, session, ticket, shouldAbort, aborted)) {
@@ -269,7 +301,7 @@ SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool
 
   String response;
   code = postJson(cfg, "/api/device/uploads/" + ticket.rideId + "/complete", "{}", response);
-  logUpload(session, ticket.rideId, code == 200 ? "complete" : "complete_error", String(code) + " " + response.substring(0, 120));
+  logUpload(session, ticket.rideId, code == 200 ? "complete" : "complete_error", String(code) + " " + response.substring(0, 120) + heapText());
   if (code != 200) return SessionResult::Failed;
   markUploaded(session, ticket.rideId);
   return SessionResult::Sent;
@@ -300,6 +332,7 @@ UploadSummary uploadPendingSessions(const DeviceConfig &cfg, bool (*shouldAbort)
     summary.result = UploadResult::NoWifi;
     return summary;
   }
+  logUpload("-", "-", "wifi", "connected" + heapText());
   if (!syncClock()) logUpload("-", "-", "clock_warning", "ntp_failed");
   for (const String &session : sessions) {
     SessionResult result = uploadSession(cfg, session, shouldAbort);

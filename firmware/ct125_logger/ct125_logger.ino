@@ -8,10 +8,11 @@
 //   LED     : IO2（ボード上のLEDのはず。実機で点くかは未確認）
 //
 // 記録の仕組み
-//   - 電源を入れるたびに /sessions/ride_NNN/ を作り、accel.csv・gps.csv・events.csv・status.csv に書く。
+//   - 電源を入れるたびに /sessions/ride_NNN/ を作り、accel.csv・gps.csv・events.csv・status.csv（V3.8 から ecu.csv も）に書く。
 //   - すべての行に ESP の時計 t_us（起動からのマイクロ秒）を付ける。GPS の UTC は gps.csv で対応づける。
-//   - 加速度は ADXL345 の FIFO を使い 800Hz（ACCEL_HZ）で読む（コア0）。GPS は別タスク（コア1）。
-//   - SDへの書き込みは loop()（コア1）で、RAMのリングバッファから取り出して行う。
+//   - 加速度は ADXL345 の FIFO を使い 800Hz（ACCEL_HZ）で読む（core 1。V3.7 までは core 0）。GPS・ECU も別タスク（core 1）。
+//   - SDへの書き込みは loop()（core 0。V3.7 までは core 1）で、RAMのリングバッファから取り出して行う。
+//     書いている間だけ優先度を上げ、Bluetooth に割り込まれないようにする（SdBoost。コアの割り振りの理由は logger_constants.h）。
 //   - 1秒ごとに flush。電源が突然切れても失うのは最後の約1秒。
 //
 // 送信：走行後に Wi-Fi で S3 へ送る（docs/device_upload_design.md）
@@ -35,6 +36,7 @@
 //   accel_sampler.*     加速度のタスク（時刻の補正 PLL とサンプリング）→ accel.csv
 //   nmea.*・gps_task.*  NMEA の読み取りと GPS のタスク → gps.csv
 //   sd_session.*        走行のフォルダー・meta.json・CSV の見出し・書き出し・status.csv
+//   ecu_reader.*・elm_parse.h  ECU の値（V3.8）。ELM327 互換アダプターに Bluetooth でつなぎ、読み出しだけを送る → ecu.csv
 //   sd_write_recovery.h SD に書けなくなった CSV の開き直し（FatFs はファイルごとにエラーを覚え、以後を断るため）
 //   motion.*            静か・動き出しの判定（送信のきっかけ・送信の中断・待機からの起き上がり）
 //   led.*・boot_button.*・serial_commands.*  LED・BOOT ボタン・シリアルのコマンド
@@ -62,6 +64,7 @@
 #include "accel_sampler.h"
 #include "gps_task.h"
 #include "sd_session.h"
+#include "ecu_reader.h"
 #include "motion.h"
 #include "led.h"
 #include "boot_button.h"
@@ -72,12 +75,18 @@ void runUpload(bool automatic);
 void startLogging();
 
 AdxlWait adxlWait;  // 起動時に ADXL345 が無かったときの待ち
+// 自動の送信をするか（CFG SET auto_upload off で切る。机の上の試し用。手で始める送信は変わらない。V3.8）
+bool autoUploadEnabled = true;
 
 // ------------------------------------------------------------------ main
 void setup() {
   Serial.begin(115200);
   delay(300);
   Serial.printf("\n%s READY\n", FW_VERSION);
+  autoUploadEnabled = loadConfig().autoUpload;
+  Serial.printf("AUTO_UPLOAD=%s\n", autoUploadEnabled ? "ON" : "OFF");
+  // 空きメモリ（シリアルだけ。起動・リングバッファを作る前・BLE を始める前に出す。メモリの余裕を見るため。#133）
+  Serial.printf("HEAP boot free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
   pinMode(PIN_BOOT, INPUT_PULLUP);
   xTaskCreatePinnedToCore(ledTask, "led", 2048, nullptr, 1, nullptr, 1);
   logEvent("boot", FW_VERSION);
@@ -116,22 +125,31 @@ void setup() {
 
 // 記録を始める：走行のフォルダーを作り、リングバッファと加速度・GPS のタスクを動かす
 void startLogging() {
-  if (!openSession()) {
+  DeviceConfig cfg = loadConfig();
+  bool ecu = cfg.ecuAddr.length() > 0;
+  if (!openSession(ecu)) {
     Serial.println("SESSION=NG 記録しません");
     mode = MODE_ERROR;  // ADXL を待っていた後でも、記録のフォルダーを作れなければ止まる（作り直しを繰り返さない）
     return;
   }
   Serial.printf("SESSION=%s\n", sessionDir.c_str());
-  ringAccel = xRingbufferCreate(64 * 1024, RINGBUF_TYPE_BYTEBUF);
-  ringGps = xRingbufferCreate(8 * 1024, RINGBUF_TYPE_BYTEBUF);
+  Serial.printf("HEAP before_rings free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+  ringAccel = xRingbufferCreate(48 * 1024, RINGBUF_TYPE_BYTEBUF);
+  ringGps = xRingbufferCreate(4 * 1024, RINGBUF_TYPE_BYTEBUF);
   ringEvent = xRingbufferCreate(4 * 1024, RINGBUF_TYPE_BYTEBUF);
+  if (ecu && csvEcu.file) ringEcu = xRingbufferCreate(2 * 1024, RINGBUF_TYPE_BYTEBUF);
   running = true;
+  // ECU（V3.8）：アダプターのアドレスがあれば、BLE でつなぐタスクを始める。無ければ今までどおり。
+  // BLE を始めるとき core 0 が約 0.16 秒ふさがるので、加速度のタスクを作る前に始める（読み出しを止めないため）
+  Serial.printf("HEAP before_bt free=%u largest=%u\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
+  if (ringEcu && !startEcuTask(cfg.ecuAddr)) Serial.println("ECU=NG アドレスの形が違うか、空きメモリが足りません");
   if (PIN_PPS >= 0) {
     pinMode(PIN_PPS, INPUT);
     attachInterrupt(digitalPinToInterrupt(PIN_PPS), onPps, RISING);
   }
   xTaskCreatePinnedToCore(gpsTask, "gps", 6144, nullptr, 3, nullptr, 1);
-  xTaskCreatePinnedToCore(sensorTask, "accel", 6144, nullptr, 5, nullptr, 0);
+  xTaskCreatePinnedToCore(sensorTask, "accel", 6144, nullptr, 5, nullptr, ACCEL_CORE);
+  Serial.printf("ECU=%s heap_free=%u\n", !ringEcu ? "OFF" : ecuStopped ? "NG" : "ON", (unsigned)ESP.getFreeHeap());
   mode = MODE_LOGGING;
   Serial.println("LOGGING (電源を切れば終了。直前約1秒までは保存されます)");
 }
@@ -142,9 +160,12 @@ void loopLogging() {
   drain(ringAccel, csvAccel, pdMS_TO_TICKS(20));
   drain(ringGps, csvGps, 0);
   drain(ringEvent, csvEvent, 0);
+  if (ringEcu) drain(ringEcu, csvEcu, 0);
   uint32_t now = millis();
   if (now - lastFlush >= FLUSH_MS) {
+    SdBoost boost;
     for (CsvFile *c : {&csvAccel, &csvGps, &csvEvent}) c->file.flush();
+    if (ringEcu) csvEcu.file.flush();
     lastFlush = now;
   }
   if (now - lastStatus >= STATUS_MS) {
@@ -156,7 +177,7 @@ void loopLogging() {
   if (uploadRequestedBySerial) reason = "serial";
   if (now - lastCheck >= 1000) {
     lastCheck = now;
-    const char *quiet = uploadTrigger(quietSeconds);
+    const char *quiet = autoUploadEnabled ? uploadTrigger(quietSeconds) : nullptr;  // 自動の送信を切っていれば閉じない
     if (!reason) reason = quiet;
   }
   if (reason) {
@@ -173,18 +194,31 @@ void finishSession(const char *reason) {
   stopRequested = true;
   uint32_t start = millis();
   while ((!accelStopped || !gpsStopped) && millis() - start < 2000) delay(10);
+  // ECU のタスクは、つなぎかけ（最大約 10 秒）の途中のことがあるので長めに待つ。止まれば Bluetooth も止まっている
+  start = millis();
+  while (!ecuStopped && millis() - start < 15000) delay(10);
   for (RingbufHandle_t ring : {ringAccel, ringGps, ringEvent}) {
     CsvFile &c = ring == ringAccel ? csvAccel : ring == ringGps ? csvGps : csvEvent;
     for (int i = 0; i < 64; i++) drain(ring, c, 0);  // 1 回 4KB まで。64KB のリングを空にするのに足りる
   }
+  if (ringEcu) {
+    for (int i = 0; i < 4; i++) drain(ringEcu, csvEcu, 0);
+  }
   writeStatus();
   for (CsvFile *c : {&csvAccel, &csvGps, &csvEvent}) c->file.close();
+  if (csvEcu.file) csvEcu.file.close();
   running = false;
   vRingbufferDelete(ringAccel);
   vRingbufferDelete(ringGps);
   vRingbufferDelete(ringEvent);
   ringAccel = ringGps = ringEvent = nullptr;
-  Serial.printf("SESSION_END %s reason=%s\n", sessionDir.c_str(), reason);
+  // ECU のタスクが止まりきらなかったときは、書き込み先を消さない（止まっていないタスクが書くかもしれないため）
+  if (ringEcu && ecuStopped) {
+    vRingbufferDelete(ringEcu);
+    ringEcu = nullptr;
+  }
+  Serial.printf("SESSION_END %s reason=%s ecu_stopped=%d heap_free=%u heap_min=%u largest=%u\n", sessionDir.c_str(), reason,
+                ecuStopped ? 1 : 0, (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(), (unsigned)ESP.getMaxAllocHeap());
 }
 
 // ------------------------------------------------------------------ 送信
@@ -274,7 +308,7 @@ void loopWaitAdxl() {
     startLogging();
     return;
   }
-  if (adxlWaitShouldUpload(adxlWait, millis())) uploadWhileWaiting();
+  if (autoUploadEnabled && adxlWaitShouldUpload(adxlWait, millis())) uploadWhileWaiting();
 }
 
 void loop() {
