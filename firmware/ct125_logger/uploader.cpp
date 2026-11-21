@@ -184,6 +184,32 @@ int postJson(const DeviceConfig &cfg, const String &path, const String &body, St
   return code;
 }
 
+// SD から読みながら送るときに、YIELD_BYTES ごとに 1 ティック休む（V3.8）。
+// V3.8 から loop() は core 0 で動く（logger_constants.h）。送信と Wi-Fi の処理が core 0 を休みなく使い続けると、
+// core 0 の IDLE タスクが 5 秒動けず、タスク・ウォッチドッグに止められた（2026-11-21、約 4 MB の accel.csv を送る途中）。
+class YieldingFile : public Stream {
+ public:
+  explicit YieldingFile(File &f) : f_(f) {}
+  int available() override { return f_.available(); }
+  int read() override { return f_.read(); }
+  int peek() override { return f_.peek(); }
+  size_t write(uint8_t) override { return 0; }
+  size_t readBytes(char *buffer, size_t length) override {
+    size_t n = f_.readBytes(buffer, length);
+    sinceYield_ += n;
+    if (sinceYield_ >= YIELD_BYTES) {
+      sinceYield_ = 0;
+      vTaskDelay(1);
+    }
+    return n;
+  }
+
+ private:
+  static const size_t YIELD_BYTES = 16 * 1024;
+  File &f_;
+  size_t sinceYield_ = 0;
+};
+
 int putFile(const String &url, const String &path) {
   File f = SD.open(path);
   if (!f) return -1;
@@ -193,7 +219,8 @@ int putFile(const String &url, const String &path) {
   http.setTimeout(HTTP_TIMEOUT_MS);
   int code = -1;
   if (http.begin(client, url)) {
-    code = http.sendRequest("PUT", &f, f.size());  // SD から流しながら送る（全部をメモリに載せない）
+    YieldingFile body(f);
+    code = http.sendRequest("PUT", &body, f.size());  // SD から流しながら送る（全部をメモリに載せない）
     http.end();
   }
   f.close();
