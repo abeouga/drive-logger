@@ -1,5 +1,5 @@
 // 窓の列データを扱う小さな関数（地図とタイムラインで共通）
-import type { AnomalyMethod, RideData } from "./data";
+import type { AnomalyMethod, RideColumns, RideData } from "./data";
 
 export type Selection = number | null; // 窓の番号（配列の添字）
 
@@ -94,3 +94,20 @@ export function scoreIfThreshold(d: RideData): number | undefined {
 
 /** 判定に使ったスコアの短い名前（一覧の右端に添える） */
 export const SCORE_LABEL: Record<AnomalyMethod, string> = { speed_baseline: "z", speed_iforest: "score", none: "" };
+
+/** ECU の値の列（#143）。版 3 までの JSON には無いので、無ければ null で埋める */
+export type EcuKey = Extract<keyof RideColumns, `ecu_${string}`>;
+
+export function ecuValues(d: RideData, key: EcuKey): (number | null)[] {
+  return d.columns[key] ?? d.columns.t_rel.map(() => null);
+}
+
+/** 窓ごとに ECU の値があるか。列が無い JSON（#143 より前に処理した走行）は全部 false */
+export function ecuFlags(d: RideData): boolean[] {
+  return d.columns.has_ecu ?? d.columns.t_rel.map(() => false);
+}
+
+/** この走行に ECU の値がある窓が 1 つでもあるか（タイムラインに回転数の段を出すか） */
+export function hasEcu(d: RideData): boolean {
+  return ecuFlags(d).some(Boolean);
+}

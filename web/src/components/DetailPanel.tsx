@@ -2,7 +2,7 @@
 import type { ReactNode } from "react";
 import type { RideData, Waveform } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
-import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, isJudged, type Selection } from "../lib/series";
+import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, ecuFlags, ecuValues, isJudged, type EcuKey, type Selection } from "../lib/series";
 import InfoTip from "./InfoTip";
 import WaveChart from "./WaveChart";
 
@@ -55,6 +55,47 @@ function Bands({ data, i }: { data: RideData; i: number }) {
           <span className="tabular w-10 text-right text-xs">{v === null ? "—" : `${Math.round(v * 100)}%`}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** 選んだ 1 秒の ECU の値（#143）。表示だけで、判定には使っていない。ECU の値が無い窓は「ECU なし」 */
+function EcuBlock({ data, i }: { data: RideData; i: number }) {
+  const v = (key: EcuKey) => ecuValues(data, key)[i];
+  const rows: [string, EcuKey, number, string][] = [
+    ["スロットル開度", "ecu_throttle", 1, "%"],
+    ["負荷", "ecu_load", 1, "%"],
+    ["吸気圧", "ecu_map", 0, "kPa"],
+    ["点火時期（上死点前）", "ecu_timing", 1, "度"],
+    ["油温", "ecu_oil_temp", 0, "℃"],
+    ["吸気温", "ecu_intake_temp", 0, "℃"],
+    ["電圧", "ecu_volt", 1, "V"],
+  ];
+  const lo = v("ecu_rpm_min");
+  const hi = v("ecu_rpm_max");
+  return (
+    <div>
+      <div className="text-xs text-ink-2">ECU の値（この 1 秒の平均）</div>
+      {!ecuFlags(data)[i] ? (
+        <Row label="回転数" value="ECU なし" />
+      ) : (
+        <>
+          <Row
+            label={
+              <>
+                回転数
+                {lo !== null && hi !== null && <span className="tabular text-muted">（{num(lo, 0)}〜{num(hi, 0)}）</span>}
+              </>
+            }
+            value={num(v("ecu_rpm"), 0)}
+            unit="rpm"
+          />
+          {rows.map(([label, key, digits, unit]) => {
+            const x = v(key);
+            return <Row key={key} label={label} value={num(x, digits)} unit={x === null ? undefined : unit} />;
+          })}
+        </>
+      )}
     </div>
   );
 }
@@ -144,6 +185,7 @@ export default function DetailPanel({ data, selected, ranked, wave, onSelect }: 
           value={num(c.score_if[i], 3)}
         />
       </div>
+      <EcuBlock data={data} i={i} />
       <Bands data={data} i={i} />
       <div>
         <div className="text-xs text-ink-2">この 1 秒の生波形（各軸の平均＝重力を引いたもの）</div>

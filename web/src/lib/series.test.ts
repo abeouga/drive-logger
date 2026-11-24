@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AnomalyInfo, RideData } from "./types";
-import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, isJudged, rankedAnomalies, scoreIfThreshold, zThreshold } from "./series";
+import { SCORE_LABEL, anomalyBasisText, anomalyEmptyText, ecuFlags, ecuValues, hasEcu, isJudged, rankedAnomalies, scoreIfThreshold, zThreshold } from "./series";
 
 // 判定に関わる列だけを持つ走行（ほかの列はこの関数たちが読まないので空にしておく）
 function ride(anomaly: boolean[], score: (number | null)[], info: Partial<AnomalyInfo> = {}): RideData {
@@ -52,5 +52,36 @@ describe("判定の説明", () => {
     expect(anomalyEmptyText(d)).toBeNull();
     expect(zThreshold(d)).toBeUndefined();
     expect(scoreIfThreshold(d)).toBeUndefined();
+  });
+});
+
+// ECU の値（#143）：版 3 までの JSON には ECU の列が無い
+function ecuRide(columns: Partial<RideData["columns"]>): RideData {
+  return {
+    id: "ride_test",
+    n: 3,
+    has_abs_time: false,
+    anomaly: { method: "none", threshold: null, model_version: null },
+    columns: { t_rel: [0.5, 1.5, 2.5], ...columns } as unknown as RideData["columns"],
+  };
+}
+
+describe("ECU の値", () => {
+  it("ECU の列が無い古い JSON は、全部の窓を ECU なしとして扱う", () => {
+    const d = ecuRide({});
+    expect(hasEcu(d)).toBe(false);
+    expect(ecuFlags(d)).toEqual([false, false, false]);
+    expect(ecuValues(d, "ecu_rpm")).toEqual([null, null, null]);
+  });
+
+  it("ECU の列がある JSON は、そのまま読む", () => {
+    const d = ecuRide({ has_ecu: [false, true, true], ecu_rpm: [null, 1630, 1642] });
+    expect(hasEcu(d)).toBe(true);
+    expect(ecuFlags(d)).toEqual([false, true, true]);
+    expect(ecuValues(d, "ecu_rpm")).toEqual([null, 1630, 1642]);
+  });
+
+  it("ECU の無い走行（has_ecu が全部 false）は、回転数の段を出さない", () => {
+    expect(hasEcu(ecuRide({ has_ecu: [false, false, false] }))).toBe(false);
   });
 });

@@ -71,6 +71,19 @@ export interface RideColumns {
   is_clipped: boolean[];
   is_anomaly_z: boolean[];
   is_anomaly_if: boolean[];
+  // ECU の値（版 4 から。#143）。表示だけに使い、判定には使わない。
+  // 版 3 までの JSON（#143 より前に処理した走行）には無いので省略可にし、無ければ全部の窓を「ECU なし」とする（series.ts の ecuOf）
+  has_ecu?: boolean[]; // ECU の回転数が入った窓。ECU の無い走行・途切れた区間は false
+  ecu_rpm?: Num[]; // 回転数（rpm）の窓の中の平均
+  ecu_rpm_min?: Num[];
+  ecu_rpm_max?: Num[];
+  ecu_throttle?: Num[]; // スロットル開度（%）
+  ecu_load?: Num[]; // 負荷（%）
+  ecu_map?: Num[]; // 吸気圧（kPa）
+  ecu_timing?: Num[]; // 点火時期（度、上死点前が正）
+  ecu_oil_temp?: Num[]; // 油温（℃）
+  ecu_intake_temp?: Num[]; // 吸気温（℃）
+  ecu_volt?: Num[]; // ECU の電圧（V）
   cls: number[]; // 地図の色の段階 0〜4（座標のない窓は -1）
   anomaly: boolean[]; // いつもと違う振動の窓（しきい値を超えた窓だけ）
   anomaly_score: Num[]; // 判定に使ったスコア（大きいほど外れ）。判定しない窓は null
