@@ -9,6 +9,7 @@ retrain        ：全走行で学習し直す（新しいモデルの版を作�
 publish        ：処理の結果を公開するよう、処理の Lambda に頼む
 rides          ：走行の台帳を表で見る
 evaluate       ：判定の確かめ。学習に使う走行を 1 本ずつ抜いて学習し、抜いた走行に点数を付ける（読むだけ。どこにも書かない）
+ecu-report     ：ECU のある走行で、振動と ECU の値を突き合わせる（#130。Markdown に書くだけ）
 upload-sd      ：PC から SD の走行を送る（ESP32 と同じデバイス API を通す。同じ走行は 2 回受け付けない）
 register-device / revoke-device：ESP32・PC の機器トークンの登録と取り消し
 
@@ -41,6 +42,9 @@ def main(argv: list[str] | None = None) -> int:
     ev.add_argument("--method", default=None, help="判定の方法（speed_baseline・speed_iforest。既定は config の model.anomaly_method）")
     ev.add_argument("--quantile", type=float, default=None, help="speed_iforest のしきい値の分位点（既定は config の model.anomaly_quantile）")
     ev.add_argument("--windows-dir", default=None, help="S3 から読まず、このフォルダーの <走行 ID>*.parquet（windows.parquet。学習に使う走行だけ）を使う")
+    er = sub.add_parser("ecu-report", help="ECU のある走行で、振動と ECU の値を突き合わせ、Markdown に書く（#130。どこにも保存しない）")
+    er.add_argument("--ride", action="append", required=True, help="走行 ID（複数指定可）")
+    er.add_argument("--out", required=True, help="書き出す Markdown のファイル")
     us = sub.add_parser("upload-sd", help="PC から SD の走行を送る（デバイス API を通す。走行 ID はサーバーが付ける）")
     us.add_argument("paths", nargs="+", help="SD の走行のフォルダー（accel.csv がある所）か、その親（/sessions など）")
     us.add_argument("--device-id", default=None, help="機器 ID（既定は config の upload.device_id）")
@@ -70,6 +74,8 @@ def main(argv: list[str] | None = None) -> int:
         return _print_ledger(cfg, acfg)
     if args.cmd == "evaluate":
         return _evaluate(cfg, acfg, args)
+    if args.cmd == "ecu-report":
+        return _ecu_report(cfg, acfg, args)
     if args.cmd == "upload-sd":
         return _upload_sd(cfg, args)
     if args.cmd in ("register-device", "revoke-device"):
@@ -186,6 +192,22 @@ def _upload_sd(cfg: dict, args) -> int:
         else:
             print(f"{folder.name}: {result.ride_id} として送りました（{len(result.sent)} ファイル、{result.completed}）。AWS 側で処理が始まります")
     return 1 if failed else 0
+
+
+def _ecu_report(cfg: dict, acfg: dict, args) -> int:
+    from . import ecu_report
+
+    pipeline = local_pipeline(cfg, acfg)
+    rides = {}
+    for ride_id in args.ride:
+        pre = pipeline.preprocessed(ride_id)
+        windows = pre.windows.copy()
+        windows["vib_rpm"] = ecu_report.vibration_rpm(pre.accel, pre.fs, windows["t_start"].to_numpy(), cfg["window_sec"])
+        rides[ride_id] = windows
+    text = ecu_report.render(rides, pipeline.ride_names(), cfg.get("stop_speed_kmh", 5.0))
+    Path(args.out).write_text(text, encoding="utf-8")
+    print(f"書きました：{args.out}")
+    return 0
 
 
 def _evaluate(cfg: dict, acfg: dict, args) -> int:

@@ -149,6 +149,10 @@
 | `n_samples` | 窓内サンプル数（約 398） |
 | `rms`, `log_rms`, `p2p`, `std`, `crest`, `jerk_rms` | analysis_policy.md 2.2。重力除去後の合成加速度で計算 |
 | `band_1_5`, `band_5_15`, `band_15_40` | 帯域エネルギー比（3 軸の平均除去後の FFT パワーを足して正規化。合計 1） |
+| `has_ecu` | ECU の回転数が入った窓（前の値で埋めた窓を含む）。ECU の無い走行・途切れた区間は False（#130。analysis_policy.md 2.5） |
+| `ecu_rpm_mean`, `ecu_rpm_min`, `ecu_rpm_max` | ECU の回転数（rpm）の窓の中の平均・最小・最大。窓に値が無ければ 2 秒以内の前の値 |
+| `ecu_throttle_pct`, `ecu_load_pct`, `ecu_map_kpa`, `ecu_timing_deg` | スロットル開度（%）・負荷（%）・吸気圧（kPa）・点火時期（度）の窓の中の平均。無ければ 3 秒以内の前の値 |
+| `ecu_oil_temp_c`, `ecu_intake_temp_c`, `ecu_volt_v` | 油温（℃）・吸気温（℃）・ECU の電圧（V）。無ければ 15 秒以内の前の値 |
 
 ## 8. 点数付けの出力 `scored.parquet`
 
