@@ -161,6 +161,16 @@ def _windows(n: int = 12, gps: bool = True) -> pd.DataFrame:
     if gps:  # しきい値（3）を超えた所を 2 つ（いつもと違う振動の見本）
         df.loc[[7, 9], "z_speed"] = [3.4, 3.1]
         df.loc[[7, 9], "is_anomaly_z"] = True
+        # ECU の値（#143）：先頭 2 窓と末尾 1 窓は ECU なし（つながる前・途切れた区間の見本）
+        has_ecu = (np.arange(n) >= 2) & (np.arange(n) < n - 1)
+        ecu = {
+            "ecu_rpm_mean": np.linspace(1630.4, 5210.0, n), "ecu_rpm_min": np.linspace(1590.0, 5100.0, n), "ecu_rpm_max": np.linspace(1667.0, 5320.0, n),
+            "ecu_throttle_pct": np.linspace(9.8, 42.35, n), "ecu_load_pct": np.linspace(21.18, 63.5, n), "ecu_map_kpa": np.linspace(48.0, 96.0, n),
+            "ecu_timing_deg": np.linspace(7.0, 24.5, n), "ecu_oil_temp_c": 39.0, "ecu_intake_temp_c": 29.0, "ecu_volt_v": 11.9,
+        }
+        df["has_ecu"] = has_ecu
+        for col, v in ecu.items():
+            df[col] = np.where(has_ecu, v, np.nan)
     return df
 
 

@@ -5,7 +5,7 @@ import { loadRide, loadSpectrogram, loadWaveChunk, useRides, type RideData, type
 import { useAuth } from "../lib/auth/AuthGate";
 import { fmtDate, fmtDuration, fmtKm, fmtTime } from "../lib/format";
 import { listHref } from "../lib/route";
-import { rankedAnomalies, type Selection } from "../lib/series";
+import { hasEcu, rankedAnomalies, type Selection } from "../lib/series";
 import { waveChunkOf } from "../lib/wave";
 import type { WaveState } from "../components/DetailPanel";
 import { useMediaQuery } from "../lib/media";
@@ -115,6 +115,7 @@ export default function Ride({ id }: { id: string }) {
   const ranked = useMemo(() => (data ? rankedAnomalies(data) : []), [data]);
   const hasMap = summary?.gps !== "none" && !!data?.columns.lat.some((v) => v !== null);
   const hasGps = !!data?.columns.has_gps.some(Boolean);
+  const ecu = !!data && hasEcu(data);
 
   if (!rides) return <LoadState error={ridesError} label="走行一覧" />;
   if (!summary) {
@@ -207,7 +208,8 @@ export default function Ride({ id }: { id: string }) {
               停止中{hasGps && "／GPS なし（濃い灰）"}
             </span>
           </div>
-          <div className={hasGps ? "h-[460px]" : "h-[340px]"}>
+          {/* 回転数（ECU）の段がある走行は、1 段ぶん高くする */}
+          <div className={hasGps ? (ecu ? "h-[580px]" : "h-[460px]") : ecu ? "h-[460px]" : "h-[340px]"}>
             <Timeline data={data} ranked={ranked} onRange={setRange} {...shared} />
           </div>
         </>

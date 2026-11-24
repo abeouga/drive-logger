@@ -1,6 +1,7 @@
 // タイムライン（ECharts）。横軸を共有する段を縦に並べる（2 本の縦軸は使わない）。
-//   GPS あり：rms（対数軸）／速度／z_speed（speed_iforest で判定したときは score_if も）
-//   GPS なし：rms（対数軸）／score_if（スコアがある版のモデルだけ）
+//   GPS あり：rms（対数軸）／速度／回転数（ECU）／z_speed（speed_iforest で判定したときは score_if も）
+//   GPS なし：rms（対数軸）／回転数（ECU）／score_if（スコアがある版のモデルだけ）
+//   回転数の段は、ECU の値がある窓が 1 つでもある走行だけに出す（#143。表示だけで、判定には使わない）
 // - カーソル → onHover（地図に点）、クリック → onSelect、範囲の拡大 → onRange（地図がその区間に寄る）
 // - 地図側のカーソル（hover）と選択（selected）を縦線で示す
 import { useEffect, useMemo, useRef } from "react";
@@ -10,7 +11,7 @@ import { GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, 
 import { CanvasRenderer } from "echarts/renderers";
 import type { RideData } from "../lib/data";
 import { fmtElapsed, fmtTimeSec } from "../lib/format";
-import { nearestIndex, runs, scoreIfThreshold, xValues, zThreshold, type Selection } from "../lib/series";
+import { ecuFlags, ecuValues, hasEcu, nearestIndex, runs, scoreIfThreshold, xValues, zThreshold, type Selection } from "../lib/series";
 import { cssVar } from "../lib/theme";
 
 echarts.use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, MarkAreaComponent, MarkLineComponent, MarkPointComponent, AxisPointerComponent, CanvasRenderer]);
@@ -33,6 +34,8 @@ interface Panel {
   log?: boolean;
   threshold?: number;
   digits: number;
+  /** 値の代わりに吹き出しに出す文（例：ECU の無い窓の「ECU なし」）。null の窓は値を出す */
+  note?: (string | null)[];
 }
 
 export default function Timeline({ data, hover, selected, ranked, onHover, onSelect, onRange }: Props) {
@@ -43,12 +46,17 @@ export default function Timeline({ data, hover, selected, ranked, onHover, onSel
   const xs = useMemo(() => xValues(data), [data]);
   const abs = data.has_abs_time;
   const gps = data.columns.has_gps.some(Boolean);
+  const ecu = hasEcu(data);
 
   const panels: Panel[] = useMemo(() => {
     const c = data.columns;
     const p: Panel[] = [{ key: "rms", name: "振動 rms", unit: "g", values: c.rms.map((v) => (v !== null && v > 0 ? v : null)), log: true, digits: 3 }];
+    // ECU の回転数（窓の中の平均）。ECU の値が無い窓（つながる前・途切れた区間）は線を切り、吹き出しに「ECU なし」と出す
+    const flags = ecuFlags(data);
+    const rpm: Panel = { key: "ecu_rpm", name: "回転数（ECU）", unit: "rpm", values: ecuValues(data, "ecu_rpm"), digits: 0, note: flags.map((f) => (f ? null : "ECU なし")) };
     if (gps) {
       p.push({ key: "speed", name: "速度", unit: "km/h", values: c.speed, digits: 1 });
+      if (ecu) p.push(rpm);
       // 停止中（5 km/h 未満）はアイドリングの窓ばかりで MAD が極端に小さく、z が ±20 を超える針になる。
       // 基準を超えた振動の判定と同じく、走行中の窓だけを描く。しきい値の線は画面用データの値を使う
       p.push({ key: "z", name: "z_speed（走行中のみ）", unit: "", values: c.z.map((v, i) => (c.is_stopped[i] ? null : v)), threshold: zThreshold(data), digits: 2 });
@@ -57,12 +65,15 @@ export default function Timeline({ data, hover, selected, ranked, onHover, onSel
       if (ifThreshold !== undefined) {
         p.push({ key: "score_if", name: "score_if（走行中のみ）", unit: "", values: c.score_if.map((v, i) => (c.is_stopped[i] ? null : v)), threshold: ifThreshold, digits: 3 });
       }
-    } else if (c.score_if.some((v) => v !== null)) {
-      // 速度を足す前のモデルは GPS なしの窓にもスコアを付けていた。速度を足した版では null だけなので描かない
-      p.push({ key: "score_if", name: "score_if（Isolation Forest）", unit: "", values: c.score_if, digits: 3 });
+    } else {
+      if (ecu) p.push(rpm);
+      if (c.score_if.some((v) => v !== null)) {
+        // 速度を足す前のモデルは GPS なしの窓にもスコアを付けていた。速度を足した版では null だけなので描かない
+        p.push({ key: "score_if", name: "score_if（Isolation Forest）", unit: "", values: c.score_if, digits: 3 });
+      }
     }
     return p;
-  }, [data, gps]);
+  }, [data, gps, ecu]);
 
   const fmtX = (v: number) => (abs ? fmtTimeSec(v) : fmtElapsed(v));
 
@@ -98,7 +109,9 @@ export default function Timeline({ data, hover, selected, ranked, onHover, onSel
           const rows = panels
             .map((p) => {
               const v = p.values[i];
-              return `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:${ink2}">${p.name}</span><b style="font-variant-numeric:tabular-nums">${v === null ? "—" : v.toFixed(p.digits)} ${p.unit}</b></div>`;
+              const note = p.note?.[i];
+              const text = note ?? (v === null ? "—" : `${v.toFixed(p.digits)} ${p.unit}`);
+              return `<div style="display:flex;justify-content:space-between;gap:16px"><span style="color:${ink2}">${p.name}</span><b style="font-variant-numeric:tabular-nums">${text}</b></div>`;
             })
             .join("");
           return `<div style="font-variant-numeric:tabular-nums;margin-bottom:4px">${fmtX(xs[i])}</div>${rows}`;

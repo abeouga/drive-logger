@@ -153,3 +153,46 @@ def test_no_gps_ride_is_not_judged_with_speed_iforest():
     df["is_anomaly_sif"] = False
     summary, payload = export.ride_payload(df, rule=model.AnomalyRule("speed_iforest", 0.08))
     assert summary["anomaly_method"] == "none" and payload["anomaly"]["threshold"] is None
+
+
+def test_ecu_columns_are_written_and_rounded():
+    """ECU の値（#143）：窓の ECU の列を画面用に書き出す。回転数は整数、欠損は null。"""
+    df = _scored(n=5)
+    df["has_ecu"] = [False, True, True, True, False]
+    df["ecu_rpm_mean"] = [np.nan, 1630.3333, 1628.5, 1642.0, np.nan]
+    df["ecu_rpm_min"] = [np.nan, 1617.0, 1590.0, 1526.0, np.nan]
+    df["ecu_rpm_max"] = [np.nan, 1649.0, 1667.0, 1720.0, np.nan]
+    df["ecu_throttle_pct"] = [np.nan, 9.8, 9.8, 12.16, np.nan]
+    df["ecu_load_pct"] = [np.nan, 21.18, 21.18, 21.57, np.nan]
+    for col in ["ecu_map_kpa", "ecu_timing_deg", "ecu_oil_temp_c", "ecu_intake_temp_c", "ecu_volt_v"]:
+        df[col] = [np.nan, 48.0, 81.0, 81.0, np.nan]
+    _, payload = export.ride_payload(df)
+    c = payload["columns"]
+    json.dumps(payload, allow_nan=False)
+    assert c["has_ecu"] == [False, True, True, True, False]
+    assert c["ecu_rpm"] == [None, 1630, 1628, 1642, None]
+    assert all(isinstance(v, int) for v in c["ecu_rpm"] if v is not None)  # 「1630.0」と書かない
+    assert c["ecu_throttle"] == [None, 9.8, 9.8, 12.2, None]
+    assert c["ecu_load"] == [None, 21.2, 21.2, 21.6, None]
+
+
+def test_scored_without_ecu_columns_is_written_as_no_ecu():
+    """ECU の列が無い窓の表（#130 より前に処理した走行）でも落ちず、全部の窓を ECU なしで書き出す。"""
+    _, payload = export.ride_payload(_scored(n=4))
+    c = payload["columns"]
+    assert c["has_ecu"] == [False] * 4
+    for key in ["ecu_rpm", "ecu_rpm_min", "ecu_rpm_max", "ecu_throttle", "ecu_load", "ecu_map", "ecu_timing", "ecu_oil_temp", "ecu_intake_temp", "ecu_volt"]:
+        assert c[key] == [None] * 4
+
+
+def test_ecu_columns_do_not_change_the_judgement():
+    """ECU の列は表示だけに使い、判定（anomaly・anomaly_score）を変えない（docs/analysis_policy.md 2.5）。"""
+    without = _scored()
+    with_ecu = _scored()
+    with_ecu["has_ecu"] = True
+    with_ecu["ecu_rpm_mean"] = np.linspace(1500, 6000, len(with_ecu))
+    _, a = export.ride_payload(without)
+    _, b = export.ride_payload(with_ecu)
+    for key in ["anomaly", "anomaly_score", "is_anomaly_z", "is_anomaly_if"]:
+        assert a["columns"][key] == b["columns"][key]
+    assert a["anomaly"] == b["anomaly"]

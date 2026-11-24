@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/abeouga/drive-logger/blob/main/contracts/app/ride.schema.json",
-  "version": 3,
+  "version": 4,
   "title": "ride_<id>.json（1 走行の 1 秒窓の列。どの列も長さ n）",
   "type": "object",
   "required": ["id", "n", "has_abs_time", "anomaly", "columns"],
@@ -23,7 +23,7 @@
     },
     "columns": {
       "type": "object",
-      "required": ["t_rel", "t_abs_ms", "lat", "lon", "speed", "rms", "log_rms", "p2p", "crest", "z", "score_if", "band_1_5", "band_5_15", "band_15_40", "has_gps", "is_stopped", "is_edge", "is_clipped", "is_anomaly_z", "is_anomaly_if", "cls", "anomaly", "anomaly_score"],
+      "required": ["t_rel", "t_abs_ms", "lat", "lon", "speed", "rms", "log_rms", "p2p", "crest", "z", "score_if", "band_1_5", "band_5_15", "band_15_40", "has_gps", "is_stopped", "is_edge", "is_clipped", "is_anomaly_z", "is_anomaly_if", "has_ecu", "ecu_rpm", "ecu_rpm_min", "ecu_rpm_max", "ecu_throttle", "ecu_load", "ecu_map", "ecu_timing", "ecu_oil_temp", "ecu_intake_temp", "ecu_volt", "cls", "anomaly", "anomaly_score"],
       "additionalProperties": false,
       "properties": {
         "t_rel": { "$ref": "#/$defs/numbers", "description": "窓の中心の相対秒（小数 1 桁）" },
@@ -46,6 +46,17 @@
         "is_clipped": { "$ref": "#/$defs/booleans", "description": "±16 g に達したサンプルを含む" },
         "is_anomaly_z": { "$ref": "#/$defs/booleans" },
         "is_anomaly_if": { "$ref": "#/$defs/booleans" },
+        "has_ecu": { "$ref": "#/$defs/booleans", "description": "ECU の回転数が入った窓（前の値で埋めた窓を含む）。ECU の無い走行・途切れた区間は false。版 3 までの JSON には無い（画面は「ECU なし」として扱う）" },
+        "ecu_rpm": { "$ref": "#/$defs/numbers", "description": "ECU の回転数（rpm、整数）の窓の中の平均。値が無ければ null（以下の ECU の列も同じ）" },
+        "ecu_rpm_min": { "$ref": "#/$defs/numbers", "description": "ECU の回転数の窓の中の最小（rpm、整数）" },
+        "ecu_rpm_max": { "$ref": "#/$defs/numbers", "description": "ECU の回転数の窓の中の最大（rpm、整数）" },
+        "ecu_throttle": { "$ref": "#/$defs/numbers", "description": "スロットル開度（%、小数 1 桁）" },
+        "ecu_load": { "$ref": "#/$defs/numbers", "description": "負荷（%、小数 1 桁）" },
+        "ecu_map": { "$ref": "#/$defs/numbers", "description": "吸気圧（kPa、整数）" },
+        "ecu_timing": { "$ref": "#/$defs/numbers", "description": "点火時期（度、上死点前が正、小数 1 桁）" },
+        "ecu_oil_temp": { "$ref": "#/$defs/numbers", "description": "油温（℃、整数）" },
+        "ecu_intake_temp": { "$ref": "#/$defs/numbers", "description": "吸気温（℃、整数）" },
+        "ecu_volt": { "$ref": "#/$defs/numbers", "description": "ECU の電圧（V、小数 1 桁）" },
         "cls": { "type": "array", "items": { "type": "integer", "minimum": -1, "maximum": 4 }, "description": "地図の色の段階 0〜4（座標の無い窓は -1）" },
         "anomaly": { "$ref": "#/$defs/booleans", "description": "いつもと違う振動の窓（しきい値を超えた窓だけ。上位 N 件で埋めない）" },
         "anomaly_score": { "$ref": "#/$defs/numbers", "description": "判定に使ったスコア（大きいほど外れ。speed_baseline なら z_speed、speed_iforest なら score_if）。判定しない窓は null" }

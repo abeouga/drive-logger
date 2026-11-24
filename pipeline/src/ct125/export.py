@@ -16,6 +16,7 @@ import re
 import numpy as np
 import pandas as pd
 
+from .ecu import ECU_COLUMNS
 from .gps import haversine_m
 from .model import ANOMALY_SPEED_IFOREST, DEFAULT_RULE, AnomalyRule, judge_anomalies
 
@@ -43,20 +44,47 @@ WINDOW_COLUMNS: dict[str, tuple[str, int | None]] = {
     "is_clipped": ("is_clipped", None),
     "is_anomaly_z": ("is_anomaly_z", None),
     "is_anomaly_if": ("is_anomaly_if", None),
+    # ECU の値（#130 で窓に入れ、#143 で画面に出す）。表示だけに使い、判定には使わない（docs/analysis_policy.md 2.5）。
+    # 桁は ECU が返す値の細かさに合わせる（回転数・吸気圧・温度は整数、電圧は 0.1 V）
+    "has_ecu": ("has_ecu", None),
+    "ecu_rpm": ("ecu_rpm_mean", 0),
+    "ecu_rpm_min": ("ecu_rpm_min", 0),
+    "ecu_rpm_max": ("ecu_rpm_max", 0),
+    "ecu_throttle": ("ecu_throttle_pct", 1),
+    "ecu_load": ("ecu_load_pct", 1),
+    "ecu_map": ("ecu_map_kpa", 0),
+    "ecu_timing": ("ecu_timing_deg", 1),
+    "ecu_oil_temp": ("ecu_oil_temp_c", 0),
+    "ecu_intake_temp": ("ecu_intake_temp_c", 0),
+    "ecu_volt": ("ecu_volt_v", 1),
 }
 
 
 # ------------------------------------------------------------------ 値の整形
 def _round_list(s: pd.Series, digits: int) -> list:
-    """丸めて list に。NaN・inf は None（JSON の null）。"""
+    """丸めて list に。NaN・inf は None（JSON の null）。桁数 0 は整数にする（「1630.0」の「.0」を書かない）。"""
     out = []
     for v in s.to_numpy(dtype=float):
-        out.append(None if not math.isfinite(v) else round(float(v), digits))
+        if not math.isfinite(v):
+            out.append(None)
+        else:
+            out.append(int(round(v)) if digits == 0 else round(float(v), digits))
     return out
 
 
 def _bool_list(s: pd.Series) -> list[bool]:
     return [bool(v) for v in s.fillna(False).to_numpy()]
+
+
+def with_ecu_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """ECU の列が無い窓の表（#130 より前に処理した走行など）に、ECU の無い走行と同じ列（欠損と has_ecu=False）を足す。"""
+    missing = [col for col in ECU_COLUMNS if col not in df.columns]
+    if not missing:
+        return df
+    out = df.copy()
+    for col in missing:
+        out[col] = False if col == "has_ecu" else np.nan
+    return out
 
 
 def without_gps_coordinates(df: pd.DataFrame) -> pd.DataFrame:
@@ -120,7 +148,7 @@ def ride_payload(df: pd.DataFrame, memo: str = "", model_version: str | None = N
     """
     df = df.sort_values("win").reset_index(drop=True)
     rid = str(df["ride_id"].iloc[0])
-    located = without_gps_coordinates(df)
+    located = with_ecu_columns(without_gps_coordinates(df))
     method, flag, score, threshold = judge_anomalies(df, rule)
     drawable = located["lat"].notna()
     cls = np.full(len(df), -1)

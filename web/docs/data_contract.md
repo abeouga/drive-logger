@@ -64,6 +64,9 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 
 `columns` の配列はどれも長さ `n`（1 秒窓の数）で、同じ添字が同じ窓。
 
+ECU の列（`has_ecu`・`ecu_*`）は版 4 から。表示だけに使い、判定（`anomaly`）には使っていない（`docs/analysis_policy.md` 2.5）。
+版 3 までの JSON（#143 より前に処理した走行）には無いので、画面は列が無ければ全部の窓を「ECU なし」として扱う。
+
 | 列 | 型 | 単位・意味 |
 |---|---|---|
 | `t_rel` | number | 記録開始からの秒（窓の中心） |
@@ -75,6 +78,11 @@ s3://ct125-logger-public-<アカウントID>/datasets/shared/   （今は全ユ�
 | `score_if` | number \| null | Isolation Forest のスコア（大きいほどまれ）。速度を足した版では GPS のない窓は null |
 | `band_1_5` / `band_5_15` / `band_15_40` | number \| null | 1〜40 Hz の合計に対する帯域の割合 |
 | `has_gps` `is_stopped` `is_edge` `is_clipped` `is_anomaly_z` `is_anomaly_if` | boolean | 各フラグ（`is_stopped`＝5 km/h 未満、`is_edge`＝先頭・末尾 60 秒） |
+| `has_ecu` | boolean | ECU の回転数が入った窓。ECU の無い走行・途切れた区間は false（#130・#143） |
+| `ecu_rpm` / `ecu_rpm_min` / `ecu_rpm_max` | number \| null | ECU の回転数（rpm、整数）の窓の中の平均・最小・最大 |
+| `ecu_throttle` / `ecu_load` | number \| null | スロットル開度・負荷（%、小数 1 桁） |
+| `ecu_map` / `ecu_timing` | number \| null | 吸気圧（kPa、整数）・点火時期（度、上死点前が正、小数 1 桁） |
+| `ecu_oil_temp` / `ecu_intake_temp` / `ecu_volt` | number \| null | 油温・吸気温（℃、整数）・ECU の電圧（V、小数 1 桁） |
 | `anomaly` | boolean | いつもと違う振動の窓（`anomaly.method` で判定した結果。しきい値を超えた窓だけ） |
 | `anomaly_score` | number \| null | 判定に使ったスコア（大きいほど外れ。`speed_baseline` なら z_speed（小数 2 桁）、`speed_iforest` なら score_if（小数 3 桁））。判定しない窓は null |
 | `cls` | number | 地図の線の色の段階 0〜4（座標のない窓は -1） |
