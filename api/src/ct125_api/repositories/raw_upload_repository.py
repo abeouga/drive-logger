@@ -36,6 +36,14 @@ class RawUploadRepository(Protocol):
         """送り終えた走行の印を残す（次に同じ走行が来たら、新しく作らない）。"""
         ...
 
+    def save_pending(self, fingerprint: str, session: UploadSession) -> None:
+        """送りかけの受け付けの印を残す（同じ機器が同じ走行を新しく頼み直したら、その続きを返すため。#135）。"""
+        ...
+
+    def find_pending(self, fingerprint: str, device_id: str) -> str | None:
+        """この機器が同じ SD の走行を受け付けたことがあれば、その走行名（完了したかは見ない）。"""
+        ...
+
     def save_addition(self, addition: MemoAddition) -> None:
         """走行メモを足す受け付けを記録する（その走行の分は 1 つ。前のものは置き換える）。"""
         ...

@@ -8,7 +8,7 @@
     { "name": "unix", "type": "integer", "unit": "s", "description": "NTP で合わせた UNIX 秒（合わせる前は 0 に近い値）" },
     { "name": "session", "type": "string", "description": "SD の走行のフォルダー名" },
     { "name": "ride_id", "type": "string", "description": "サーバーが付けた走行 ID（まだ無ければ空）" },
-    { "name": "what", "type": "string", "description": "wifi（V3.8。Wi-Fi につながった）・ticket・ticket_error・put_ok・put_error・complete・complete_error・aborted など" },
+    { "name": "what", "type": "string", "description": "wifi（V3.8。Wi-Fi につながった）・ticket・ticket_error・put_ok・put_error・complete・complete_error・aborted・already_uploaded（V3.9。同じ走行をほかの経路が送り終えていた。ride_id は送り終えた走行のもの）など" },
     { "name": "detail", "type": "string", "description": "HTTP の状態コード・ファイル名など。V3.8 から wifi・ticket・put_ok・put_error・complete・complete_error の末尾に heap=今の空きメモリ min=起動からの最小 を足す" }
   ]
 }

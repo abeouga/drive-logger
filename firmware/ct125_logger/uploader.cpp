@@ -11,6 +11,7 @@
 
 #include "json_lite.h"
 #include "root_ca.h"
+#include "upload_ticket.h"
 
 namespace {
 
@@ -28,16 +29,6 @@ const char *LOG_FILE = "/upload_log.csv";
 const uint32_t WIFI_TIMEOUT_MS = 20000;
 const uint32_t HTTP_TIMEOUT_MS = 60000;
 const int PUT_ATTEMPTS = 3;
-
-struct UploadTarget {
-  String name;
-  String url;
-};
-
-struct Ticket {
-  String rideId;
-  std::vector<UploadTarget> targets;
-};
 
 // ---------------------------------------------------------------- 記録（SD の /upload_log.csv とシリアル）
 void logUpload(const String &session, const String &rideId, const char *what, const String &detail) {
@@ -141,21 +132,7 @@ std::vector<String> filesToSend(const String &session) {
 
 // ---------------------------------------------------------------- JSON（形が決まっているので、必要な値だけ取り出す）
 
-bool parseTicket(const String &json, Ticket &ticket) {
-  ticket.rideId = jsonlite::jsonString(json, "ride_id");
-  ticket.targets.clear();
-  int pos = json.indexOf("\"uploads\"");
-  while (pos >= 0) {
-    int end = 0;
-    String name = jsonlite::jsonString(json, "name", pos, &end);
-    if (name.isEmpty()) break;
-    String url = jsonlite::jsonString(json, "url", end, &end);
-    if (url.isEmpty()) return false;
-    ticket.targets.push_back({name, url});
-    pos = end;
-  }
-  return ticket.rideId.length() > 0 && !ticket.targets.empty();
-}
+// 受け付けの応答の読み取り（parseTicket）は upload_ticket.h（PC でテストする）
 
 String uploadRequestBody(const String &session, const std::vector<String> &files, const String &resumeRideId) {
   String body = "{\"local_session\":\"" + session + "\",\"files\":[";
@@ -243,6 +220,13 @@ void markUploaded(const String &session, const String &rideId) {
   SD.remove(sessionPath(session, STATE_FILE));
 }
 
+// 同じ SD の走行を、ほかの経路（PC など）が送り終えていた（#135）。完了の報告はせず、返ってきた走行 ID で送り終えた印を付ける
+SessionResult finishAlreadyUploaded(const String &session, const Ticket &ticket) {
+  logUpload(session, ticket.rideId, "already_uploaded", String("sent elsewhere") + heapText());
+  markUploaded(session, ticket.rideId);
+  return SessionResult::Sent;
+}
+
 // ファイルを 1 つ送る。失敗したら少し待って PUT_ATTEMPTS 回まで。返り値は最後の HTTP ステータス
 int putWithRetry(const String &url, const String &path) {
   int code = -1;
@@ -267,6 +251,7 @@ bool sendFiles(const DeviceConfig &cfg, const String &session, Ticket &ticket, b
       Ticket fresh;
       if (requestTicket(cfg, session, ticket.rideId, fresh) != 200) return false;
       ticket = fresh;
+      if (ticket.alreadyUploaded()) return true;  // 送っている間に、ほかの経路が送り終えた（呼び出し元が見る。#135）
       refreshed = true;
       i--;
       continue;
@@ -290,6 +275,7 @@ SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool
     code = requestTicket(cfg, session, "", ticket);
   }
   if (code != 200) return SessionResult::Failed;
+  if (ticket.alreadyUploaded()) return finishAlreadyUploaded(session, ticket);
   writeSmallFile(sessionPath(session, STATE_FILE), "{\"ride_id\":\"" + ticket.rideId + "\"}\n");
   logUpload(session, ticket.rideId, "ticket", String(ticket.targets.size()) + " files" + heapText());
 
@@ -298,6 +284,7 @@ SessionResult uploadSession(const DeviceConfig &cfg, const String &session, bool
     if (aborted) logUpload(session, ticket.rideId, "aborted", "moving");
     return aborted ? SessionResult::Aborted : SessionResult::Failed;
   }
+  if (ticket.alreadyUploaded()) return finishAlreadyUploaded(session, ticket);
 
   String response;
   code = postJson(cfg, "/api/device/uploads/" + ticket.rideId + "/complete", "{}", response);

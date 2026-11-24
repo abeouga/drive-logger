@@ -44,6 +44,7 @@ class FakeRawUploads:
         self.objects: dict[tuple[str, str], int] = {}
         self.completed: set[str] = set()
         self.fingerprints: dict[str, str] = {}
+        self.pending: dict[tuple[str, str], str] = {}
         self.additions: dict = {}
         self.memo_marks: list = []
 
@@ -77,6 +78,12 @@ class FakeRawUploads:
 
     def save_fingerprint(self, fingerprint, session):
         self.fingerprints[fingerprint] = session.ride_id
+
+    def save_pending(self, fingerprint, session):
+        self.pending[(fingerprint, session.device_id)] = session.ride_id
+
+    def find_pending(self, fingerprint, device_id):
+        return self.pending.get((fingerprint, device_id))
 
     def save_addition(self, addition):
         self.additions[addition.ride_id] = addition
@@ -288,8 +295,95 @@ def test_http_returns_status_and_empty_uploads_for_a_duplicate(device_client):
     client.post(f"/api/device/uploads/{first['ride_id']}/complete", headers=headers)
     again = client.post("/api/device/uploads", json=body, headers=headers).json()
     assert again["status"] == "already_uploaded" and again["uploads"] == [] and again["ride_id"] == first["ride_id"]
-    # 機器はそのまま完了を報告し、「前に完了済み」を受け取って送り終えた印を付ける（firmware は変えなくてよい）
+    # 機器はそのまま完了を報告しても「前に完了済み」を受け取る（firmware V3.9 は報告せずに送り終えた印を付ける）
     assert client.post(f"/api/device/uploads/{again['ride_id']}/complete", headers=headers).json()["status"] == "already_complete"
+
+
+# ------------------------------------------------------------------ 送りかけとほかの経路（#135）
+def test_resume_after_another_device_finished_the_same_ride_returns_already_uploaded():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    esp = service.start(D01, "ride_003", FILES)                     # ESP32 は受け付けだけで止まった
+    pc = service.start(Device("pc01"), "ride_003", FILES)           # 同じ SD を PC から送り終えた
+    assert pc.status == "new" and pc.ride_id != esp.ride_id
+    repository.put(pc.ride_id, FILES)
+    assert service.complete(Device("pc01"), pc.ride_id) == "complete"
+
+    again = service.start(D01, "ride_003", FILES, ride_id=esp.ride_id)   # ESP32 が続きを頼む
+    assert again.status == "already_uploaded" and again.ride_id == pc.ride_id and again.urls == {}
+    assert repository.completed == {pc.ride_id}
+
+
+def test_new_request_from_the_same_device_continues_its_unfinished_upload():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    first = service.start(D01, "ride_003", FILES)
+    again = service.start(D01, "ride_003", FILES)                   # 送りかけの印を失って、新しく頼み直した
+    assert again.status == "resumed" and again.ride_id == first.ride_id and len(again.urls) == 3
+    assert len(repository.sessions) == 1
+
+
+def test_unfinished_upload_of_a_deleted_ride_is_not_continued():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    first = service.start(D01, "ride_003", FILES)
+    del repository.sessions[first.ride_id]                          # admin が走行を完全に消した
+    again = service.start(D01, "ride_003", FILES)
+    assert again.status == "new" and repository.sessions[again.ride_id].local_session == "ride_003"
+
+
+def test_complete_does_not_mark_a_second_copy_finished_elsewhere_meanwhile():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    esp = service.start(D01, "ride_003", FILES)                     # ESP32 が URL を受け取って送っている間に
+    pc = service.start(Device("pc01"), "ride_003", FILES)
+    repository.put(pc.ride_id, FILES)
+    service.complete(Device("pc01"), pc.ride_id)                    # PC が先に送り終えた
+    repository.put(esp.ride_id, FILES)
+    assert service.complete(D01, esp.ride_id) == "already_complete"
+    assert repository.completed == {pc.ride_id}                     # 2 本目の完了の合図は置かない
+
+
+def test_other_device_reporting_completion_of_an_already_uploaded_ride():
+    repository = FakeRawUploads()
+    service = _service(repository)
+    ride_id = _sent_by(repository, service, Device("pc01"))
+    again = service.start(D01, "ride_013", FILES)
+    assert again.status == "already_uploaded" and again.ride_id == ride_id
+    assert service.complete(D01, ride_id) == "already_complete"     # 契約のとおり、そのまま完了を報告してよい
+
+
+def test_s3_pending_mark_is_kept_per_device():
+    import io
+    import json
+
+    class FakeS3:
+        def __init__(self):
+            self.objects = {}
+
+        def get_object(self, Bucket, Key):
+            if Key not in self.objects:
+                from botocore.exceptions import ClientError
+                raise ClientError({"Error": {"Code": "NoSuchKey"}}, "GetObject")
+            return {"Body": io.BytesIO(json.dumps(self.objects[Key]).encode("utf-8"))}
+
+        def put_object(self, **kwargs):
+            self.objects[kwargs["Key"]] = json.loads(kwargs["Body"])
+
+    s3 = FakeS3()
+    repository = S3RawUploadRepository(s3, "bucket", "raw/")
+    session = UploadSession("ride_20261108_153012", "d01", "ride_003", (), NOW.isoformat())
+    repository.save_pending("abc", session)
+    assert list(s3.objects) == ["raw/_uploads/pending/d01/abc.json"]
+    assert repository.find_pending("abc", "d01") == "ride_20261108_153012"
+    assert repository.find_pending("abc", "pc01") is None
+
+
+def _sent_by(repository, service, device):
+    ticket = service.start(device, "ride_013", FILES)
+    repository.put(ticket.ride_id, FILES)
+    service.complete(device, ticket.ride_id)
+    return ticket.ride_id
 
 
 # ------------------------------------------------------------------ 送り終えた走行に走行メモを足す（#100）
@@ -343,8 +437,7 @@ def test_other_device_cannot_complete_someone_elses_memo_addition():
     ride_id = _sent(repository, service)
     service.start(PC01, "ride_013", FILES + [("notes.md", 20)])
     repository.put(ride_id, [("notes.md", 20)])
-    with pytest.raises(UploadNotFoundError):
-        service.complete(Device("pc02"), ride_id)
+    assert service.complete(Device("pc02"), ride_id) == "already_complete"   # 報告は受けるが、メモの足しは確定しない
     assert service.complete(D01, ride_id) == "already_complete"   # 最初に送った機器の報告では、メモの足しは確定しない
     assert repository.memo_marks == []
 

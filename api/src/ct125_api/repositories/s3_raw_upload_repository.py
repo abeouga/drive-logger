@@ -5,6 +5,7 @@ raw/<走行>/<ファイル>             機器が PUT 用 URL で直接置く
 raw/<走行>/upload_complete.json  完了の合図（AWS 側の自動処理 ct125-ride-pipeline が動く）
 raw/<走行>/upload_addition.json  送り終えた走行に走行メモを足す受け付け（#100）
 _uploads/<印>.json               送り終えた走行の印（同じ SD の走行を 2 回受け付けないため。#14）
+_uploads/pending/<機器>/<印>.json 送りかけの受け付けの印（同じ機器が頼み直したら続きを返すため。#135）
 """
 
 import json
@@ -20,6 +21,7 @@ SESSION_FILE = "upload_session.json"
 COMPLETE_MARKER = "upload_complete.json"
 ADDITION_FILE = "upload_addition.json"
 FINGERPRINT_FOLDER = "_uploads"  # 走行 ID の形でないので、処理（pipeline）は走行として数えない
+PENDING_FOLDER = f"{FINGERPRINT_FOLDER}/pending"
 NOT_FOUND_CODES = {"NoSuchKey", "404", "NotFound"}
 ALREADY_EXISTS_CODES = {"PreconditionFailed", "ConditionalRequestConflict"}
 
@@ -106,6 +108,14 @@ class S3RawUploadRepository:
             "saved_at": datetime.now(timezone.utc).isoformat(),
         }
         self._put_json(self._key(FINGERPRINT_FOLDER, f"{fingerprint}.json"), record)
+
+    def save_pending(self, fingerprint: str, session: UploadSession) -> None:
+        record = {"ride_id": session.ride_id, "device_id": session.device_id, "local_session": session.local_session, "created_at": session.created_at}
+        self._put_json(self._key(f"{PENDING_FOLDER}/{session.device_id}", f"{fingerprint}.json"), record)
+
+    def find_pending(self, fingerprint: str, device_id: str) -> str | None:
+        data = self._get_json(self._key(f"{PENDING_FOLDER}/{device_id}", f"{fingerprint}.json"))
+        return data["ride_id"] if data else None
 
     # ---------------------------------------------------------------- 内部
     def _key(self, ride_id: str, file_name: str) -> str:
