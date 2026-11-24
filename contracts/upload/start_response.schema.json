@@ -51,7 +51,7 @@
         "already_uploaded",
         "memo_added"
       ],
-      "description": "new＝新しい走行、resumed＝途中から、already_uploaded＝同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えている。uploads は空で、そのまま完了を報告すればよい（#14）。memo_added＝同じ SD の走行を送り終えているが、走行メモ（notes.md など）が S3 に無いか大きさが違う。uploads はそのメモの分だけで、送ったら完了を報告する（#100）"
+      "description": "new＝新しい走行、resumed＝途中から、already_uploaded＝同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えている。uploads は空。ride_id は送り終えた走行のもので、続きを頼んだ走行名と違うことがある。機器はこの走行名で送り終えた印を付ける（完了を報告しても already_complete が返るだけ。#14・#135）。memo_added＝同じ SD の走行を送り終えているが、走行メモ（notes.md など）が S3 に無いか大きさが違う。uploads はそのメモの分だけで、送ったら完了を報告する（#100）"
     }
   }
 }

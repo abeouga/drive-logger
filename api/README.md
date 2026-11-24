@@ -46,6 +46,7 @@ ESP32    ─https（署名付き URL）→ S3 生データ <走行>/ → 完了�
 機器の認証ヘッダー：`Authorization: Device <機器ID>.<トークン>`。機器の登録・無効化は pipeline の
 `python -m ct125 register-device --id d01` / `revoke-device`。PC から送る道具は pipeline の `python -m ct125 upload-sd`（ESP32 と同じ手順）。
 同じ SD の走行（セッション名と必須のファイルの大きさが同じ）を送り終えていれば、`POST /api/device/uploads` は既にある走行 ID を `status: already_uploaded`・`uploads: []` で返す（#14。印は生データのバケットの `_uploads/`）。
+同じ機器に同じ SD の走行の送りかけがあれば、新しく作らずにその続きを `status: resumed` で返す。送りかけの続きを頼まれても、同じ走行をほかの経路が送り終えていれば `already_uploaded` とその走行 ID を返す（#135。送りかけの印は `_uploads/pending/<機器>/`）。
 
 ## フォルダー構成と役割
 
