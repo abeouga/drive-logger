@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from . import clean, features, gps as gpsmod, io
+from . import clean, ecu as ecumod, features, gps as gpsmod, io
 
 WINDOW_COLS_FRONT = ["ride_id", "win", "t_rel", "t_abs", "lat", "lon", "has_gps", "speed_kmh", "is_edge", "is_clipped"]
 ACCEL_EXPORT_COLS = ["t_rel", "ax_g", "ay_g", "az_g"]  # 書き出し（スペクトログラム・生波形）に使う加速度の列
@@ -82,6 +82,10 @@ def preprocess(ride: io.Ride, cfg: dict) -> Preprocessed:
     out["speed_kmh"] = joined["speed_kmh"].to_numpy()
     out["is_edge"] = clean.flag_edges(out["t_rel"], ride.duration_s(), cfg["edge_sec"])
     out["is_clipped"] = out["n_clipped"] > 0
+    # ECU の値（#130）。ECU の無い走行は欠損と has_ecu=False（振動の特徴量・スコアには使っていない）
+    ecu_cols = ecumod.window_columns(ride.ecu, out["t_start"].to_numpy(), cfg["window_sec"])
+    for col in ecumod.ECU_COLUMNS:
+        out[col] = ecu_cols[col].to_numpy()
     out = out[WINDOW_COLS_FRONT + [c for c in out.columns if c not in WINDOW_COLS_FRONT]]
     return Preprocessed(
         ride.ride_id, out, acc[ACCEL_EXPORT_COLS].copy(), gps, ride.memo, ride.fs, ride.duration_s(), ride.has_abs_time,

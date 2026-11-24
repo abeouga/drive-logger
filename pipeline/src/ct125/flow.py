@@ -152,6 +152,14 @@ class Pipeline:
         windows = {ride_id: analyzed[ride_id].pre.windows for ride_id in train_ids}
         return evaluatemod.leave_one_ride_out(windows, self._cfg.get("model", {}), self._cfg.get("stop_speed_kmh", 5.0), top_n)
 
+    def preprocessed(self, ride_id: str) -> processing.Preprocessed:
+        """1 走行の前処理の結果（確かめ・分析用。どこにも書かない）。"""
+        return self._analyze(ride_id).pre
+
+    def ride_names(self) -> dict[str, str]:
+        """台帳の走行の名前（画面に出す名前）。"""
+        return {ride_id: entry.get("name") or "" for ride_id, entry in self._read_ledger()["rides"].items()}
+
     def ride_ids(self) -> list[str]:
         """生データの場所にある走行（走行 ID の形のフォルダーだけ。受け付けの記録などは除く）。"""
         return [name for name in self._places.raw.folders() if RIDE_ID_PATTERN.fullmatch(name)]
