@@ -115,7 +115,9 @@ export default function MapView({ data, hover, selected, range, ranked, onHover,
       const ink = cssVar("--ink");
       const surface = cssVar("--surface");
       const accent = cssVar("--accent");
-      m.addSource("segs", { type: "geojson", data: segs });
+      // 軌跡は 1 秒ごとの短い線（10〜20 m）なので、簡略化しない（tolerance: 0）。既定の簡略化では、縮小したときに
+      // その縮尺の許容幅より短い線をタイルに入れないので、走行全体を表示する縮尺で軌跡が消えていた（#141）
+      m.addSource("segs", { type: "geojson", data: segs, tolerance: 0 });
       m.addSource("marks", { type: "geojson", data: marks });
       m.addSource("cursor", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
       m.addSource("selected", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
