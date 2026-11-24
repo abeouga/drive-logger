@@ -16,7 +16,7 @@ static void expect(bool ok, const char *what) {
 int main() {
   Ticket ticket;
 
-  const char *fresh = "{\"ride_id\":\"ride_20261108_011304\",\"expires_in\":900,\"uploads\":[{\"name\":\"accel.csv\",\"url\":\"https:\/\/s3\/a\"},{\"name\":\"gps.csv\",\"url\":\"https://s3/b\"}],\"status\":\"new\"}";
+  const char *fresh = "{\"ride_id\":\"ride_20261108_011304\",\"expires_in\":900,\"uploads\":[{\"name\":\"accel.csv\",\"url\":\"https:\\/\\/s3\\/a\"},{\"name\":\"gps.csv\",\"url\":\"https://s3/b\"}],\"status\":\"new\"}";
   expect(parseTicket(fresh, ticket), "新しい受け付けを読む");
   expect(ticket.rideId == "ride_20261108_011304" && ticket.status == "new", "走行 ID と status");
   expect(ticket.targets.size() == 2 && ticket.targets[1].name == "gps.csv" && ticket.targets[0].url == "https://s3/a", "送る先 2 つ");
