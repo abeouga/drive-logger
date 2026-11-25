@@ -1,8 +1,16 @@
 <div align="center">
 <h2>ドライブロガー<br>https://drive.herdio-system.com/</h2>
-バイクにデータロガーを装着し、走行中のエンジンと環境から取得できる <ins>ECU、加速度、GPS</ins> を記録し、<br>
+バイクにマイコンを装着し、走行中のエンジンと環境から取得できる <ins>ECU、加速度、GPS</ins> を記録し、<br>
 AWS でデータの前処理・機械学習モデルの作成をして<ins>地図とタイムラインで可視化するプロジェクト</ins>です。
 </div>
+
+# プレビュー
+### 走行の詳細画面
+
+<img width="1905" height="1079" alt="image" src="https://github.com/user-attachments/assets/a2e84b51-20f8-4f49-8105-749e89fe7e80" />
+
+### マイコン装着例
+>熱をもつエンジン本体に加速度センサーをつけられない都合上、<br>センサーはエンジンより15cm上に位置するフレームにテープで巻きつけています。
 
 <img width="1391" height="1043" alt="image" src="https://github.com/user-attachments/assets/537432bf-10f5-4a9c-81a3-543833cb0eaa" />
 
