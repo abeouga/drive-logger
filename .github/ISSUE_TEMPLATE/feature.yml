@@ -6,67 +6,23 @@ labels:
 
 body:
   - type: textarea
-    id: purpose
+    id: summary
     attributes:
-      label: 目的
-      description: このIssueで何を実現するのか、README の「何をしているか」のどの段階に当たるかを記載してください。
-      placeholder: 例）走行一覧から、窓の詳細（生波形・スペクトログラム）をスマホで見られるようにする
-    validations:
-      required: true
-
-  - type: dropdown
-    id: area
-    attributes:
-      label: 変更するフォルダー
-      multiple: true
-      options:
-        - firmware
-        - pipeline
-        - api
-        - web
-        - infra
-        - docs
+      label: 概要
+      description: |
+        3 段で書きます。1 段は 1 文です。
+        1. 何ができるようになるか（「〜できるようにする」）
+        2. なぜ要るか（根拠は Issue か docs/ へのリンクにする）
+        3. どう進めるか（方針を 1 文で）
+        完了条件は PR に書きます。関数名・ファイル名を並べたり、「〜は変えない」と断ったりしません。
     validations:
       required: true
 
   - type: textarea
-    id: implementation
+    id: decisions
     attributes:
-      label: 実装内容
+      label: 決めること
+      description: 決まっていないことがあるときだけ書きます。番号付きのチェックボックスで並べ、決まったら [x] にしてどう決まったかを 1 行添えます。
       placeholder: |
-        例）
-        - pipeline：export に生波形の書き出しを足す
-        - web：詳細パネルに生波形を出す
-    validations:
-      required: true
-
-  - type: textarea
-    id: contract
-    attributes:
-      label: フォルダーをまたぐ約束の変更
-      description: CSV の形・送信の手順・画面用 JSON の形を変える場合は、作る側と使う側を同じ PR で直してください。変えない場合は「なし」。
-      placeholder: 例）app/v1 の rides.json に duration_s を足す（pipeline と web を同じ PR で直す）
-    validations:
-      required: true
-
-  - type: textarea
-    id: acceptance
-    attributes:
-      label: 完了条件
-      placeholder: |
-        例）
-        - [ ] pipeline のテストが通る
-        - [ ] 公開版で表示できる
-    validations:
-      required: true
-
-  - type: textarea
-    id: related
-    attributes:
-      label: 関連する設計・資料
-      placeholder: 例）docs/data_flow_design.md、docs/data_spec_v2.md
-
-  - type: textarea
-    id: notes
-    attributes:
-      label: 補足
+        - [ ] 1. 
+        - [ ] 2. 

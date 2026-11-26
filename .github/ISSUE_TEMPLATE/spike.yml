@@ -6,39 +6,23 @@ labels:
 
 body:
   - type: textarea
-    id: question
+    id: summary
     attributes:
-      label: 確かめたいこと
-      placeholder: 例）ESP32 からテザリング経由で、走行中に 1 分ごとの要約を送れるか
+      label: 概要
+      description: |
+        3 段で書きます。1 段は 1 文です。
+        1. 何ができるようになるか（「〜できるようにする」）
+        2. なぜ要るか（根拠は Issue か docs/ へのリンクにする）
+        3. どう進めるか（方針を 1 文で）
+        完了条件は PR に書きます。関数名・ファイル名を並べたり、「〜は変えない」と断ったりしません。
     validations:
       required: true
 
   - type: textarea
-    id: purpose
+    id: decisions
     attributes:
-      label: この結果で何を決めるか
-      placeholder: 例）走行中のリアルタイム送信を作るかどうか
-    validations:
-      required: true
-
-  - type: textarea
-    id: method
-    attributes:
-      label: 調べ方
+      label: 決めること
+      description: 決まっていないことがあるときだけ書きます。番号付きのチェックボックスで並べ、決まったら [x] にしてどう決まったかを 1 行添えます。
       placeholder: |
-        例）
-        - 机の上で、記録しながら 1 KB を送り、取りこぼしが増えるか見る
-
-  - type: input
-    id: budget
-    attributes:
-      label: 使ってよい時間・費用
-      placeholder: 例）半日まで、AWS の費用は 100 円まで
-    validations:
-      required: true
-
-  - type: textarea
-    id: result
-    attributes:
-      label: 結果
-      description: 終わったら、分かったことと次に作る Issue を記載してください。
+        - [ ] 1. 
+        - [ ] 2. 

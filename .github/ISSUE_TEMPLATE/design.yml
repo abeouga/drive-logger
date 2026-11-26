@@ -6,54 +6,23 @@ labels:
 
 body:
   - type: textarea
-    id: decision_target
+    id: summary
+    attributes:
+      label: 概要
+      description: |
+        3 段で書きます。1 段は 1 文です。
+        1. 何ができるようになるか（「〜できるようにする」）
+        2. なぜ要るか（根拠は Issue か docs/ へのリンクにする）
+        3. どう進めるか（方針を 1 文で）
+        完了条件は PR に書きます。関数名・ファイル名を並べたり、「〜は変えない」と断ったりしません。
+    validations:
+      required: true
+
+  - type: textarea
+    id: decisions
     attributes:
       label: 決めること
-      placeholder: 例）走行後の送信を、Wi-Fi から直接 S3 に送るか、スマホを経由するか
-    validations:
-      required: true
-
-  - type: textarea
-    id: background
-    attributes:
-      label: 背景・制約
+      description: 決まっていないことがあるときだけ書きます。番号付きのチェックボックスで並べ、決まったら [x] にしてどう決まったかを 1 行添えます。
       placeholder: |
-        例）
-        - 機器に AWS の鍵を持たせない
-        - 記録と送信を同時にしない（core 0 の取り合いとメモリ）
-        - AWS のリソースは選んだリージョンだけに作る（CloudFront 用の証明書などは us-east-1）
-    validations:
-      required: true
-
-  - type: textarea
-    id: options
-    attributes:
-      label: 選択肢
-      value: |
-        | 案 | 長所 | 短所 | 費用 |
-        |---|---|---|---|
-        | A |  |  |  |
-        | B |  |  |  |
-    validations:
-      required: true
-
-  - type: textarea
-    id: decision
-    attributes:
-      label: 決定
-      description: 決めた案と理由。まだ決まっていなければ「未定」と書いてください。
-      placeholder: 例）未定
-
-  - type: textarea
-    id: impact
-    attributes:
-      label: 影響を受けるもの
-      description: 影響するフォルダー、約束（CSV・送信の手順・画面用 JSON）、AWS のリソースなど。
-
-  - type: checkboxes
-    id: records
-    attributes:
-      label: 書き残す先
-      options:
-        - label: docs/ の設計書（architecture.md など）に追記する
-        - label: 決めたことを docs/ の該当する文書に書いた
+        - [ ] 1. 
+        - [ ] 2. 

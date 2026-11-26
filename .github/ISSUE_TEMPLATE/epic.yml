@@ -6,49 +6,23 @@ labels:
 
 body:
   - type: textarea
-    id: goal
+    id: summary
     attributes:
-      label: ゴール
-      placeholder: 例）走り終えて止まると、自動で S3 に送られ、数分後に公開版で見られる
+      label: 概要
+      description: |
+        3 段で書きます。1 段は 1 文です。
+        1. 何ができるようになるか（「〜できるようにする」）
+        2. なぜ要るか（根拠は Issue か docs/ へのリンクにする）
+        3. どう進めるか（方針を 1 文で）
+        完了条件は PR に書きます。関数名・ファイル名を並べたり、「〜は変えない」と断ったりしません。
     validations:
       required: true
 
   - type: textarea
-    id: reason
+    id: decisions
     attributes:
-      label: なぜ今やるか
-      placeholder: 例）ローカルと Lambda で処理の流れが 2 本に分かれ、同じ本番のデータを書き換え合っている
-    validations:
-      required: true
-
-  - type: textarea
-    id: stages
-    attributes:
-      label: 段階と子Issue
-      value: |
-        - [ ] 段階1：#
-        - [ ] 段階2：#
-        - [ ] 段階3：#
-    validations:
-      required: true
-
-  - type: textarea
-    id: out_of_scope
-    attributes:
-      label: 今回やらないこと
+      label: 決めること
+      description: 決まっていないことがあるときだけ書きます。番号付きのチェックボックスで並べ、決まったら [x] にしてどう決まったかを 1 行添えます。
       placeholder: |
-        例）
-        - 走行中のリアルタイム送信
-        - K-Line の自作の回路（ECU は市販のアダプター越しの読み出しだけ）
-
-  - type: textarea
-    id: related
-    attributes:
-      label: 関連する設計
-      placeholder: 例）docs/device_upload_design.md
-
-  - type: input
-    id: deadline
-    attributes:
-      label: 期限
-      placeholder: 例）2026-12-31
+        - [ ] 1. 
+        - [ ] 2. 

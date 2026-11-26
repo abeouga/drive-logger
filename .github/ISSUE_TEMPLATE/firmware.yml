@@ -6,55 +6,23 @@ labels:
 
 body:
   - type: textarea
-    id: change
+    id: summary
     attributes:
-      label: 変えること
-      placeholder: 例）手で始めた送信（BOOT・シリアル）は、揺れがあってもやめない
+      label: 概要
+      description: |
+        3 段で書きます。1 段は 1 文です。
+        1. 何ができるようになるか（「〜できるようにする」）
+        2. なぜ要るか（根拠は Issue か docs/ へのリンクにする）
+        3. どう進めるか（方針を 1 文で）
+        完了条件は PR に書きます。関数名・ファイル名を並べたり、「〜は変えない」と断ったりしません。
     validations:
       required: true
 
   - type: textarea
-    id: reason
+    id: decisions
     attributes:
-      label: 理由
-      placeholder: 例）ボタンを押す手の揺れを「動き出した」と判定して、送信をやめていた
-    validations:
-      required: true
-
-  - type: textarea
-    id: format
-    attributes:
-      label: SD のファイルの形・送信の手順への影響
-      description: CSV の列や送信の手順が変わる場合は、pipeline・api を同じ PR で直してください。変わらなければ「なし」。
-      placeholder: 例）なし
-    validations:
-      required: true
-
-  - type: textarea
-    id: resources
-    attributes:
-      label: 限られた資源への影響
-      description: フラッシュの大きさ、メモリ、core 0 / core 1 の仕事の割り振り、サンプリング周波数への影響を記載してください。
-      placeholder: 例）コンパイル後 1.13 MB（パーティションの 86%）
-
-  - type: textarea
-    id: acceptance
-    attributes:
-      label: 完了条件（実機で確かめる）
-      value: |
-        - [ ] コンパイルが通る
-        - [ ] 実機に書き込み、起動ログで SD・ADXL・GPS が OK
-        - [ ] 記録が約 400 Hz、FIFO のあふれ・I2C エラー・SD の書き込みエラーが 0
-        - [ ] 版の名前（CT125_LOGGER_Vx.y）を上げた
-    validations:
-      required: true
-
-  - type: checkboxes
-    id: safety
-    attributes:
-      label: 確認
-      options:
-        - label: K-Line の配線・回路には触れていない。ECU にはアダプター越しの読み出しの要求だけを送る（docs/analysis_policy.md 1.3）
-          required: true
-        - label: Wi-Fi のパスワード・機器トークンをコードやログに書いていない
-          required: true
+      label: 決めること
+      description: 決まっていないことがあるときだけ書きます。番号付きのチェックボックスで並べ、決まったら [x] にしてどう決まったかを 1 行添えます。
+      placeholder: |
+        - [ ] 1. 
+        - [ ] 2. 
