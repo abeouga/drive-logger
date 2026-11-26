@@ -6,65 +6,23 @@ labels:
 
 body:
   - type: textarea
-    id: goal
+    id: summary
     attributes:
-      label: 確かめたいこと
-      placeholder: 例）バッテリーで動かし、止まって静かな状態が 2 分続いたら自動で送られる
-    validations:
-      required: true
-
-  - type: dropdown
-    id: kind
-    attributes:
-      label: 試験の種類
-      options:
-        - 実走
-        - 停車中（アイドリング）
-        - 机上
+      label: 概要
+      description: |
+        3 段で書きます。1 段は 1 文です。
+        1. 何ができるようになるか（「〜できるようにする」）
+        2. なぜ要るか（根拠は Issue か docs/ へのリンクにする）
+        3. どう進めるか（方針を 1 文で）
+        完了条件は PR に書きます。関数名・ファイル名を並べたり、「〜は変えない」と断ったりしません。
     validations:
       required: true
 
   - type: textarea
-    id: setup
+    id: decisions
     attributes:
-      label: 条件
-      description: ファームの版、電源、置き場所と向き、GPS アンテナの状態など。走った場所は「市内」「郊外」程度にとどめてください。
+      label: 決めること
+      description: 決まっていないことがあるときだけ書きます。番号付きのチェックボックスで並べ、決まったら [x] にしてどう決まったかを 1 行添えます。
       placeholder: |
-        例）
-        - CT125_LOGGER_V3.1、モバイルバッテリー
-        - 荷台に置いただけ（ネジ止めなし）、アンテナは上向き
-        - 郊外を約 30 分
-    validations:
-      required: true
-
-  - type: input
-    id: ride_id
-    attributes:
-      label: 走行名
-      placeholder: 例）ride_20261110_143000
-
-  - type: textarea
-    id: result
-    attributes:
-      label: 結果
-      value: |
-        | 確かめたこと | 結果 | 根拠 |
-        |---|---|---|
-        | 記録（約 400 Hz・取りこぼし 0） |  |  |
-        | GPS の測位（衛星数・HDOP） |  |  |
-        | 自動送信 |  |  |
-        | AWS の自動処理・公開 |  |  |
-
-  - type: textarea
-    id: notes
-    attributes:
-      label: 気づいたこと・次にやること
-      description: 振動の変化は「路面または車両に起因する振動の変化」と書き、車両の異常と断定しないでください。
-
-  - type: checkboxes
-    id: cleanup
-    attributes:
-      label: 後片付け
-      options:
-        - label: 試験用の走行を公開一覧に残すか消すか決めた
-        - label: 結果をこの Issue に書いた
+        - [ ] 1. 
+        - [ ] 2. 
